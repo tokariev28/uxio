@@ -27,26 +27,20 @@ For this phase we focus on a narrow but complete MVP:
 
 - The backend implements the 6-agent pipeline end-to-end:
 
-  1. **Agent 0 — Page Intelligence**  
-     Firecrawl + Gemini 2.5 Flash to extract a structured product brief for the input URL (industry, ICP, core value prop, key features).
+The backend implements a 7-agent pipeline end-to-end:
 
-  2. **Agent 1 — Multi-Signal Discovery**  
-     Tavily Search (3 parallel queries) to collect candidate competitors.
+| # | Name | Tools | Gemini? | Model |
+|---|------|-------|---------|-------|
+| 0 | Page Intelligence | Firecrawl → Gemini | ✅ | Flash-Lite |
+| 1 | Multi-Signal Discovery | Tavily Search API only | ❌ | — |
+| 2 | Competitor Validator | Gemini | ✅ | Flash-Lite |
+| 3 | Scraper | Firecrawl parallel (4 URLs) | ❌ | — |
+| 4 | Section Classifier | Gemini | ✅ | Flash-Lite |
+| 5 | Vision Analyzer | Firecrawl screenshot → Gemini Vision | ✅ | Flash |
+| 6 | Synthesis | Gemini | ✅ | Flash |
 
-  3. **Agent 2 — Competitor Validator & Ranker**  
-     Gemini 2.5 Flash-Lite to score candidates and pick the top 3 direct competitors (no manual confirmation).
-
-  4. **Agent 3 — Scraper**  
-     Firecrawl to fetch markdown + screenshots for the input and all competitors in parallel.
-
-  5. **Agent 4 — Section Classifier**  
-     Gemini 2.5 Flash-Lite to segment pages into hero / features / social proof / pricing / CTA / footer and decide which sections require deep vision.
-
-  6. **Agent 5 — Vision Analyzer**  
-     Gemini 2.5 Flash for section-level design analysis based on a rubric.
-
-  7. **Agent 6 — Synthesis**  
-     Gemini 2.5 Flash to compare all pages and generate top 5 recommendations.
+Agent system prompts → `lib/agents/prompts.ts`
+Model routing constants → `AGENT_MODELS` in the same file.
 
 **Out of scope for the MVP:**
 

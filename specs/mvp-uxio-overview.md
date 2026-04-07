@@ -178,13 +178,12 @@ The results are merged and de-duplicated into the candidate set.
 
 ### Gemini 2.5 Flash & Flash-Lite
 
-Purpose:
+Used ONLY by agents that require language or vision reasoning:
+- **Flash-Lite**: Agents 0, 2, 4 (extraction, scoring, classification — cheaper, faster)
+- **Flash**: Agents 5, 6 (vision analysis and synthesis — heavier reasoning)
 
-- Extract structured productBrief.
-- Score and validate competitor candidates.
-- Classify sections of a page.
-- Analyze each section visually and via text.
-- Synthesize final recommendations.
+Agents 1 (Tavily) and 3 (Firecrawl) do NOT call Gemini.
+All system prompts are defined in `lib/agents/prompts.ts`.
 
 Usage:
 
