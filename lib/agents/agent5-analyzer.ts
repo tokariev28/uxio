@@ -82,10 +82,20 @@ async function analyzePage(
 
   const deepSections = pageSections.sections.filter((s) => s.needsDeepVision);
 
-  // Resolve once per page: Firecrawl may return a signed GCS URL instead of base64
-  const screenshotData = page.screenshotBase64!.startsWith("http")
-    ? await urlToBase64(page.screenshotBase64!)
-    : page.screenshotBase64!;
+  // Resolve to raw base64 — handles GCS URL, raw base64, or existing data URI
+  const rawSrc = page.screenshotBase64!;
+  let screenshotData: string;
+  if (rawSrc.startsWith("http")) {
+    screenshotData = await urlToBase64(rawSrc);
+  } else if (rawSrc.startsWith("data:")) {
+    screenshotData = rawSrc.split(",")[1] ?? rawSrc;
+  } else {
+    screenshotData = rawSrc;
+  }
+
+  // Write back as a stable data URI so the frontend can display it
+  // (GCS signed URLs expire in ~30 min; base64 data URIs never do)
+  page.screenshotBase64 = `data:image/png;base64,${screenshotData}`;
 
   await Promise.allSettled(
     deepSections.map(async (section) => {

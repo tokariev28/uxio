@@ -84,6 +84,7 @@ export type Priority = "critical" | "high" | "medium";
 
 export interface Recommendation {
   priority: Priority;
+  section?: SectionType;
   title: string;
   reasoning: string;
   exampleFromCompetitor: string;

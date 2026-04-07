@@ -2,8 +2,8 @@
 
 import { useState, useRef } from "react";
 import { Clock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import { ProgressPanel } from "./ProgressPanel";
 import { ResultsPanel } from "./ResultsPanel";
 import type {
@@ -12,6 +12,30 @@ import type {
   SSEEvent,
   StageStatus,
 } from "@/lib/types/analysis";
+
+const INSIGHT_CARDS = [
+  {
+    id: "left",
+    tag: "Trust",
+    title: "Social Proof Positioning",
+    body: "Trust signals below the fold increase bounce. Moving logos up-funnel helps significantly.",
+    impact: "↑ High conversion impact",
+  },
+  {
+    id: "center",
+    tag: "CTA",
+    title: "CTA Hierarchy",
+    body: "Two equal CTAs compete for attention. Single dominant action lifts clicks 20–35%.",
+    impact: "↑ +20–35% click-through",
+  },
+  {
+    id: "right",
+    tag: "Hero",
+    title: "Value Proposition Clarity",
+    body: "Hero answers 'what' but not 'who for'. Persona context lifts qualified conversions.",
+    impact: "↑ Medium-high impact",
+  },
+] as const;
 
 interface StageState {
   status: StageStatus | "pending";
@@ -109,48 +133,116 @@ export function AnalysisForm() {
   }
 
   return (
-    <div className={cn("flex flex-col gap-8 w-full", appState !== "done" && "max-w-2xl")}>
-      <form onSubmit={handleSubmit} className="flex gap-2 w-full">
-        <Input
-          type="url"
-          placeholder="https://your-saas.com"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          disabled={appState === "running"}
-          className="flex-1"
-          required
-        />
-        <button
-          type="submit"
-          disabled={appState === "running" || !url.trim()}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-50"
+    <AnimatePresence mode="wait">
+      {appState === "idle" ? (
+        <motion.section
+          key="hero"
+          className="hero-wrapper"
+          exit={{ y: "-100%", opacity: 0 }}
+          transition={{ duration: 0.7, ease: [0.76, 0, 0.24, 1] }}
         >
-          {appState === "running" ? "Analyzing…" : "Analyze"}
-        </button>
-      </form>
-
-      {appState === "running" && <ProgressPanel stages={stages} />}
-
-      {appState === "error" && errorMsg && (
-        isRateLimitError(errorMsg) ? (
-          <div className="rounded-md bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800 flex items-start gap-2">
-            <Clock className="size-4 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium">Almost there — rate limit reached</p>
-              <p className="mt-0.5 text-yellow-700">
-                Gemini free tier allows 5 requests/min. The analysis retried automatically.
-                If this persists, wait 1 minute and try again.
-              </p>
+          <div className="hero-content">
+            <a href="/">
+              <img src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" />
+            </a>
+            <h1 className="hero-heading">
+              The honest audit<br />
+              <em>your landing page needs.</em>
+            </h1>
+            <p className="hero-subtitle">
+              Paste any URL. Get a structured critique against top-performing pages — hero, CTA, trust signals, and more.
+            </p>
+            <form onSubmit={handleSubmit} className="hero-form-wrapper">
+              <input
+                type="url"
+                className="hero-input"
+                placeholder="https://your-saas.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                required
+              />
+              <button
+                type="submit"
+                disabled={!url.trim()}
+                className="hero-submit"
+              >
+                Analyze
+              </button>
+            </form>
+            <div className="insight-cards-row">
+              {INSIGHT_CARDS.map((card) => (
+                <div
+                  key={card.id}
+                  className={cn(
+                    "insight-card",
+                    card.id === "center" && "insight-card-center",
+                    card.id === "left" && "insight-card-left",
+                    card.id === "right" && "insight-card-right",
+                  )}
+                >
+                  <span className="insight-card-tag">{card.tag}</span>
+                  <p className="insight-card-title">{card.title}</p>
+                  <p className="insight-card-body">{card.body}</p>
+                  <p className="insight-card-impact">{card.impact}</p>
+                </div>
+              ))}
             </div>
           </div>
-        ) : (
-          <div className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
-            {errorMsg}
-          </div>
-        )
-      )}
+        </motion.section>
+      ) : (
+        <motion.div
+          key="analysis"
+          className={cn(
+            "flex flex-col items-center gap-6 w-full px-6 py-12",
+            appState === "done" && "max-w-5xl mx-auto"
+          )}
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <form onSubmit={handleSubmit} className="hero-form-wrapper">
+            <input
+              type="url"
+              className="hero-input"
+              placeholder="https://your-saas.com"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              disabled={appState === "running"}
+              required
+            />
+            <button
+              type="submit"
+              disabled={appState === "running" || !url.trim()}
+              className="hero-submit"
+            >
+              {appState === "running" ? "Analyzing…" : "Analyze"}
+            </button>
+          </form>
 
-      {appState === "done" && result && <ResultsPanel result={result} />}
-    </div>
+          {appState === "running" && <ProgressPanel stages={stages} />}
+
+          {appState === "error" && errorMsg && (
+            isRateLimitError(errorMsg) ? (
+              <div className="rounded-md bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800 flex items-start gap-2">
+                <Clock className="size-4 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Almost there — rate limit reached</p>
+                  <p className="mt-0.5 text-yellow-700">
+                    Gemini free tier allows 5 requests/min. The analysis retried automatically.
+                    If this persists, wait 1 minute and try again.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+                {errorMsg}
+              </div>
+            )
+          )}
+
+          {appState === "done" && result && <ResultsPanel result={result} />}
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

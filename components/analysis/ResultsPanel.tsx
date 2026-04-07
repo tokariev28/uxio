@@ -5,13 +5,13 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { SectionCard } from "./results/SectionCard";
-import { RecommendationCard } from "./results/RecommendationCard";
 import { SectionNavSidebar, type NavItem } from "./results/SectionNavSidebar";
 import type {
   AnalysisResult,
   SectionAnalysis,
   SectionType,
 } from "@/lib/types/analysis";
+
 
 const SECTION_LABELS: Record<SectionType, string> = {
   hero: "Hero",
@@ -228,7 +228,10 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                 section={section}
                 pages={result.pages}
                 competitors={result.competitors}
+                recommendations={result.recommendations}
                 sectionIndex={i}
+                defaultOpen={i === 0}
+                logFirstRec={i === 0}
               />
             </div>
           ))}
@@ -253,23 +256,6 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
             </button>
           )}
 
-          {/* Recommendations */}
-          {result.recommendations.length > 0 && (
-            <section className="mt-2">
-              <Separator className="mb-6" />
-              <h2
-                className="mb-4 text-lg font-semibold text-foreground"
-                style={{ fontFamily: "var(--font-primary)" }}
-              >
-                Recommended Actions
-              </h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {result.recommendations.map((rec, i) => (
-                  <RecommendationCard key={i} recommendation={rec} index={i} />
-                ))}
-              </div>
-            </section>
-          )}
         </div>
       </div>
     </div>

@@ -1,9 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AGENT_PROMPTS, AGENT_MODELS } from "@/lib/agents/prompts";
-import type { PipelineContext, Recommendation, Priority } from "@/lib/types/analysis";
+import type { PipelineContext, Recommendation, Priority, SectionType } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 
 const VALID_PRIORITIES = new Set<Priority>(["critical", "high", "medium"]);
+const VALID_SECTION_TYPES = new Set<SectionType>(["hero", "features", "socialProof", "pricing", "cta", "footer"]);
 
 export async function runSynthesis(
   ctx: PipelineContext,
@@ -106,6 +107,9 @@ export async function runSynthesis(
 
     return {
       priority: r.priority as Priority,
+      section: VALID_SECTION_TYPES.has(r.section as SectionType)
+        ? (r.section as SectionType)
+        : undefined,
       title: r.title as string,
       reasoning: r.reasoning as string,
       exampleFromCompetitor: r.competitorExample as string,
