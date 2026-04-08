@@ -145,6 +145,7 @@ export interface SSEProgressEvent {
   stage: AgentStage;
   status: StageStatus;
   message: string;
+  actions?: string[];
 }
 
 export interface SSECompleteEvent {
