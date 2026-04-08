@@ -75,10 +75,23 @@ async function classifyPage(
 }
 
 export async function runClassifier(
-  ctx: PipelineContext
+  ctx: PipelineContext,
+  onActions?: (actions: string[]) => void
 ): Promise<PageSections[]> {
   if (!ctx.pages?.length) {
     throw new AgentError("agent4", "pages is missing from pipeline context");
+  }
+
+  // Emit competitor domains being classified
+  if (ctx.competitors?.length) {
+    const domains = ctx.competitors.map((c) => {
+      try {
+        return new URL(c.url).hostname.replace(/^www\./, "");
+      } catch {
+        return c.name;
+      }
+    });
+    onActions?.(domains);
   }
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");

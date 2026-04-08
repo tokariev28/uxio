@@ -5,7 +5,17 @@ import type { ProductBrief } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 import { withGeminiRetry } from "@/lib/agents/gemini-retry";
 
-export async function runAgent0(url: string): Promise<ProductBrief> {
+export async function runAgent0(
+  url: string,
+  onActions?: (actions: string[]) => void
+): Promise<ProductBrief> {
+  // Emit the URL being scraped as a chip
+  try {
+    onActions?.([new URL(url).hostname.replace(/^www\./, "")]);
+  } catch {
+    onActions?.([url]);
+  }
+
   // ── Step 1: Firecrawl scrape ────────────────────────────────────
   const firecrawl = new FirecrawlApp({
     apiKey: process.env.FIRECRAWL_API_KEY ?? "",

@@ -45,7 +45,8 @@ async function tavilySearch(
 }
 
 export async function runDiscovery(
-  ctx: PipelineContext
+  ctx: PipelineContext,
+  onActions?: (actions: string[]) => void
 ): Promise<CompetitorCandidate[]> {
   const brief = ctx.productBrief;
   if (!brief) {
@@ -71,6 +72,9 @@ export async function runDiscovery(
       query: `site:g2.com ${brief.company} competitors`,
     },
   ];
+
+  // Emit the actual search queries as chips
+  onActions?.(queries.map((q) => q.query));
 
   const inputDomain = rootDomain(ctx.inputUrl);
 

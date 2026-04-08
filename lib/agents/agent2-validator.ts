@@ -5,7 +5,8 @@ import { AgentError } from "@/lib/agents/errors";
 import { withGeminiRetry } from "@/lib/agents/gemini-retry";
 
 export async function runValidator(
-  ctx: PipelineContext
+  ctx: PipelineContext,
+  onActions?: (actions: string[]) => void
 ): Promise<Competitor[]> {
   const { productBrief, candidates } = ctx;
 
@@ -15,6 +16,16 @@ export async function runValidator(
   if (!candidates?.length) {
     throw new AgentError("agent2", "candidates is empty or missing from pipeline context");
   }
+
+  // Emit candidate domains as chips (cap at 8 to avoid overflow)
+  const candidateDomains = candidates.slice(0, 8).map((c) => {
+    try {
+      return new URL(c.url).hostname.replace(/^www\./, "");
+    } catch {
+      return c.name;
+    }
+  });
+  onActions?.(candidateDomains);
 
   // ── Step 1: Build user message ─────────────────────────────────
   const userMessage = `PRODUCT BRIEF:\n${JSON.stringify(productBrief, null, 2)}\n\nCANDIDATES:\n${JSON.stringify(candidates, null, 2)}`;

@@ -152,13 +152,26 @@ async function analyzePage(
 }
 
 export async function runAnalyzer(
-  ctx: PipelineContext
+  ctx: PipelineContext,
+  onActions?: (actions: string[]) => void
 ): Promise<SectionAnalysis[]> {
   if (!ctx.pages?.length) {
     throw new AgentError("agent5", "pages is missing from pipeline context");
   }
   if (!ctx.pageSections?.length) {
     throw new AgentError("agent5", "pageSections is missing from pipeline context");
+  }
+
+  // Emit competitor domains being analyzed
+  if (ctx.competitors?.length) {
+    const domains = ctx.competitors.map((c) => {
+      try {
+        return new URL(c.url).hostname.replace(/^www\./, "");
+      } catch {
+        return c.name;
+      }
+    });
+    onActions?.(domains);
   }
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");

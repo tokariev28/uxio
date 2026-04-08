@@ -20,7 +20,8 @@ async function scrapePage(
 }
 
 export async function runScraper(
-  ctx: PipelineContext
+  ctx: PipelineContext,
+  onActions?: (actions: string[]) => void
 ): Promise<PageData[]> {
   const { inputUrl, competitors } = ctx;
 
@@ -33,6 +34,16 @@ export async function runScraper(
   });
 
   const urls = [inputUrl, ...competitors.map((c) => c.url)];
+
+  // Emit hostnames of all URLs being scraped in parallel
+  const hostnames = urls.map((u) => {
+    try {
+      return new URL(u).hostname.replace(/^www\./, "");
+    } catch {
+      return u;
+    }
+  });
+  onActions?.(hostnames);
 
   return Promise.all(
     urls.map(async (url) => {
