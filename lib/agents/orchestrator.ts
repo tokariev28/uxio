@@ -30,42 +30,54 @@ export async function runPipeline(
       stage: "page-intelligence",
       label: "Understanding your product",
       run: async (ctx) => {
-        ctx.productBrief = await runAgent0(ctx.inputUrl);
+        const onActions = (actions: string[]) =>
+          writer.send({ type: "progress", stage: "page-intelligence", status: "running", message: "Understanding your product…", actions });
+        ctx.productBrief = await runAgent0(ctx.inputUrl, onActions);
       },
     },
     {
       stage: "discovery",
       label: "Finding competitors",
       run: async (ctx) => {
-        ctx.candidates = await runDiscovery(ctx);
+        const onActions = (actions: string[]) =>
+          writer.send({ type: "progress", stage: "discovery", status: "running", message: "Finding competitors…", actions });
+        ctx.candidates = await runDiscovery(ctx, onActions);
       },
     },
     {
       stage: "validation",
       label: "Validating and ranking competitors",
       run: async (ctx) => {
-        ctx.competitors = await runValidator(ctx);
+        const onActions = (actions: string[]) =>
+          writer.send({ type: "progress", stage: "validation", status: "running", message: "Validating and ranking competitors…", actions });
+        ctx.competitors = await runValidator(ctx, onActions);
       },
     },
     {
       stage: "scraping",
       label: "Scraping pages",
       run: async (ctx) => {
-        ctx.pages = await runScraper(ctx);
+        const onActions = (actions: string[]) =>
+          writer.send({ type: "progress", stage: "scraping", status: "running", message: "Scraping pages…", actions });
+        ctx.pages = await runScraper(ctx, onActions);
       },
     },
     {
       stage: "classification",
       label: "Classifying page sections",
       run: async (ctx) => {
-        ctx.pageSections = await runClassifier(ctx);
+        const onActions = (actions: string[]) =>
+          writer.send({ type: "progress", stage: "classification", status: "running", message: "Classifying page sections…", actions });
+        ctx.pageSections = await runClassifier(ctx, onActions);
       },
     },
     {
       stage: "analysis",
       label: "Analyzing design patterns",
       run: async (ctx) => {
-        ctx.sectionAnalyses = await runAnalyzer(ctx);
+        const onActions = (actions: string[]) =>
+          writer.send({ type: "progress", stage: "analysis", status: "running", message: "Analyzing design patterns…", actions });
+        ctx.sectionAnalyses = await runAnalyzer(ctx, onActions);
       },
     },
     {
