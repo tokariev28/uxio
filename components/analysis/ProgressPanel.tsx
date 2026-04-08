@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { CheckCircle2, XCircle, Circle } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import { XCircle, Circle } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { AgentStage, StageStatus } from "@/lib/types/analysis";
+import { InspirationGallery } from "./InspirationGallery";
 
 /* ── Static data ────────────────────────────────────────────────────── */
 
@@ -27,139 +28,34 @@ const STAGE_ORDER: AgentStage[] = [
   "synthesis",
 ];
 
-const SUB_STEPS: Record<AgentStage, string[]> = {
-  "page-intelligence": [
-    "Extracting product positioning\u2026",
-    "Identifying target audience\u2026",
-    "Mapping feature claims\u2026",
-    "Understanding value proposition\u2026",
-  ],
-  discovery: [
-    "Searching for similar products\u2026",
-    "Cross-referencing market segments\u2026",
-    "Evaluating candidate competitors\u2026",
-  ],
-  validation: [
-    "Scoring ICP overlap\u2026",
-    "Checking feature similarity\u2026",
-    "Selecting top 3 matches\u2026",
-  ],
-  scraping: [
-    "Capturing competitor layouts\u2026",
-    "Taking full-page screenshots\u2026",
-    "Processing visual content\u2026",
-  ],
-  classification: [
-    "Identifying navigation patterns\u2026",
-    "Detecting pricing structures\u2026",
-    "Mapping content sections\u2026",
-  ],
-  analysis: [
-    "Evaluating hero clarity\u2026",
-    "Scoring CTA effectiveness\u2026",
-    "Comparing visual hierarchy\u2026",
-    "Assessing trust signals\u2026",
-  ],
-  synthesis: [
-    "Ranking improvement opportunities\u2026",
-    "Writing recommendations\u2026",
-    "Calculating priority scores\u2026",
-    "Preparing your report\u2026",
-  ],
-};
-
-/** Varying rhythm so the cycling feels organic, not mechanical */
-const INTERVALS = [2200, 2800, 2400, 3000];
-const LAST_STEP_EXTRA_PAUSE = 800;
-
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-/* ── Hooks ──────────────────────────────────────────────────────────── */
-
-function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return reduced;
-}
-
-/* ── SubStepCycler ──────────────────────────────────────────────────── */
-
-function SubStepCycler({
-  stage,
-  reducedMotion,
-}: {
-  stage: AgentStage;
-  reducedMotion: boolean;
-}) {
-  const messages = SUB_STEPS[stage];
-  const [index, setIndex] = useState(0);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setIndex(0);
-  }, [stage]);
-
-  useEffect(() => {
-    if (reducedMotion || messages.length <= 1) return;
-
-    const isLast = index === messages.length - 1;
-    const base = INTERVALS[index % INTERVALS.length];
-    const delay = isLast ? base + LAST_STEP_EXTRA_PAUSE : base;
-
-    timeoutRef.current = setTimeout(() => {
-      setIndex((prev) => (prev + 1) % messages.length);
-    }, delay);
-
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [index, messages, reducedMotion]);
-
-  if (reducedMotion) {
-    return (
-      <span className="text-sm text-muted-foreground/70">{messages[0]}</span>
-    );
-  }
-
-  return (
-    <div className="h-5 overflow-hidden">
-      <AnimatePresence mode="wait">
-        <motion.span
-          key={`${stage}-${index}`}
-          className="text-sm text-muted-foreground/70 block"
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.25, ease: EASE }}
-        >
-          {messages[index]}
-        </motion.span>
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* ── ProgressPanel ──────────────────────────────────────────────────── */
+/* ── Types ──────────────────────────────────────────────────────────── */
 
 interface StageState {
   status: StageStatus | "pending";
   message: string;
+  actions?: string[];
+}
+
+interface NotificationProps {
+  showBanner: boolean;
+  showConfirmation: boolean;
+  onEnable: () => Promise<void>;
+  onDismiss: () => void;
 }
 
 interface ProgressPanelProps {
   stages: Partial<Record<AgentStage, StageState>>;
+  notification?: NotificationProps;
 }
 
-export function ProgressPanel({ stages }: ProgressPanelProps) {
+/* ── ProgressPanel ──────────────────────────────────────────────────── */
+
+export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
   const reducedMotion = useReducedMotion();
 
-  // Progressive reveal: only show stages that have been reached + 1 upcoming
+  // Progressive reveal: show stages reached + 1 upcoming
   const lastActiveIdx = STAGE_ORDER.reduce((acc, stage, idx) => {
     const s = stages[stage]?.status;
     return s === "running" || s === "done" || s === "error" ? idx : acc;
@@ -173,93 +69,137 @@ export function ProgressPanel({ stages }: ProgressPanelProps) {
     setVisibleCount((prev) => Math.max(prev, naturalTarget));
   }, [naturalTarget]);
 
+  const anyRunning = STAGE_ORDER.some((s) => stages[s]?.status === "running");
+
   return (
-    <div className="progress-container relative w-full max-w-md mx-auto py-6">
-      {!reducedMotion && <div className="ambient-glow" />}
+    <>
+      <div className="progress-container relative w-full max-w-md mx-auto py-6">
+        {/* Spinner header — visible while any stage is running */}
+        {anyRunning && (
+          <div className="flex items-center gap-2 mb-4">
+            <div className="size-3.5 rounded-full border-[1.5px] border-border border-t-foreground/40 animate-spin flex-shrink-0" />
+            <span className="text-sm text-muted-foreground italic">Working…</span>
+          </div>
+        )}
 
-      <div className="flex flex-col gap-0.5">
-        {STAGE_ORDER.slice(0, visibleCount).map((stage, idx) => {
-          const state = stages[stage];
-          const status = state?.status ?? "pending";
+        <div className="flex flex-col gap-0.5">
+          {STAGE_ORDER.slice(0, visibleCount).map((stage, idx) => {
+            const state = stages[stage];
+            const status = state?.status ?? "pending";
+            const actions = state?.actions;
 
-          return (
-            <motion.div
-              key={stage}
-              layout
-              initial={!reducedMotion && idx > 0 ? { opacity: 0, y: 12 } : false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ layout: { duration: 0.3, ease: EASE }, duration: 0.4, ease: EASE }}
-            >
-              {status === "done" && (
-                <div className="flex items-center gap-2.5 py-1">
-                  <CheckCircle2 className="size-3.5 text-green-500/70 shrink-0" />
-                  <span className="text-xs text-muted-foreground/50">
-                    {STAGE_LABELS[stage]}
-                  </span>
-                </div>
-              )}
-
-              {status === "running" && (
-                <motion.div
-                  initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, ease: EASE }}
-                  className="flex gap-3 py-3"
-                >
-                  <motion.div
-                    className="shrink-0 self-start mt-0.5"
-                    animate={reducedMotion ? {} : { scale: [1, 1.12, 1] }}
-                    transition={
-                      reducedMotion
-                        ? {}
-                        : { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                    }
-                  >
-                    <img
-                      src="/favicon.svg"
-                      width={16}
-                      height={16}
-                      alt=""
-                      aria-hidden="true"
-                    />
-                  </motion.div>
-                  <div className="flex flex-col gap-1.5 min-w-0">
-                    <span
-                      className={`text-base font-medium text-foreground ${
-                        !reducedMotion ? "shimmer-text" : ""
-                      }`}
-                    >
+            return (
+              <motion.div
+                key={stage}
+                layout
+                initial={!reducedMotion && idx > 0 ? { opacity: 0, y: 12 } : false}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  layout: { duration: 0.3, ease: EASE },
+                  duration: 0.4,
+                  ease: EASE,
+                }}
+              >
+                {status === "done" && (
+                  <div className="flex items-center gap-2.5 py-1">
+                    <span className="size-1.5 rounded-full bg-green-500 flex-shrink-0" />
+                    <span className="text-xs text-muted-foreground/50">
                       {STAGE_LABELS[stage]}
                     </span>
-                    <SubStepCycler
-                      stage={stage}
-                      reducedMotion={reducedMotion}
-                    />
                   </div>
-                </motion.div>
-              )}
+                )}
 
-              {status === "error" && (
-                <div className="flex items-center gap-2.5 py-1.5">
-                  <XCircle className="size-3.5 text-destructive shrink-0" />
-                  <span className="text-sm text-destructive">
-                    {state?.message ?? STAGE_LABELS[stage]}
-                  </span>
-                </div>
-              )}
+                {status === "running" && (
+                  <>
+                    <div className="flex items-start gap-2.5 py-2">
+                      <span className="size-2 rounded-full bg-blue-500 flex-shrink-0 mt-[3px]" />
+                      <div className="flex flex-col gap-1.5 min-w-0">
+                        <span className="text-sm text-foreground">
+                          {STAGE_LABELS[stage]}
+                        </span>
+                        {actions && actions.length > 0 && (
+                          <div className="border-l-2 border-border/40 pl-2.5 flex flex-wrap gap-1.5">
+                            {actions.map((action) => (
+                              <span
+                                key={action}
+                                className="font-mono text-[10.5px] text-muted-foreground/70 border border-muted-foreground/20 rounded px-1.5 py-0.5 bg-transparent"
+                              >
+                                {action}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-              {status === "pending" && (
-                <div className="flex items-center gap-2.5 py-1">
-                  <Circle className="size-3.5 text-muted-foreground/25 shrink-0" />
-                  <span className="text-sm text-muted-foreground/30">
-                    {STAGE_LABELS[stage]}
-                  </span>
-                </div>
-              )}
-            </motion.div>
-          );
-        })}
+                    <AnimatePresence>
+                      {notification?.showBanner && (
+                        <motion.div
+                          key="notif-banner"
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          transition={{ duration: 0.3, ease: EASE }}
+                          className="mb-1 rounded-md border border-border/50 bg-card/60 px-3 py-2.5"
+                        >
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Get notified when analysis is ready — even if you switch tabs
+                          </p>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={notification.onEnable}
+                              className="text-xs font-medium text-foreground underline-offset-2 hover:underline"
+                            >
+                              Enable notifications
+                            </button>
+                            <button
+                              onClick={notification.onDismiss}
+                              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              Not now
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                      {notification?.showConfirmation && (
+                        <motion.p
+                          key="notif-confirm"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.25, ease: EASE }}
+                          className="mb-1 text-xs text-green-500/80"
+                        >
+                          ✓ You&apos;ll be notified
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+                  </>
+                )}
+
+                {status === "error" && (
+                  <div className="flex items-center gap-2.5 py-1.5">
+                    <XCircle className="size-3.5 text-destructive shrink-0" />
+                    <span className="text-sm text-destructive">
+                      {state?.message ?? STAGE_LABELS[stage]}
+                    </span>
+                  </div>
+                )}
+
+                {status === "pending" && (
+                  <div className="flex items-center gap-2.5 py-1">
+                    <Circle className="size-3.5 text-muted-foreground/25 shrink-0" />
+                    <span className="text-sm text-muted-foreground/30">
+                      {STAGE_LABELS[stage]}
+                    </span>
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+      <InspirationGallery />
+    </>
   );
 }
