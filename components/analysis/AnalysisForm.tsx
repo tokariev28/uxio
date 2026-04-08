@@ -40,6 +40,7 @@ const INSIGHT_CARDS = [
 interface StageState {
   status: StageStatus | "pending";
   message: string;
+  actions?: string[];
 }
 
 type AppState = "idle" | "running" | "done" | "error";
@@ -114,7 +115,11 @@ export function AnalysisForm() {
           if (event.type === "progress") {
             setStages((prev) => ({
               ...prev,
-              [event.stage]: { status: event.status, message: event.message },
+              [event.stage]: {
+                status: event.status,
+                message: event.message,
+                actions: event.actions ?? prev[event.stage]?.actions,
+              },
             }));
           } else if (event.type === "complete") {
             setResult(event.data);
