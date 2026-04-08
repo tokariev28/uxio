@@ -162,13 +162,13 @@ export async function runAnalyzer(
     throw new AgentError("agent5", "pageSections is missing from pipeline context");
   }
 
-  // Emit competitor domains being analyzed
-  if (ctx.competitors?.length) {
-    const domains = ctx.competitors.map((c) => {
+  // Emit all page domains being analyzed (input URL + competitors)
+  if (ctx.pages?.length) {
+    const domains = ctx.pages.map((p) => {
       try {
-        return new URL(c.url).hostname.replace(/^www\./, "");
+        return new URL(p.url).hostname.replace(/^www\./, "");
       } catch {
-        return c.name;
+        return p.url;
       }
     });
     onActions?.(domains);

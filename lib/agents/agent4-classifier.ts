@@ -82,13 +82,13 @@ export async function runClassifier(
     throw new AgentError("agent4", "pages is missing from pipeline context");
   }
 
-  // Emit competitor domains being classified
-  if (ctx.competitors?.length) {
-    const domains = ctx.competitors.map((c) => {
+  // Emit all page domains being classified (input URL + competitors)
+  if (ctx.pages?.length) {
+    const domains = ctx.pages.map((p) => {
       try {
-        return new URL(c.url).hostname.replace(/^www\./, "");
+        return new URL(p.url).hostname.replace(/^www\./, "");
       } catch {
-        return c.name;
+        return p.url;
       }
     });
     onActions?.(domains);

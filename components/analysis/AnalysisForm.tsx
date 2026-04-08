@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import { Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -10,7 +11,7 @@ import type {
   AgentStage,
   AnalysisResult,
   SSEEvent,
-  StageStatus,
+  StageState,
 } from "@/lib/types/analysis";
 
 const INSIGHT_CARDS = [
@@ -36,12 +37,6 @@ const INSIGHT_CARDS = [
     impact: "↑ Medium-high impact",
   },
 ] as const;
-
-interface StageState {
-  status: StageStatus | "pending";
-  message: string;
-  actions?: string[];
-}
 
 type AppState = "idle" | "running" | "done" | "error";
 
@@ -147,9 +142,9 @@ export function AnalysisForm() {
           transition={{ duration: 0.7, ease: [0.76, 0, 0.24, 1] }}
         >
           <div className="hero-content">
-            <a href="/">
+            <Link href="/">
               <img src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" />
-            </a>
+            </Link>
             <h1 className="hero-heading">
               The honest audit<br />
               <em>your landing page needs.</em>

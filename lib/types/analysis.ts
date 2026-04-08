@@ -140,6 +140,12 @@ export type AgentStage =
 
 export type StageStatus = "running" | "done" | "error";
 
+export interface StageState {
+  status: StageStatus | "pending";
+  message: string;
+  actions?: string[];
+}
+
 export interface SSEProgressEvent {
   type: "progress";
   stage: AgentStage;

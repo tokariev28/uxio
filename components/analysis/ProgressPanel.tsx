@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { XCircle, Circle } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import type { AgentStage, StageStatus } from "@/lib/types/analysis";
+import type { AgentStage, StageState } from "@/lib/types/analysis";
 import { InspirationGallery } from "./InspirationGallery";
 
 /* ── Static data ────────────────────────────────────────────────────── */
@@ -32,12 +31,6 @@ const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
-interface StageState {
-  status: StageStatus | "pending";
-  message: string;
-  actions?: string[];
-}
-
 interface NotificationProps {
   showBanner: boolean;
   showConfirmation: boolean;
@@ -64,10 +57,7 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
     Math.max(lastActiveIdx + 2, 1),
     STAGE_ORDER.length
   );
-  const [visibleCount, setVisibleCount] = useState(1);
-  useEffect(() => {
-    setVisibleCount((prev) => Math.max(prev, naturalTarget));
-  }, [naturalTarget]);
+  const visibleCount = naturalTarget;
 
   const anyRunning = STAGE_ORDER.some((s) => stages[s]?.status === "running");
 

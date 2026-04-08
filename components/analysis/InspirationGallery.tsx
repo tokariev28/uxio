@@ -6,6 +6,7 @@ import {
   useMotionValue,
   useSpring,
   useTransform,
+  useReducedMotion,
   MotionValue,
 } from "framer-motion";
 
@@ -40,23 +41,12 @@ type Example = (typeof EXAMPLES)[number];
 
 /* ── Local hooks ────────────────────────────────────────────────────────── */
 
-function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return reduced;
-}
-
 function useIsTouchDevice(): boolean {
-  const [touch, setTouch] = useState(false);
-  useEffect(() => {
-    setTouch(window.matchMedia("(hover: none)").matches);
-  }, []);
+  const [touch] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(hover: none)").matches
+      : false
+  );
   return touch;
 }
 
@@ -189,7 +179,7 @@ function GalleryCard({
 export function InspirationGallery() {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollXMV = useMotionValue(0);
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = useReducedMotion() ?? false;
   const isTouch = useIsTouchDevice();
 
   useEffect(() => {
