@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AGENT_PROMPTS, AGENT_MODELS } from "@/lib/agents/prompts";
 import type { ProductBrief } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
+import { withGeminiRetry } from "@/lib/agents/gemini-retry";
 
 export async function runAgent0(url: string): Promise<ProductBrief> {
   // ── Step 1: Firecrawl scrape ────────────────────────────────────
@@ -26,7 +27,7 @@ export async function runAgent0(url: string): Promise<ProductBrief> {
     systemInstruction: AGENT_PROMPTS.pageIntelligence,
   });
 
-  const geminiResult = await model.generateContent(scraped.markdown);
+  const geminiResult = await withGeminiRetry(() => model.generateContent(scraped.markdown!));
   const rawText = geminiResult.response.text();
 
   // Strip markdown fences in case the model wraps the JSON despite instructions

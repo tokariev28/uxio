@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { SectionCard } from "./results/SectionCard";
@@ -15,12 +15,24 @@ import type {
 
 const SECTION_LABELS: Record<SectionType, string> = {
   hero: "Hero",
+  navigation: "Navigation",
   features: "Features",
+  benefits: "Benefits",
   socialProof: "Social Proof",
+  testimonials: "Testimonials",
+  integrations: "Integrations",
+  howItWorks: "How It Works",
   pricing: "Pricing",
+  faq: "FAQ",
   cta: "Call to Action",
   footer: "Footer",
 };
+
+const SECTION_ORDER: SectionType[] = [
+  "hero", "navigation", "features", "benefits",
+  "socialProof", "testimonials", "integrations",
+  "howItWorks", "pricing", "faq", "cta", "footer",
+];
 
 interface ResultsPanelProps {
   result: AnalysisResult;
@@ -28,7 +40,7 @@ interface ResultsPanelProps {
 
 export function ResultsPanel({ result }: ResultsPanelProps) {
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
-  const [showAllSections, setShowAllSections] = useState(false);
+
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // ── Score helpers ──────────────────────────────────────────────────────────
@@ -57,20 +69,16 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
     )
     .sort((a, b) => b.score - a.score);
 
-  // ── Sort sections worst-first for input site ──────────────────────────────
+  // ── Sort sections in canonical page order ──────────────────────────────────
   const sortedSections: SectionAnalysis[] = [...result.sections].sort(
     (a, b) => {
-      const aScore = a.findings.find((f) => f.site === "input")?.score ?? 1;
-      const bScore = b.findings.find((f) => f.site === "input")?.score ?? 1;
-      return aScore - bScore;
+      const ai = SECTION_ORDER.indexOf(a.sectionType);
+      const bi = SECTION_ORDER.indexOf(b.sectionType);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
     }
   );
 
-  const visibleSections = showAllSections
-    ? sortedSections
-    : sortedSections.slice(0, 3);
-
-  const hiddenCount = sortedSections.length - 3;
+  const visibleSections = sortedSections;
 
   // ── Sidebar nav items ─────────────────────────────────────────────────────
   const navItems: NavItem[] = sortedSections.map((section, i) => ({
@@ -236,25 +244,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
             </div>
           ))}
 
-          {/* Show more / less toggle */}
-          {hiddenCount > 0 && (
-            <button
-              onClick={() => setShowAllSections((prev) => !prev)}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-3 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-            >
-              {showAllSections ? (
-                <>
-                  <ChevronUp className="size-4" />
-                  Show less
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="size-4" />
-                  Show {hiddenCount} more section{hiddenCount !== 1 ? "s" : ""}
-                </>
-              )}
-            </button>
-          )}
+
 
         </div>
       </div>

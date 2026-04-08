@@ -42,16 +42,21 @@ export interface PageData {
 
 export type SectionType =
   | "hero"
+  | "navigation"
   | "features"
+  | "benefits"
   | "socialProof"
+  | "testimonials"
+  | "integrations"
+  | "howItWorks"
   | "pricing"
+  | "faq"
   | "cta"
   | "footer";
 
 export interface ClassifiedSection {
   type: SectionType;
   markdownSlice: string;
-  needsDeepVision: boolean;
 }
 
 export interface PageSections {
@@ -61,9 +66,21 @@ export interface PageSections {
 
 // ── Section Analysis (Agent 5 output) ──────────────────────────
 
+export interface SectionScores {
+  clarity: number;
+  specificity: number;
+  icpFit: number;
+  visualHierarchy: number;
+  conversionReadiness: number;
+  trustSignals: number;
+}
+
 export interface SectionFinding {
   site: string; // "input" or competitor URL/name
   score: number; // 0–1
+  scores?: SectionScores;
+  strengths: string[];
+  weaknesses: string[];
   summary: string;
   evidence: {
     headlineText?: string;
@@ -91,6 +108,13 @@ export interface Recommendation {
   suggestedAction: string;
 }
 
+// ── Overall Scores (Agent 6 output) ───────────────────────────
+
+export interface OverallScores {
+  input: number;
+  [competitorKey: string]: number;
+}
+
 // ── Full Analysis Result ───────────────────────────────────────
 
 export interface AnalysisResult {
@@ -100,6 +124,7 @@ export interface AnalysisResult {
   sections: SectionAnalysis[];
   recommendations: Recommendation[];
   executiveSummary?: string;
+  overallScores?: OverallScores;
 }
 
 // ── SSE Events ─────────────────────────────────────────────────
@@ -125,6 +150,17 @@ export interface SSEProgressEvent {
 export interface SSECompleteEvent {
   type: "complete";
   data: AnalysisResult;
+  quality?: {
+    overallQuality: number;
+    signals: {
+      evidenceGrounding: number;
+      scoreVariance: number;
+      specificityRate: number;
+      competitorPresence: number;
+      fieldCompleteness: number;
+    };
+    warnings: string[];
+  };
 }
 
 export interface SSEErrorEvent {
@@ -146,4 +182,5 @@ export interface PipelineContext {
   sectionAnalyses?: SectionAnalysis[];
   recommendations?: Recommendation[];
   executiveSummary?: string;
+  overallScores?: OverallScores;
 }

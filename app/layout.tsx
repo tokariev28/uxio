@@ -14,6 +14,9 @@ export const metadata: Metadata = {
   title: "Uxio — AI Competitive Landing Page Analyzer",
   description:
     "Get instant, evidence-based competitive design intelligence for your SaaS landing page.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

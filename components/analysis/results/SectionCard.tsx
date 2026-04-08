@@ -18,19 +18,31 @@ import type {
 
 const SECTION_LABELS: Record<SectionType, string> = {
   hero: "Hero",
+  navigation: "Navigation",
   features: "Features",
+  benefits: "Benefits",
   socialProof: "Social Proof",
+  testimonials: "Testimonials",
+  integrations: "Integrations",
+  howItWorks: "How It Works",
   pricing: "Pricing",
+  faq: "FAQ",
   cta: "Call to Action",
   footer: "Footer",
 };
 
 const OBJECT_POSITION: Record<SectionType, string> = {
   hero: "top",
-  features: "30% top",
-  socialProof: "50% top",
+  navigation: "top",
+  features: "25% top",
+  benefits: "30% top",
+  socialProof: "40% top",
+  testimonials: "45% top",
+  integrations: "50% top",
+  howItWorks: "55% top",
   pricing: "60% top",
-  cta: "70% top",
+  faq: "70% top",
+  cta: "80% top",
   footer: "bottom",
 };
 
@@ -444,7 +456,7 @@ export function SectionCard({
                       <div
                         key={i}
                         style={
-                          i === 0 && sectionInsights.length > 1
+                          i === 0 && sectionInsights.length >= 3
                             ? { gridColumn: "1 / -1" }
                             : {}
                         }

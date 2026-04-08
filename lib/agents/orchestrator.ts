@@ -3,6 +3,7 @@ import type {
   AnalysisResult,
   AgentStage,
 } from "@/lib/types/analysis";
+import { scoreAnalysisQuality } from "@/lib/utils/quality-scorer";
 import type { SSEWriter } from "@/lib/sse";
 import { runAgent0 } from "./agent0";
 import { runDiscovery } from "./agent1-discovery";
@@ -81,6 +82,7 @@ export async function runPipeline(
         });
         ctx.recommendations = synthesis.recommendations;
         ctx.executiveSummary = synthesis.executiveSummary;
+        ctx.overallScores = synthesis.overallScores;
       },
     },
   ];
@@ -111,9 +113,12 @@ export async function runPipeline(
       sections: ctx.sectionAnalyses!,
       recommendations: ctx.recommendations!,
       executiveSummary: ctx.executiveSummary,
+      overallScores: ctx.overallScores,
     };
 
-    writer.send({ type: "complete", data: result });
+    const quality = scoreAnalysisQuality(result);
+    console.log("[Uxio] Quality report:", JSON.stringify(quality, null, 2));
+    writer.send({ type: "complete", data: result, quality });
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "An unexpected error occurred";

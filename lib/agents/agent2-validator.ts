@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AGENT_PROMPTS, AGENT_MODELS } from "@/lib/agents/prompts";
 import type { PipelineContext, Competitor } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
+import { withGeminiRetry } from "@/lib/agents/gemini-retry";
 
 export async function runValidator(
   ctx: PipelineContext
@@ -25,7 +26,7 @@ export async function runValidator(
     systemInstruction: AGENT_PROMPTS.competitorValidator,
   });
 
-  const geminiResult = await model.generateContent(userMessage);
+  const geminiResult = await withGeminiRetry(() => model.generateContent(userMessage));
   const rawText = geminiResult.response.text();
 
   // ── Step 3: Strip markdown fences ─────────────────────────────

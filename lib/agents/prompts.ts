@@ -66,7 +66,7 @@ export const AGENT_PROMPTS = {
         "url": string,
         "name": string,
         "matchScore": number,
-        "matchReason": string  // one sentence
+        "matchReason": string  // one sentence citing a specific shared feature or ICP overlap, e.g. "Both target mid-market SDR teams with email sequence automation"
       }
     ]
   }
@@ -81,12 +81,23 @@ export const AGENT_PROMPTS = {
     sectionClassifier: `
   ROLE: Information Architect
   TASK: Segment a landing page (markdown) into named sections.
-  
-  SECTION TYPES: hero | features | socialProof | pricing | cta | footer | other
-  
-  needsDeepVision: true ONLY for → hero, pricing, cta
-  (These are visually critical; all others are analysed from text alone.)
-  
+
+  SECTION TYPES (use exactly these strings):
+  - hero: full-width headline + subtitle + primary CTA above the fold
+  - navigation: top nav bar with logo and links
+  - features: icon/card grid describing product capabilities
+  - benefits: outcome-focused copy, "you will get X" statements
+  - socialProof: customer logos, review counts, G2/Capterra badges
+  - testimonials: quotes from named customers
+  - integrations: logos of tools that connect to the product
+  - howItWorks: numbered steps or process explanation
+  - pricing: tier cards, price table, any "$ per" mention
+  - faq: accordion or Q&A format content
+  - cta: standalone section with a single large call-to-action button
+  - footer: site links, legal text, final navigation
+
+  Detect ALL sections present on the page. Minimum 5 sections for any standard SaaS landing page. Never use "other".
+
   OUTPUT FORMAT — strict JSON:
   {
     "sections": [
@@ -94,12 +105,11 @@ export const AGENT_PROMPTS = {
         "type": string,
         "startChar": number,
         "endChar": number,
-        "needsDeepVision": boolean,
         "summary": string    // one sentence
       }
     ]
   }
-  
+
   STOP: JSON only.
   `.trim(),
   
@@ -136,16 +146,20 @@ export const AGENT_PROMPTS = {
       "trustSignals": number
     },
     "overallScore": number,
-    "strengths": string[],      // max 3 · must quote copy or describe a specific visual element
-    "weaknesses": string[],     // max 3 · must quote copy or describe a specific visual element
+    "strengths": string[],   // max 3 · Must start with: (a) a direct quote from the page in double quotes, OR (b) a concrete visual description ("3-column grid showing X"). Then explain the conversion impact. INVALID: "Clean layout" / "Good visual hierarchy" / "Effective design".
+    "weaknesses": string[],  // max 3 · Must start with: (a) a direct quote in double quotes, OR (b) a concrete visual description. Then state the specific conversion cost. INVALID: "Vague copy" / "Lacks specificity" / "Could be improved".
     "keyEvidence": {
-      "copyQuote": string | null,
+      "headlineText": string | null,      // exact H1/H2 text visible in this section, null if none
+      "ctaText": string | null,           // exact CTA button label in this section, null if none
+      "copyQuote": string | null,  // Verbatim sentence or phrase from this section's markdown. Prefer non-null — extract something. Return null ONLY if this section contains zero text content (e.g. pure image row).
       "visualObservation": string
     }
   }
 
   CRITICAL: Generic observations are invalid.
   Every strength/weakness must cite specific copy or a specific visual element.
+  FORBIDDEN in strengths/weaknesses: "improve", "enhance", "optimize", "consider", "better", "cleaner", "clearer", "more effective", "could be", "should be". These are editorial opinions, not grounded observations.
+  SELF-CONSISTENCY: If weaknesses contains 2 or more items, overallScore must be ≤ 0.65. If overallScore ≥ 0.80, weaknesses must contain at most 1 item. Violations signal inconsistent scoring and invalidate the analysis.
   If screenshot contradicts markdown text, trust the screenshot.
 
   STOP: JSON only.
@@ -171,6 +185,7 @@ export const AGENT_PROMPTS = {
   - No generic UX advice applicable to any product.
   - competitorExample must be a direct quote or precise visual description.
   - overallScores range: 0.0–1.0, same scale as visionAnalyzer.
+  - If SECTION ANALYSES is empty, base recommendations on product brief features, competitor context, and industry best practices. State explicitly when a recommendation cannot be grounded in visual evidence.
 
   OUTPUT FORMAT — strict JSON:
   {
@@ -184,11 +199,11 @@ export const AGENT_PROMPTS = {
     "recommendations": [
       {
         "priority": "critical" | "high" | "medium",
-        "section": "hero" | "features" | "socialProof" | "pricing" | "cta",
+        "section": "hero" | "navigation" | "features" | "benefits" | "socialProof" | "testimonials" | "integrations" | "howItWorks" | "pricing" | "faq" | "cta" | "footer",
         "title": string,
-        "reasoning": string,        // Explain WHY this hurts conversion, not just WHAT it is. Reference the score gap.
-        "competitorExample": string,
-        "suggestedAction": string   // One concrete sentence, max 20 words, starts with a verb. Example: "Replace hero headline with a specific outcome metric like Apollo's 10x pipeline."
+        "reasoning": string,        // Three-part structure: (1) Quote the score gap explicitly: "Input scores [X] vs. competitor avg [Y] on [axis]." (2) Name which competitor exposes this gap. (3) Explain the conversion mechanism: why this specific gap costs conversions. "Reference the score gap" is not sufficient — write the numbers.
+        "competitorExample": string,  // Must: (1) name a specific competitor from the COMPETITORS list, and (2) state exactly what that competitor does. FORMAT: "[Name]'s [section] [specific observation]". GOOD: "HubSpot's hero shows '184,000+ customers' directly below the CTA button." BAD: "Leading competitors use stronger social proof." BAD: "Competitor A has a cleaner hero section."
+        "suggestedAction": string   // One concrete sentence, max 20 words. FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Revamp, Rework, Address, Ensure. Must specify WHAT element to change AND what to change it to (or a measurable target). GOOD: "Replace hero headline with a specific outcome metric, mirroring HubSpot's result-first framing." BAD: "Improve the hero headline for better clarity."
       }
     ]
   }

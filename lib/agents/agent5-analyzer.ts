@@ -4,18 +4,30 @@ import type {
   PipelineContext,
   SectionAnalysis,
   SectionFinding,
+  SectionScores,
   SectionType,
   PageData,
   PageSections,
 } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
+import { withGeminiRetry } from "@/lib/agents/gemini-retry";
 
 interface GeminiVisionResponse {
   sectionType: string;
+  scores?: {
+    clarity: number;
+    specificity: number;
+    icpFit: number;
+    visualHierarchy: number;
+    conversionReadiness: number;
+    trustSignals: number;
+  };
   overallScore: number;
   strengths: string[];
   weaknesses: string[];
   keyEvidence: {
+    headlineText: string | null;
+    ctaText: string | null;
     copyQuote: string | null;
     visualObservation: string;
   };
@@ -49,17 +61,19 @@ async function analyzeSection(
     systemInstruction: AGENT_PROMPTS.visionAnalyzer,
   });
 
-  const result = await model.generateContent({
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: `TARGET ICP: ${ctx.productBrief!.icp}\nSECTION TYPE: ${sectionType}\n\nMARKDOWN:\n${markdownSlice}` },
-          { inlineData: { mimeType: "image/png", data: screenshotBase64 } },
-        ],
-      },
-    ],
-  });
+  const result = await withGeminiRetry(() =>
+    model.generateContent({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: `TARGET ICP: ${ctx.productBrief!.icp}\nSECTION TYPE: ${sectionType}\n\nMARKDOWN:\n${markdownSlice}` },
+            { inlineData: { mimeType: "image/png", data: screenshotBase64 } },
+          ],
+        },
+      ],
+    })
+  );
 
   const rawText = result.response.text();
   const text = rawText
@@ -80,7 +94,7 @@ async function analyzePage(
 ): Promise<void> {
   if (!ctx.productBrief) return;
 
-  const deepSections = pageSections.sections.filter((s) => s.needsDeepVision);
+  const deepSections = pageSections.sections;
 
   // Resolve to raw base64 — handles GCS URL, raw base64, or existing data URI
   const rawSrc = page.screenshotBase64!;
@@ -111,8 +125,13 @@ async function analyzePage(
         const finding: SectionFinding = {
           site,
           score: raw.overallScore,
+          scores: raw.scores ?? undefined,
+          strengths: raw.strengths ?? [],
+          weaknesses: raw.weaknesses ?? [],
           summary: raw.strengths[0] ?? raw.weaknesses[0] ?? "No notable findings",
           evidence: {
+            headlineText: raw.keyEvidence.headlineText ?? undefined,
+            ctaText: raw.keyEvidence.ctaText ?? undefined,
             quote: raw.keyEvidence.copyQuote ?? undefined,
             visualNote: raw.keyEvidence.visualObservation,
           },

@@ -1,15 +1,16 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AGENT_PROMPTS, AGENT_MODELS } from "@/lib/agents/prompts";
-import type { PipelineContext, Recommendation, Priority, SectionType } from "@/lib/types/analysis";
+import type { PipelineContext, Recommendation, Priority, SectionType, OverallScores } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
+import { withGeminiRetry } from "@/lib/agents/gemini-retry";
 
 const VALID_PRIORITIES = new Set<Priority>(["critical", "high", "medium"]);
-const VALID_SECTION_TYPES = new Set<SectionType>(["hero", "features", "socialProof", "pricing", "cta", "footer"]);
+const VALID_SECTION_TYPES = new Set<SectionType>(["hero", "navigation", "features", "benefits", "socialProof", "testimonials", "integrations", "howItWorks", "pricing", "faq", "cta", "footer"]);
 
 export async function runSynthesis(
   ctx: PipelineContext,
   onRetry?: (delaySeconds: number) => void
-): Promise<{ recommendations: Recommendation[]; executiveSummary: string }> {
+): Promise<{ recommendations: Recommendation[]; executiveSummary: string; overallScores?: OverallScores }> {
   if (!ctx.productBrief) {
     throw new AgentError("agent6", "productBrief is missing from pipeline context");
   }
@@ -34,28 +35,16 @@ export async function runSynthesis(
     systemInstruction: AGENT_PROMPTS.synthesis,
   });
 
-  const delays = [30_000, 60_000];
-  let geminiResult: Awaited<ReturnType<typeof model.generateContent>> | undefined;
-
-  for (let attempt = 0; attempt <= delays.length; attempt++) {
-    try {
-      geminiResult = await model.generateContent(userMessage);
-      break;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const is429 = msg.includes("429") || msg.toLowerCase().includes("too many requests");
-      if (!is429) throw err;
-      if (attempt < delays.length) {
-        onRetry?.(delays[attempt] / 1000);
-        await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
-      }
-    }
-  }
-
-  if (!geminiResult) {
+  let geminiResult: Awaited<ReturnType<typeof model.generateContent>>;
+  try {
+    geminiResult = await withGeminiRetry(
+      () => model.generateContent(userMessage),
+      onRetry
+    );
+  } catch (err) {
     throw new AgentError(
       "agent6",
-      "Rate limit exceeded. Consider upgrading to Gemini Pay-as-you-go."
+      `Gemini failed after all retries: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 
@@ -68,7 +57,7 @@ export async function runSynthesis(
     .trim();
 
   // ── Step 4: Parse JSON ─────────────────────────────────────────
-  let raw: { recommendations: unknown[]; executiveSummary?: unknown };
+  let raw: { recommendations: unknown[]; executiveSummary?: unknown; overallScores?: Record<string, unknown> };
   try {
     raw = JSON.parse(text);
   } catch (err) {
@@ -122,5 +111,14 @@ export async function runSynthesis(
       ? raw.executiveSummary.trim()
       : "";
 
-  return { recommendations, executiveSummary };
+  // Extract overallScores if present (prompt requests input + competitor scores)
+  let overallScores: OverallScores | undefined;
+  if (raw.overallScores && typeof raw.overallScores === "object") {
+    const allNumeric = Object.values(raw.overallScores).every((v) => typeof v === "number");
+    if (allNumeric) {
+      overallScores = raw.overallScores as unknown as OverallScores;
+    }
+  }
+
+  return { recommendations, executiveSummary, overallScores };
 }

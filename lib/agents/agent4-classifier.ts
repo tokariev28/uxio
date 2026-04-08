@@ -7,12 +7,19 @@ import type {
   SectionType,
 } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
+import { withGeminiRetry } from "@/lib/agents/gemini-retry";
 
 const VALID_SECTION_TYPES = new Set<SectionType>([
   "hero",
+  "navigation",
   "features",
+  "benefits",
   "socialProof",
+  "testimonials",
+  "integrations",
+  "howItWorks",
   "pricing",
+  "faq",
   "cta",
   "footer",
 ]);
@@ -27,7 +34,7 @@ async function classifyPage(
     systemInstruction: AGENT_PROMPTS.sectionClassifier,
   });
 
-  const geminiResult = await model.generateContent(markdown);
+  const geminiResult = await withGeminiRetry(() => model.generateContent(markdown));
   const rawText = geminiResult.response.text();
 
   const text = rawText
@@ -61,7 +68,6 @@ async function classifyPage(
       return {
         type: s.type as SectionType,
         markdownSlice: markdown.slice(start, end),
-        needsDeepVision: typeof s.needsDeepVision === "boolean" ? s.needsDeepVision : false,
       };
     });
 
