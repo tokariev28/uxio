@@ -16,6 +16,7 @@ const GENERIC_VERB_RE =
   /^(improve|enhance|optimize|consider|update|refine|redesign|revamp|rework|address|ensure)\b/i;
 
 function isEvidenceGrounded(text: string, competitorNames: string[]): boolean {
+  if (typeof text !== 'string') return false;
   if (/"[^"]{3,}"/.test(text)) return true;
   if (/\b\d+[%xk$ms]?\b/.test(text)) return true;
   return competitorNames.some((name) =>
@@ -94,6 +95,7 @@ export function scoreAnalysisQuality(result: AnalysisResult): QualityReport {
   // ── Signal 4: Competitor Name Presence (weight 15%) ───────────────
   const examples = result.recommendations.map((r) => r.exampleFromCompetitor);
   const namedCount = examples.filter((ex) =>
+    typeof ex === 'string' &&
     competitorNames.some((name) =>
       ex.toLowerCase().includes(name.toLowerCase())
     )

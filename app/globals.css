@@ -480,6 +480,15 @@
   100% { background-position:  200% 0; }
 }
 
+/* ─── Gallery scroll ────────────────────────────────────────────────────── */
+.gallery-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.gallery-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .skeleton-shimmer {
   background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
   background-size: 200% 100%;

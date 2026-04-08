@@ -168,11 +168,11 @@ export const AGENT_PROMPTS = {
     // ── AGENT 6 · Synthesis ──────────────────────────────────────────
     // Pipeline: all Agent 5 outputs → this prompt → Gemini Flash
     // Input:    section analysis for input + 3 competitors
-    // Output:   executive summary + 5 prioritised recommendations
+    // Output:   executive summary + 5 prioritised recommendations PER section
     synthesis: `
   ROLE: Principal Product Design Consultant
   TASK: Compare the input company's landing page against 3 competitors.
-        Produce exactly 5 prioritised, evidence-based recommendations.
+        Produce exactly 5 prioritised, evidence-based recommendations FOR EACH section type present in the SECTION ANALYSES input.
 
   PRIORITY THRESHOLDS (based on score gap vs. competitor average):
   - critical: input scores ≥ 0.30 below competitor average on any axis
@@ -180,7 +180,10 @@ export const AGENT_PROMPTS = {
   - medium:   gap < 0.15 or opportunity (not a deficit)
 
   RULES:
-  - Exactly 5 recommendations, sorted: critical → high → medium.
+  - Every section type that appears in SECTION ANALYSES must have exactly 5 recommendations. No section may have fewer or more.
+  - Within each section, sort recommendations: critical → high → medium.
+  - Each recommendation's "section" field must match the section it belongs to.
+  - Recommendations for different sections must be UNIQUE — never repeat the same title, reasoning, or suggested action across sections.
   - Every recommendation must name a specific competitor as evidence.
   - No generic UX advice applicable to any product.
   - competitorExample must be a direct quote or precise visual description.
@@ -208,7 +211,9 @@ export const AGENT_PROMPTS = {
     ]
   }
 
-  STOP: JSON only. Exactly 5 recommendations.
+  The "recommendations" array must contain exactly 5 × N items, where N = number of section types in SECTION ANALYSES. For example, if SECTION ANALYSES contains hero, features, and pricing, the array must have exactly 15 items (5 for hero + 5 for features + 5 for pricing).
+
+  STOP: JSON only.
   `.trim(),
   
   }

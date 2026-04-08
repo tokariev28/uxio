@@ -4,7 +4,6 @@ import type {
   PipelineContext,
   SectionAnalysis,
   SectionFinding,
-  SectionScores,
   SectionType,
   PageData,
   PageSections,
@@ -52,7 +51,7 @@ async function urlToBase64(url: string): Promise<string> {
 async function analyzeSection(
   genAI: GoogleGenerativeAI,
   markdownSlice: string,
-  screenshotBase64: string,
+  screenshotBase64: string | null,
   ctx: PipelineContext,
   sectionType: string
 ): Promise<GeminiVisionResponse> {
@@ -61,17 +60,15 @@ async function analyzeSection(
     systemInstruction: AGENT_PROMPTS.visionAnalyzer,
   });
 
+  const textPart = { text: `TARGET ICP: ${ctx.productBrief!.icp}\nSECTION TYPE: ${sectionType}\n\nMARKDOWN:\n${markdownSlice}` };
+  const parts: ({ text: string } | { inlineData: { mimeType: string; data: string } })[] = [textPart];
+  if (screenshotBase64) {
+    parts.push({ inlineData: { mimeType: "image/png", data: screenshotBase64 } });
+  }
+
   const result = await withGeminiRetry(() =>
     model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: `TARGET ICP: ${ctx.productBrief!.icp}\nSECTION TYPE: ${sectionType}\n\nMARKDOWN:\n${markdownSlice}` },
-            { inlineData: { mimeType: "image/png", data: screenshotBase64 } },
-          ],
-        },
-      ],
+      contents: [{ role: "user", parts }],
     })
   );
 
@@ -98,18 +95,26 @@ async function analyzePage(
 
   // Resolve to raw base64 — handles GCS URL, raw base64, or existing data URI
   const rawSrc = page.screenshotBase64!;
-  let screenshotData: string;
-  if (rawSrc.startsWith("http")) {
-    screenshotData = await urlToBase64(rawSrc);
-  } else if (rawSrc.startsWith("data:")) {
-    screenshotData = rawSrc.split(",")[1] ?? rawSrc;
-  } else {
-    screenshotData = rawSrc;
-  }
+  let screenshotData: string | null = null;
 
-  // Write back as a stable data URI so the frontend can display it
-  // (GCS signed URLs expire in ~30 min; base64 data URIs never do)
-  page.screenshotBase64 = `data:image/png;base64,${screenshotData}`;
+  try {
+    if (rawSrc.startsWith("http")) {
+      screenshotData = await urlToBase64(rawSrc);
+    } else if (rawSrc.startsWith("data:")) {
+      screenshotData = rawSrc.split(",")[1] ?? rawSrc;
+    } else {
+      screenshotData = rawSrc;
+    }
+    // Write back as a stable data URI so the frontend can display it
+    // (GCS signed URLs expire in ~30 min; base64 data URIs never do)
+    page.screenshotBase64 = `data:image/png;base64,${screenshotData}`;
+  } catch (err) {
+    console.warn(
+      `[agent5] Screenshot fetch failed for ${page.url}, continuing with text-only analysis:`,
+      err instanceof Error ? err.message : String(err)
+    );
+    // Keep original URL — it may still be valid for frontend display
+  }
 
   await Promise.allSettled(
     deepSections.map(async (section) => {

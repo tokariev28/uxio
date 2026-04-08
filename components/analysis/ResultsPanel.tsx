@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
 import { SectionCard } from "./results/SectionCard";
 import { SectionNavSidebar, type NavItem } from "./results/SectionNavSidebar";
 import type {
@@ -42,32 +41,6 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
 
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  // ── Score helpers ──────────────────────────────────────────────────────────
-  const allFindings = result.sections.flatMap((s) => s.findings);
-
-  const avgScore = (site: string): number | null => {
-    const scores = allFindings
-      .filter((f) => f.site === site)
-      .map((f) => f.score);
-    return scores.length
-      ? scores.reduce((a, b) => a + b, 0) / scores.length
-      : null;
-  };
-
-  const scoreRows = [
-    { label: "Your site", score: avgScore("input"), isYou: true },
-    ...result.competitors.map((c) => ({
-      label: c.name,
-      score: avgScore(c.url) ?? avgScore(c.name),
-      isYou: false,
-    })),
-  ]
-    .filter(
-      (r): r is { label: string; score: number; isYou: boolean } =>
-        r.score !== null
-    )
-    .sort((a, b) => b.score - a.score);
 
   // ── Sort sections in canonical page order ──────────────────────────────────
   const sortedSections: SectionAnalysis[] = [...result.sections].sort(
@@ -131,55 +104,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
             {result.pages[0].url}
           </p>
         )}
-
-        {/* Executive Summary */}
-        {result.executiveSummary && (
-          <blockquote className="mt-4 rounded-r-lg border-l-4 border-primary bg-muted/30 py-3 pl-4 pr-3">
-            <p className="text-sm leading-relaxed text-foreground">
-              {result.executiveSummary}
-            </p>
-          </blockquote>
-        )}
-
-        {/* Overall Score Bar Chart */}
-        {scoreRows.length > 0 && (
-          <div className="mt-6">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Overall Score vs Competitors
-            </h2>
-            <div className="flex flex-col gap-2">
-              {scoreRows.map((row) => (
-                <div key={row.label} className="flex items-center gap-3">
-                  <span
-                    className={cn(
-                      "w-24 shrink-0 text-xs",
-                      row.isYou
-                        ? "font-semibold text-foreground"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    {row.label}
-                  </span>
-                  <div className="flex-1 overflow-hidden rounded-full bg-muted h-2">
-                    <div
-                      className={cn(
-                        "h-2 rounded-full transition-all",
-                        row.isYou ? "bg-blue-500" : "bg-muted-foreground/40"
-                      )}
-                      style={{ width: `${row.score * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">
-                    {Math.round(row.score * 100)}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
-
-      <Separator className="mb-8" />
 
       {/* ── Mobile pill nav ──────────────────────────────────────────────── */}
       <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
@@ -238,8 +163,6 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                 competitors={result.competitors}
                 recommendations={result.recommendations}
                 sectionIndex={i}
-                defaultOpen={i === 0}
-                logFirstRec={i === 0}
               />
             </div>
           ))}

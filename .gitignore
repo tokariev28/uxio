@@ -27,6 +27,9 @@
 # playwright mcp session artifacts
 .playwright-mcp/
 
+# superpowers plugin brainstorm artifacts
+.superpowers/
+
 # local test screenshots
 test-*.png
 

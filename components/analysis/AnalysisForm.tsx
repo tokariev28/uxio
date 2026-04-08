@@ -200,24 +200,25 @@ export function AnalysisForm() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
         >
-          <form onSubmit={handleSubmit} className="hero-form-wrapper">
-            <input
-              type="url"
-              className="hero-input"
-              placeholder="https://your-saas.com"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={appState === "running"}
-              required
-            />
-            <button
-              type="submit"
-              disabled={appState === "running" || !url.trim()}
-              className="hero-submit"
-            >
-              {appState === "running" ? "Analyzing…" : "Analyze"}
-            </button>
-          </form>
+          {appState !== "running" && (
+            <form onSubmit={handleSubmit} className="hero-form-wrapper">
+              <input
+                type="url"
+                className="hero-input"
+                placeholder="https://your-saas.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                required
+              />
+              <button
+                type="submit"
+                disabled={!url.trim()}
+                className="hero-submit"
+              >
+                Analyze
+              </button>
+            </form>
+          )}
 
           {appState === "running" && <ProgressPanel stages={stages} />}
 

@@ -39,9 +39,11 @@ Sequential orchestration in `orchestrator.ts`:
 | 5 | `agent5-analyzer.ts` | Vision Analyzer — analyze screenshots | Firecrawl screenshots + Gemini Vision |
 | 6 | `agent6-synthesis.ts` | Synthesis — produce top 5 recommendations | Gemini |
 
-Each agent receives `PipelineContext` (accumulates results), returns a typed result, and throws `AgentError` on failure.
+Each agent receives `PipelineContext` (accumulates results), returns a typed result, and throws `AgentError` (from `lib/agents/errors.ts`) on failure.
 
 All Gemini system prompts live in `lib/agents/prompts.ts` (key: `AGENT_PROMPTS`). Model selection per agent is in `AGENT_MODELS` (Flash vs Flash-Lite).
+
+All Gemini calls are wrapped with `withGeminiRetry()` (`lib/agents/gemini-retry.ts`), which retries 503 (overload) up to 3× at 1/2/4 s and 429 (rate limit) up to 2× at 5/10 s, with per-attempt jitter.
 
 ### SSE Streaming (`/lib/sse.ts`)
 
@@ -49,12 +51,22 @@ All Gemini system prompts live in `lib/agents/prompts.ts` (key: `AGENT_PROMPTS`)
 
 ### Types (`/lib/types/analysis.ts`)
 
-All pipeline types are defined here: `ProductBrief`, `Competitor`, `PageData`, `ClassifiedSection`, `SectionFinding`, `Recommendation`, `PipelineContext`, `SSEEvent`. TypeScript strict mode — no `any`.
+All pipeline types are defined here. TypeScript strict mode — no `any`. Key types:
+
+- **Pipeline data**: `ProductBrief`, `CompetitorCandidate`, `Competitor`, `PageData`, `ClassifiedSection`, `PageSections`, `SectionFinding` (has `scores: SectionScores` with 6 sub-scores), `SectionAnalysis`, `Recommendation`, `OverallScores`, `AnalysisResult`, `PipelineContext`
+- **SSE events**: `SSEProgressEvent`, `SSECompleteEvent` (carries `quality: QualityReport`), `SSEErrorEvent` — union type `SSEEvent`
+- **Stage tracking**: `AgentStage` (7 string literals), `StageStatus`, `StageState`
+
+### Quality Scorer (`/lib/utils/quality-scorer.ts`)
+
+`scoreAnalysisQuality(result)` returns a `QualityReport` with `overallQuality` (0–100) computed from 5 weighted signals: evidence grounding (30%), score variance (25%), specificity rate (20%), competitor presence (15%), field completeness (10%). The API attaches this to the `complete` SSE event.
 
 ### UI
 
 - `components/analysis/` — the three main panels (form, progress, results)
+- `components/analysis/results/` — sub-components for the results view: `SectionCard`, `SectionNavSidebar` (sticky scrollspy nav), `SectionInsightCard`, `CompetitorTabSwitcher`, `RecommendationCard`, `ScoreBadge`, `ScreenshotViewer`, `ScreenshotLightbox`, `InsightSlider`, `SkeletonSectionCard`
 - `components/ui/` — shadcn/ui primitives (button, input, card, badge, separator, skeleton)
+- `lib/hooks/useNotification.ts` — browser Notification API hook; fires when analysis completes while the tab is hidden; also manages tab title during run/completion
 - Tailwind CSS v4 (PostCSS), Geist fonts, `"use client"` on all interactive components
 
 ## Environment Variables

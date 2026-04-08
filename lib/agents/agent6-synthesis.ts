@@ -9,7 +9,7 @@ const VALID_SECTION_TYPES = new Set<SectionType>(["hero", "navigation", "feature
 
 export async function runSynthesis(
   ctx: PipelineContext,
-  onRetry?: (delaySeconds: number) => void
+  onRetry?: (delaySeconds: number) => void,
 ): Promise<{ recommendations: Recommendation[]; executiveSummary: string; overallScores?: OverallScores }> {
   if (!ctx.productBrief) {
     throw new AgentError("agent6", "productBrief is missing from pipeline context");
@@ -71,12 +71,11 @@ export async function runSynthesis(
   if (!Array.isArray(raw?.recommendations)) {
     throw new AgentError("agent6", 'Response missing "recommendations" array');
   }
-  if (raw.recommendations.length !== 5) {
-    throw new AgentError(
-      "agent6",
-      `Expected exactly 5 recommendations, got ${raw.recommendations.length}`
-    );
-  }
+
+  // Determine expected sections from pipeline context
+  const expectedSections = new Set(
+    (ctx.sectionAnalyses ?? []).map((s) => s.sectionType)
+  );
 
   // ── Step 6: Map to Recommendation[] ───────────────────────────
   const recommendations = raw.recommendations.map((item, i) => {
@@ -88,6 +87,12 @@ export async function runSynthesis(
         `recommendations[${i}] has invalid priority: "${r.priority}"`
       );
     }
+    if (!VALID_SECTION_TYPES.has(r.section as SectionType)) {
+      throw new AgentError(
+        "agent6",
+        `recommendations[${i}] has invalid or missing section: "${r.section}"`
+      );
+    }
     for (const field of ["title", "reasoning", "competitorExample", "suggestedAction"] as const) {
       if (typeof r[field] !== "string" || !(r[field] as string).trim()) {
         throw new AgentError("agent6", `recommendations[${i}] missing or empty field: ${field}`);
@@ -96,15 +101,29 @@ export async function runSynthesis(
 
     return {
       priority: r.priority as Priority,
-      section: VALID_SECTION_TYPES.has(r.section as SectionType)
-        ? (r.section as SectionType)
-        : undefined,
+      section: r.section as SectionType,
       title: r.title as string,
       reasoning: r.reasoning as string,
       exampleFromCompetitor: r.competitorExample as string,
       suggestedAction: r.suggestedAction as string,
     };
   });
+
+  // Validate per-section counts — warn but don't throw for minor deviations
+  if (expectedSections.size > 0) {
+    const sectionCounts = new Map<string, number>();
+    for (const rec of recommendations) {
+      sectionCounts.set(rec.section, (sectionCounts.get(rec.section) ?? 0) + 1);
+    }
+    for (const section of expectedSections) {
+      const count = sectionCounts.get(section) ?? 0;
+      if (count === 0) {
+        console.warn(`[agent6] Section "${section}" has 0 recommendations — expected 5`);
+      } else if (count < 3) {
+        console.warn(`[agent6] Section "${section}" has only ${count} recommendations — expected 5`);
+      }
+    }
+  }
 
   const executiveSummary =
     typeof raw.executiveSummary === "string" && raw.executiveSummary.trim()

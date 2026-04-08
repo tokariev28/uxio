@@ -13,28 +13,28 @@ import {
 /* ── Data ───────────────────────────────────────────────────────────────── */
 
 const EXAMPLES = [
-  { name: "Linear",      tagline: "The benchmark for UI clarity",         url: "https://linear.app",     image: "/examples/linear.svg" },
-  { name: "Vercel",      tagline: "Developer-first messaging",            url: "https://vercel.com",     image: "/examples/vercel.svg" },
-  { name: "Stripe",      tagline: "Trust signals that convert",           url: "https://stripe.com",     image: "/examples/stripe.svg" },
-  { name: "Notion",      tagline: "Positioning that shifted a market",    url: "https://notion.so",      image: "/examples/notion.svg" },
-  { name: "Figma",       tagline: "Show, don't tell — done perfectly",    url: "https://figma.com",      image: "/examples/figma.svg" },
-  { name: "Loom",        tagline: "Zero ambiguity in the hero",           url: "https://loom.com",       image: "/examples/loom.svg" },
-  { name: "Superhuman",  tagline: "Exclusivity as a conversion tool",     url: "https://superhuman.com", image: "/examples/superhuman.svg" },
-  { name: "Arc",         tagline: "Personality as differentiator",        url: "https://arc.net",        image: "/examples/arc.svg" },
-  { name: "Framer",      tagline: "Product demo in the hero itself",      url: "https://framer.com",     image: "/examples/framer.svg" },
-  { name: "Raycast",     tagline: "Community-driven viral growth",        url: "https://raycast.com",    image: "/examples/raycast.svg" },
-  { name: "Slack",       tagline: "Social proof at scale",                url: "https://slack.com",      image: "/examples/slack.svg" },
-  { name: "Intercom",    tagline: "Outcome-first value proposition",      url: "https://intercom.com",   image: "/examples/intercom.svg" },
-  { name: "Webflow",     tagline: "Visual proof in every scroll",         url: "https://webflow.com",    image: "/examples/webflow.svg" },
-  { name: "Mixpanel",    tagline: "Data storytelling as positioning",     url: "https://mixpanel.com",   image: "/examples/mixpanel.svg" },
-  { name: "Calendly",    tagline: "Frictionless CTA hierarchy",           url: "https://calendly.com",   image: "/examples/calendly.svg" },
-  { name: "Ahrefs",      tagline: "Credibility through specificity",      url: "https://ahrefs.com",     image: "/examples/ahrefs.svg" },
-  { name: "Pitch",       tagline: "Brand confidence from pixel one",      url: "https://pitch.com",      image: "/examples/pitch.svg" },
-  { name: "Mercury",     tagline: "Trust in a regulated space",           url: "https://mercury.com",    image: "/examples/mercury.svg" },
-  { name: "Craft",       tagline: "Aesthetic as the product promise",     url: "https://craft.do",       image: "/examples/craft.svg" },
-  { name: "Perplexity",  tagline: "Clarity over complexity",              url: "https://perplexity.ai",  image: "/examples/perplexity.svg" },
-  { name: "Resend",      tagline: "Developer experience as marketing",    url: "https://resend.com",     image: "/examples/resend.svg" },
-  { name: "Cron",        tagline: "Minimalism with maximum intent",       url: "https://cron.com",       image: "/examples/cron.svg" },
+  { name: "Linear",      tagline: "The benchmark for UI clarity",         url: "https://linear.app",     image: "/examples/linear.png" },
+  { name: "Vercel",      tagline: "Developer-first messaging",            url: "https://vercel.com",     image: "/examples/vercel.png" },
+  { name: "Stripe",      tagline: "Trust signals that convert",           url: "https://stripe.com",     image: "/examples/stripe.png" },
+  { name: "Notion",      tagline: "Positioning that shifted a market",    url: "https://notion.so",      image: "/examples/notion.png" },
+  { name: "Figma",       tagline: "Show, don't tell — done perfectly",    url: "https://figma.com",      image: "/examples/figma.png" },
+  { name: "Loom",        tagline: "Zero ambiguity in the hero",           url: "https://loom.com",       image: "/examples/loom.png" },
+  { name: "Superhuman",  tagline: "Exclusivity as a conversion tool",     url: "https://superhuman.com", image: "/examples/superhuman.png" },
+  { name: "Arc",         tagline: "Personality as differentiator",        url: "https://arc.net",        image: "/examples/arc.png" },
+  { name: "Framer",      tagline: "Product demo in the hero itself",      url: "https://framer.com",     image: "/examples/framer.png" },
+  { name: "Raycast",     tagline: "Community-driven viral growth",        url: "https://raycast.com",    image: "/examples/raycast.png" },
+  { name: "Slack",       tagline: "Social proof at scale",                url: "https://slack.com",      image: "/examples/slack.png" },
+  { name: "Intercom",    tagline: "Outcome-first value proposition",      url: "https://intercom.com",   image: "/examples/intercom.png" },
+  { name: "Webflow",     tagline: "Visual proof in every scroll",         url: "https://webflow.com",    image: "/examples/webflow.png" },
+  { name: "Mixpanel",    tagline: "Data storytelling as positioning",     url: "https://mixpanel.com",   image: "/examples/mixpanel.png" },
+  { name: "Calendly",    tagline: "Frictionless CTA hierarchy",           url: "https://calendly.com",   image: "/examples/calendly.png" },
+  { name: "Ahrefs",      tagline: "Credibility through specificity",      url: "https://ahrefs.com",     image: "/examples/ahrefs.png" },
+  { name: "Pitch",       tagline: "Brand confidence from pixel one",      url: "https://pitch.com",      image: "/examples/pitch.png" },
+  { name: "Mercury",     tagline: "Trust in a regulated space",           url: "https://mercury.com",    image: "/examples/mercury.png" },
+  { name: "Craft",       tagline: "Aesthetic as the product promise",     url: "https://craft.do",       image: "/examples/craft.png" },
+  { name: "Perplexity",  tagline: "Clarity over complexity",              url: "https://perplexity.ai",  image: "/examples/perplexity.png" },
+  { name: "Resend",      tagline: "Developer experience as marketing",    url: "https://resend.com",     image: "/examples/resend.png" },
+  { name: "Cron",        tagline: "Minimalism with maximum intent",       url: "https://cron.com",       image: "/examples/cron.png" },
 ] as const;
 
 type Example = (typeof EXAMPLES)[number];
@@ -130,8 +130,9 @@ function GalleryCard({
   return (
     <motion.div
       ref={cardRef}
-      className="relative shrink-0 cursor-pointer overflow-hidden rounded-xl w-[220px] sm:w-[260px] shadow-md hover:shadow-xl transition-shadow"
+      className="relative shrink-0 cursor-pointer overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-shadow"
       style={{
+        height: "38vh",
         aspectRatio: "16/10",
         rotateY: reducedMotion ? 0 : rotateY,
         rotateX: reducedMotion ? 0 : mouseRotateX,
@@ -148,7 +149,7 @@ function GalleryCard({
       <img
         src={item.image}
         alt={item.name}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-cover object-top"
         draggable={false}
       />
 
@@ -192,12 +193,12 @@ export function InspirationGallery() {
 
   return (
     <div className="w-full">
-      <p className="text-xs text-muted-foreground/50 mb-3 px-6">
+      <p className="text-2xl font-bold text-foreground mb-5 px-6">
         The bar you&apos;re being measured against
       </p>
       <div
         ref={containerRef}
-        className="flex gap-3 overflow-x-auto px-6 pb-4 gallery-scroll"
+        className="flex gap-5 overflow-x-auto px-6 py-4 pb-8 gallery-scroll"
         style={{ scrollSnapType: "x mandatory" }}
       >
         {EXAMPLES.map((item) => (
