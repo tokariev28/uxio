@@ -7,6 +7,43 @@ import { AgentError } from "@/lib/agents/errors";
 const VALID_PRIORITIES = new Set<Priority>(["critical", "high", "medium"]);
 const VALID_SECTION_TYPES = new Set<SectionType>(["hero", "navigation", "features", "benefits", "socialProof", "testimonials", "integrations", "howItWorks", "pricing", "faq", "cta", "footer"]);
 
+// ── Compute overallScores from Agent5 data (not LLM-generated) ─────────────
+function computeOverallScores(ctx: PipelineContext): OverallScores | undefined {
+  const analyses = ctx.sectionAnalyses;
+  if (!analyses?.length) return undefined;
+
+  const allFindings = analyses.flatMap((sa) => sa.findings);
+  if (!allFindings.length) return undefined;
+
+  // Group scores by site label
+  const scoresBySite = new Map<string, number[]>();
+  for (const f of allFindings) {
+    if (typeof f.score !== "number" || f.score < 0 || f.score > 1) continue;
+    const existing = scoresBySite.get(f.site) ?? [];
+    existing.push(f.score);
+    scoresBySite.set(f.site, existing);
+  }
+
+  const avg = (nums: number[]) =>
+    nums.length > 0 ? Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 100) / 100 : 0;
+
+  const result: OverallScores = { input: 0 };
+
+  for (const [site, scores] of scoresBySite) {
+    if (site === "input") {
+      result.input = avg(scores);
+    } else {
+      // Use competitor name as key (e.g. "competitor1", "competitor2", etc.)
+      const competitorIndex = [...scoresBySite.keys()]
+        .filter((k) => k !== "input")
+        .indexOf(site);
+      result[`competitor${competitorIndex + 1}`] = avg(scores);
+    }
+  }
+
+  return result;
+}
+
 export async function runSynthesis(
   ctx: PipelineContext,
 ): Promise<{ recommendations: Recommendation[]; executiveSummary: string; overallScores?: OverallScores }> {
@@ -52,7 +89,7 @@ export async function runSynthesis(
   }
 
   // ── Step 3: Parse JSON ─────────────────────────────────────────
-  let raw: { recommendations: unknown[]; executiveSummary?: unknown; overallScores?: Record<string, unknown> };
+  let raw: { recommendations: unknown[]; executiveSummary?: unknown };
   try {
     raw = JSON.parse(extractJSON(rawText)) as typeof raw;
   } catch (err) {
@@ -101,6 +138,10 @@ export async function runSynthesis(
       reasoning: r.reasoning as string,
       exampleFromCompetitor: r.competitorExample as string,
       suggestedAction: r.suggestedAction as string,
+      impact:
+        typeof r.impact === "string" && (r.impact as string).trim()
+          ? (r.impact as string).trim()
+          : undefined,
     };
   });
 
@@ -113,9 +154,9 @@ export async function runSynthesis(
     for (const section of expectedSections) {
       const count = sectionCounts.get(section) ?? 0;
       if (count === 0) {
-        console.warn(`[agent6] Section "${section}" has 0 recommendations — expected 5`);
-      } else if (count < 3) {
-        console.warn(`[agent6] Section "${section}" has only ${count} recommendations — expected 5`);
+        console.warn(`[agent6] Section "${section}" has 0 recommendations — expected 3`);
+      } else if (count < 2) {
+        console.warn(`[agent6] Section "${section}" has only ${count} recommendations — expected 3`);
       }
     }
   }
@@ -125,14 +166,9 @@ export async function runSynthesis(
       ? raw.executiveSummary.trim()
       : "";
 
-  // Extract overallScores if present (prompt requests input + competitor scores)
-  let overallScores: OverallScores | undefined;
-  if (raw.overallScores && typeof raw.overallScores === "object") {
-    const allNumeric = Object.values(raw.overallScores).every((v) => typeof v === "number");
-    if (allNumeric) {
-      overallScores = raw.overallScores as unknown as OverallScores;
-    }
-  }
+  // Compute overallScores programmatically from Agent5 section scores —
+  // grounded in real data instead of LLM-generated numbers.
+  const overallScores = computeOverallScores(ctx);
 
   return { recommendations, executiveSummary, overallScores };
 }

@@ -3,11 +3,54 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { Recommendation, Priority } from "@/lib/types/analysis";
+import type { Recommendation, Priority, Competitor } from "@/lib/types/analysis";
 import { toSentenceCase } from "@/lib/utils";
 
 interface InsightSliderProps {
   insights: Recommendation[];
+  competitors?: Competitor[];
+}
+
+function getDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function renderReasoningText(text: string, competitors: Competitor[]) {
+  const named = competitors.filter((c) => c.name);
+  if (!named.length) return text;
+
+  const escaped = named.map((c) => c.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const pattern = new RegExp(`(${escaped.join("|")})`, "g");
+  const parts = text.split(pattern);
+  const seen = new Set<string>();
+
+  return parts.map((part, i) => {
+    const comp = named.find((c) => c.name === part);
+    if (!comp) return part;
+
+    const isFirst = !seen.has(comp.name);
+    seen.add(comp.name);
+    const domain = getDomain(comp.url);
+
+    return (
+      <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 3, verticalAlign: "middle" }}>
+        {isFirst && domain && (
+          <img
+            src={`https://www.google.com/s2/favicons?domain=${domain}&sz=16`}
+            width={14}
+            height={14}
+            alt=""
+            style={{ borderRadius: 2, verticalAlign: "middle" }}
+          />
+        )}
+        <strong style={{ color: "#111", fontWeight: 600 }}>{part}</strong>
+      </span>
+    );
+  });
 }
 
 const PRIORITY_COLORS: Record<Priority, string> = {
@@ -28,7 +71,7 @@ const variants = {
   }),
 };
 
-export function InsightSlider({ insights }: InsightSliderProps) {
+export function InsightSlider({ insights, competitors = [] }: InsightSliderProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -134,12 +177,9 @@ export function InsightSlider({ insights }: InsightSliderProps) {
                   {toSentenceCase(insight.title)}
                 </h3>
 
-                {/* Description (evidence merged inline) */}
+                {/* Reasoning with inline competitor highlights */}
                 <p style={{ fontSize: 14, fontWeight: 400, lineHeight: 1.7, color: "#64748b" }}>
-                  {insight.reasoning}
-                  {insight.exampleFromCompetitor && (
-                    <> {insight.exampleFromCompetitor}</>
-                  )}
+                  {renderReasoningText(insight.reasoning, competitors)}
                 </p>
               </div>
 

@@ -144,10 +144,13 @@ export async function runAnalyzer(
   const competitors = ctx.competitors ?? [];
 
   // ── Process all pages in parallel — each analyzePageBatch call is independent
-  const pageJobs = ctx.pages.map((page, i) => {
-    if (!page.screenshotBase64) return Promise.resolve<BatchSectionResult[]>([]);
-    const pageSections = ctx.pageSections![i];
+  const pageJobs = ctx.pages.map((page) => {
+    // Match pageSections by URL instead of index to prevent misalignment
+    // when Agent4 skips a page via Promise.allSettled
+    const pageSections = ctx.pageSections!.find((ps) => ps.url === page.url);
     if (!pageSections?.sections.length) return Promise.resolve<BatchSectionResult[]>([]);
+    // Analyze even without screenshot (text-only fallback) — lower quality
+    // than multimodal but better than skipping the page entirely
     return analyzePageBatch(page, pageSections, ctx);
   });
 

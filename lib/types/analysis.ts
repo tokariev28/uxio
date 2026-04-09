@@ -107,6 +107,7 @@ export interface Recommendation {
   reasoning: string;
   exampleFromCompetitor: string;
   suggestedAction: string;
+  impact?: string; // Expected outcome of implementing this recommendation
 }
 
 // ── Overall Scores (Agent 6 output) ───────────────────────────

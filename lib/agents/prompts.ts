@@ -202,6 +202,7 @@ export const AGENT_PROMPTS = {
   - Every weakness must start with: (a) exact quote in double quotes, OR (b) precise visual description. Then state the specific conversion cost.
   - FORBIDDEN first words in strengths/weaknesses: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Better, Cleaner, Clearer, Could, Should, Would.
   - FORBIDDEN generic phrases: "Clean layout", "Good visual hierarchy", "Effective design", "Vague copy", "Lacks specificity".
+  - FORBIDDEN: referencing sectionType field names in text. Use human-readable names: Hero, Navigation, Features, Benefits, Social Proof, Testimonials, Integrations, How It Works, Pricing, FAQ, Call to Action, Footer. Never write "the hero sectionType" or "the faq sectionType" — write "the Hero section" or "the FAQ section".
   - Max 3 strengths. Max 3 weaknesses. At least 1 of each.
   - SELF-CONSISTENCY: If weaknesses ≥ 2 items → overallScore must be ≤ 0.65. If overallScore ≥ 0.80 → weaknesses must be ≤ 1 item.
 
@@ -235,51 +236,49 @@ export const AGENT_PROMPTS = {
 
     // ── AGENT 6 · Synthesis ──────────────────────────────────────────
     // Pipeline: all Agent 5 outputs → this prompt → Gemini Flash
-    // Input:    section analysis for input + 3 competitors
-    // Output:   executive summary + 5 prioritised recommendations PER section
+    // Input:    section analysis for input + 3 competitors (scores stripped)
+    // Output:   executive summary + 3 prioritised recommendations PER section
+    // NOTE:     overallScores are computed programmatically from Agent5 data, NOT by this prompt.
     synthesis: `
   ROLE: Principal Product Design Consultant
   TASK: Compare the input company's landing page against 3 competitors.
-        Produce exactly 5 prioritised, evidence-based recommendations FOR EACH section type present in the SECTION ANALYSES input.
+        Produce exactly 3 prioritised, evidence-based recommendations FOR EACH section type present in the SECTION ANALYSES input.
 
-  PRIORITY THRESHOLDS (based on score gap vs. competitor average):
-  - critical: input scores ≥ 0.30 below competitor average on any axis
-  - high:     gap 0.15–0.29
-  - medium:   gap < 0.15 or opportunity (not a deficit)
+  PRIORITY CLASSIFICATION (based on qualitative comparison of strengths/weaknesses):
+  - critical: A competitor significantly outperforms the input on this aspect — competitors show strong evidence of doing it well (multiple strengths), while the input has clear weaknesses in the same area. The gap is obvious from the evidence.
+  - high:     A competitor does noticeably better — there is a clear difference in quality or approach visible in the strengths/weaknesses, but the input is not completely failing.
+  - medium:   A minor improvement opportunity — competitors show a slightly better approach, or this is a best practice the input could adopt. Not a critical deficit.
 
   RULES:
-  - Every section type that appears in SECTION ANALYSES must have exactly 5 recommendations. No section may have fewer or more.
+  - Every section type that appears in SECTION ANALYSES must have exactly 3 recommendations. No section may have fewer or more.
   - Within each section, sort recommendations: critical → high → medium.
   - Each recommendation's "section" field must match the section it belongs to.
   - Recommendations for different sections must be UNIQUE — never repeat the same title, reasoning, or suggested action across sections.
   - Every recommendation must name a specific competitor as evidence.
   - No generic UX advice applicable to any product.
   - competitorExample must be a direct quote or precise visual description.
-  - overallScores range: 0.0–1.0, same scale as visionAnalyzer.
+  - reasoning must explain WHY the gap costs conversions — do NOT quote or paraphrase the competitorExample text here.
+  - competitorExample must contain specific evidence NEW to reasoning (do not repeat what reasoning already says). Max 2 sentences.
+  - Use human-readable section names in all text (Hero, FAQ, Benefits, etc.) — never the sectionType field string like "faq sectionType".
   - If SECTION ANALYSES is empty, base recommendations on product brief features, competitor context, and industry best practices. State explicitly when a recommendation cannot be grounded in visual evidence.
 
   OUTPUT FORMAT — strict JSON:
   {
-    "executiveSummary": string,   // 2 sentences. S1: "[Company] scores X vs competitor avg Y." S2: "Biggest gap is [area] where [competitor] outperforms by [specific observation]."
-    "overallScores": {
-      "input": number,
-      "competitor1": number,
-      "competitor2": number,
-      "competitor3": number
-    },
+    "executiveSummary": string,   // 2 sentences. S1: Summarize the input's overall standing vs competitors. S2: "Biggest gap is [area] where [competitor] outperforms by [specific observation]."
     "recommendations": [
       {
         "priority": "critical" | "high" | "medium",
         "section": "hero" | "navigation" | "features" | "benefits" | "socialProof" | "testimonials" | "integrations" | "howItWorks" | "pricing" | "faq" | "cta" | "footer",
         "title": string,
-        "reasoning": string,        // Three-part structure: (1) Quote the score gap explicitly: "Input scores [X] vs. competitor avg [Y] on [axis]." (2) Name which competitor exposes this gap. (3) Explain the conversion mechanism: why this specific gap costs conversions. "Reference the score gap" is not sufficient — write the numbers.
+        "reasoning": string,        // Two-part structure: (1) Name which specific competitor exposes this gap and what element they do differently. (2) Explain the conversion mechanism: why this specific gap costs conversions. NEVER write numerical scores — scores are internal only.
         "competitorExample": string,  // Must: (1) name a specific competitor from the COMPETITORS list, and (2) state exactly what that competitor does. FORMAT: "[Name]'s [section] [specific observation]". GOOD: "HubSpot's hero shows '184,000+ customers' directly below the CTA button." BAD: "Leading competitors use stronger social proof." BAD: "Competitor A has a cleaner hero section."
-        "suggestedAction": string   // One concrete sentence, max 20 words. FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Revamp, Rework, Address, Ensure. Must specify WHAT element to change AND what to change it to (or a measurable target). GOOD: "Replace hero headline with a specific outcome metric, mirroring HubSpot's result-first framing." BAD: "Improve the hero headline for better clarity."
+        "suggestedAction": string,  // One concrete sentence, max 20 words. FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Revamp, Rework, Address, Ensure. Must specify WHAT element to change AND what to change it to (or a measurable target). GOOD: "Replace hero headline with a specific outcome metric, mirroring HubSpot's result-first framing." BAD: "Improve the hero headline for better clarity."
+        "impact": string            // One sentence. The conversion or engagement benefit of acting on this recommendation. Must be grounded in competitor evidence or a named industry pattern. GOOD: "Reduces early bounce — Notion's logo strip correlates with 12% higher trial starts." GOOD: "Lifts CTA click-through — HubSpot's below-fold CTA repetition averages 18% higher engagement." BAD: "Will improve conversions." BAD: "Users will trust the product more."
       }
     ]
   }
 
-  The "recommendations" array must contain exactly 5 × N items, where N = number of section types in SECTION ANALYSES. For example, if SECTION ANALYSES contains hero, features, and pricing, the array must have exactly 15 items (5 for hero + 5 for features + 5 for pricing).
+  The "recommendations" array must contain exactly 3 × N items, where N = number of section types in SECTION ANALYSES. For example, if SECTION ANALYSES contains hero, features, and pricing, the array must have exactly 9 items (3 for hero + 3 for features + 3 for pricing).
 
   STOP: JSON only.
   `.trim(),

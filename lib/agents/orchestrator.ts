@@ -2,6 +2,7 @@ import type {
   PipelineContext,
   AnalysisResult,
   AgentStage,
+  PageData,
 } from "@/lib/types/analysis";
 import { scoreAnalysisQuality } from "@/lib/utils/quality-scorer";
 import type { SSEWriter } from "@/lib/sse";
@@ -111,10 +112,18 @@ export async function runPipeline(
       });
     }
 
+    // Strip screenshotBase64 from pages before sending to client —
+    // screenshots are used by Agent5 for analysis but no longer displayed in UI.
+    // Each base64 image is ~1-3 MB; removing them cuts SSE payload by ~4-12 MB.
+    const pagesWithoutScreenshots: PageData[] = ctx.pages!.map(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      ({ screenshotBase64: _, ...rest }) => rest
+    );
+
     const result: AnalysisResult = {
       productBrief: ctx.productBrief!,
       competitors: ctx.competitors!,
-      pages: ctx.pages!,
+      pages: pagesWithoutScreenshots,
       sections: ctx.sectionAnalyses!,
       recommendations: ctx.recommendations!,
       executiveSummary: ctx.executiveSummary,

@@ -62,6 +62,13 @@ export async function runValidator(
   // Accept 3–5: top 3 = primary, positions 4–5 = backup fallbacks for agent3
   const validatedPool = raw.competitors.slice(0, 5);
 
+  // Build candidate domain set for URL validation
+  const candidateDomainSet = new Set(
+    candidates.map((c) => {
+      try { return new URL(c.url).hostname.replace(/^www\./, ""); } catch { return ""; }
+    }).filter(Boolean)
+  );
+
   const competitors: Competitor[] = validatedPool.map((item, i) => {
     const c = item as Record<string, unknown>;
     for (const field of ["url", "name", "matchReason"] as const) {
@@ -72,13 +79,39 @@ export async function runValidator(
     if (typeof c.matchScore !== "number") {
       throw new AgentError("agent2", `competitors[${i}] matchScore must be a number`);
     }
+    // Normalize matchScore to 0–1 range (LLM sometimes returns 0–100 scale)
+    if ((c.matchScore as number) > 1) {
+      c.matchScore = (c.matchScore as number) / 100;
+    }
+    if ((c.matchScore as number) < 0 || (c.matchScore as number) > 1) {
+      throw new AgentError("agent2", `competitors[${i}] matchScore out of range: ${c.matchScore}`);
+    }
+    // Validate that competitor URL exists among original candidates (by domain)
+    let competitorDomain: string;
+    try {
+      competitorDomain = new URL(c.url as string).hostname.replace(/^www\./, "");
+    } catch {
+      throw new AgentError("agent2", `competitors[${i}] has invalid URL: ${c.url}`);
+    }
+    if (!candidateDomainSet.has(competitorDomain)) {
+      console.warn(`[agent2] LLM returned URL not in candidates: ${c.url} — skipping`);
+      return null;
+    }
+
     return {
       url: c.url as string,
       name: c.name as string,
       matchScore: c.matchScore as number,
       matchReason: c.matchReason as string,
     };
-  });
+  }).filter((c): c is Competitor => c !== null);
+
+  if (competitors.length < 3) {
+    throw new AgentError(
+      "agent2",
+      `Only ${competitors.length} competitors matched candidate URLs (need at least 3)`
+    );
+  }
 
   return competitors;
 }
