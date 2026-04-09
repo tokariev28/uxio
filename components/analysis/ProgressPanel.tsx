@@ -67,8 +67,10 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
         {/* Spinner header — visible while any stage is running */}
         {anyRunning && (
           <div className="flex items-center gap-2 mb-4">
-            <div className="size-3.5 rounded-full border-[1.5px] border-border border-t-foreground/40 animate-spin flex-shrink-0" />
-            <span className="text-sm text-muted-foreground italic">Working…</span>
+            <svg className="size-3.5 animate-spin flex-shrink-0" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <path d="M14.3331 4L17.6509 4.00451L17.6516 9.24162C19.8073 8.82976 20.5851 8.34036 22.4033 7.20749L23.2962 6.33786C24.0687 7.11002 24.8874 7.90426 25.6434 8.68704L19.9838 14.3408L27.9824 14.3385L27.9827 17.6411L19.9887 17.6422L25.6442 23.2954L23.2967 25.6434C23.0612 25.4127 22.6386 24.9697 22.4039 24.7719C22.0649 24.5918 21.5291 24.2211 21.1604 24.0057C19.9519 23.2996 18.9999 23.0233 17.6522 22.7276V27.9792L14.3293 27.9796C14.3273 26.2579 14.2965 24.446 14.3388 22.7312C13.264 22.9654 12.5976 23.1244 11.5888 23.5807C11.1959 23.7582 9.809 24.6763 9.63701 24.7158C9.46149 24.8593 8.87441 25.461 8.68658 25.6449L6.33786 23.2954L11.9894 17.6396L4.00117 17.6384L4 14.3371L11.991 14.3369L6.33628 8.68281L8.681 6.33428L9.73811 7.37302C10.0276 7.40172 10.8865 8.06562 11.3431 8.27858C12.4493 8.79431 13.1731 8.99212 14.3436 9.25254C14.3051 7.52553 14.3307 5.73181 14.3331 4Z" fill="currentColor" />
+            </svg>
+            <span className="text-sm text-muted-foreground italic">Analyzing…</span>
           </div>
         )}
 

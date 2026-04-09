@@ -817,7 +817,7 @@ Open `http://localhost:3000`.
 Submit any real URL (e.g. `https://linear.app`).
 
 Check each stage in order:
-1. Spinner + "Working…" appears immediately
+1. Spinner + "Analyzing…" appears immediately
 2. Stage 0 (page-intelligence): chip showing `linear.app` appears
 3. Stage 0 turns green dot, Stage 1 activates with blue dot
 4. Stage 1 (discovery): 3 monospace Tavily query chips appear

@@ -10,7 +10,7 @@ The current `ProgressPanel` shows analysis stages as a vertical list with a shim
 ## Visual Design
 
 ### Chrome
-- **Header:** CSS spinner (circle with partial border, rotating) + italic "Working…" text in muted gray
+- **Header:** CSS spinner (circle with partial border, rotating) + italic "Analyzing…" text in muted gray
 - **Done stages:** small filled green dot + stage label in light gray (`text-muted-foreground/50`)
 - **Active stage:** small filled blue dot + stage label in foreground color
 - **Pending stages:** hidden (progressive reveal unchanged)
@@ -94,7 +94,7 @@ interface StageState {
 // Header (once, when any stage is running)
 <div className="flex items-center gap-2 mb-4">
   <div className="spinner" />   {/* CSS only, no framer-motion */}
-  <span className="text-sm text-muted-foreground italic">Working…</span>
+  <span className="text-sm text-muted-foreground italic">Analyzing…</span>
 </div>
 
 // Done stage
@@ -150,7 +150,7 @@ interface StageState {
 ## Verification
 
 1. Run `npm run dev`, submit a URL
-2. Confirm spinner + "Working…" appears at top when analysis starts
+2. Confirm spinner + "Analyzing…" appears at top when analysis starts
 3. Stage 0: chip with input URL appears
 4. Stage 1: 3 monospace Tavily query chips appear as discovery runs
 5. Stage 2: candidate domain chips appear before ranking
