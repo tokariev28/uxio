@@ -59,7 +59,7 @@ export function ScreenshotLightbox({ src, domain, onClose }: ScreenshotLightboxP
           borderRadius: 16,
           overflow: "hidden",
           maxWidth: "90vw",
-          maxHeight: "85vh",
+          maxHeight: "92vh",
           boxShadow: "0 24px 80px rgba(0,0,0,0.2)",
           cursor: "default",
           animation: "lightbox-scale-in 250ms cubic-bezier(0.16, 1, 0.3, 1)",
@@ -67,13 +67,13 @@ export function ScreenshotLightbox({ src, domain, onClose }: ScreenshotLightboxP
           flexDirection: "column",
         }}
       >
-        <div style={{ overflow: "auto", maxHeight: "calc(85vh - 50px)" }}>
+        <div style={{ overflow: "auto", maxHeight: "calc(92vh - 50px)" }}>
           {imgSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imgSrc}
               alt={`Screenshot of ${domain}`}
-              style={{ width: 600, maxWidth: "90vw", display: "block" }}
+              style={{ width: "min(1000px, 90vw)", display: "block" }}
             />
           ) : (
             <div

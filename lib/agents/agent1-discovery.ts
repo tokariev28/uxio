@@ -1,6 +1,14 @@
 import type { PipelineContext, CompetitorCandidate } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 
+const META_DOMAINS = new Set([
+  'g2.com', 'capterra.com', 'trustpilot.com', 'getapp.com',
+  'softwareadvice.com', 'gartner.com', 'sourceforge.net',
+  'alternativeto.net', 'techcrunch.com', 'forbes.com',
+  'linkedin.com', 'twitter.com', 'facebook.com', 'youtube.com',
+  'reddit.com', 'quora.com',
+]);
+
 interface TavilyResult {
   url: string;
 }
@@ -29,7 +37,7 @@ async function tavilySearch(
       api_key: apiKey,
       query,
       search_depth: "basic",
-      max_results: 7,
+      max_results: 10,
     }),
   });
 
@@ -71,6 +79,14 @@ export async function runDiscovery(
       label: "g2",
       query: `site:g2.com ${brief.company} competitors`,
     },
+    {
+      label: "vs",
+      query: `"${brief.company}" vs`,
+    },
+    {
+      label: "category",
+      query: `${brief.industry} software alternatives 2025`,
+    },
   ];
 
   // Emit the actual search queries as chips
@@ -98,12 +114,16 @@ export async function runDiscovery(
       }
 
       if (domain === inputDomain) continue;
+      if (META_DOMAINS.has(domain)) continue;
 
       if (map.has(domain)) {
         map.get(domain)!.mentions += 1;
       } else {
+        // Normalize to root homepage — prevents blog/deep-page URLs from
+        // propagating through the scraping pipeline
+        const { protocol, hostname } = new URL(url);
         map.set(domain, {
-          url,
+          url: `${protocol}//${hostname}`,
           name: nameFromDomain(domain),
           source: label,
           mentions: 1,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { ScreenshotViewer } from "./ScreenshotViewer";
 import { ScreenshotLightbox } from "./ScreenshotLightbox";
 import { InsightSlider } from "./InsightSlider";
@@ -31,27 +32,34 @@ const SECTION_LABELS: Record<SectionType, string> = {
   footer: "Footer",
 };
 
-// Compute CSS object-position from the actual scrollFraction of a section
-// (startChar / totalMarkdownLength → approximate vertical position on page)
-function computeObjectPosition(
+// Fallback scroll fractions per section type when pageSections data is unavailable
+const SCROLL_FRACTION_FALLBACK: Record<SectionType, number> = {
+  hero: 0.0,
+  navigation: 0.0,
+  features: 0.25,
+  benefits: 0.30,
+  socialProof: 0.40,
+  testimonials: 0.45,
+  integrations: 0.50,
+  howItWorks: 0.55,
+  pricing: 0.60,
+  faq: 0.70,
+  cta: 0.80,
+  footer: 0.90,
+};
+
+// Returns 0–1 scroll fraction for a section in a given page's classified sections.
+function computeScrollFraction(
   sectionType: SectionType,
   pageSections: PageSections[] | undefined,
   pageIndex: number
-): string {
+): number {
   const sections = pageSections?.[pageIndex]?.sections;
   const match = sections?.find((s) => s.type === sectionType);
   if (match?.scrollFraction !== undefined) {
-    const pct = Math.min(90, Math.max(0, Math.round(match.scrollFraction * 100)));
-    return `center ${pct}%`;
+    return Math.min(0.95, Math.max(0, match.scrollFraction));
   }
-  // Fallback: rough approximation by section type
-  const FALLBACK: Record<SectionType, string> = {
-    hero: "center 0%", navigation: "center 0%", features: "center 25%",
-    benefits: "center 30%", socialProof: "center 40%", testimonials: "center 45%",
-    integrations: "center 50%", howItWorks: "center 55%", pricing: "center 60%",
-    faq: "center 70%", cta: "center 80%", footer: "center 90%",
-  };
-  return FALLBACK[sectionType] ?? "center 0%";
+  return SCROLL_FRACTION_FALLBACK[sectionType] ?? 0;
 }
 
 const PRIORITY_ORDER: Record<Priority, number> = {
@@ -115,15 +123,25 @@ export function SectionCard({
     if (count > 0) priorityCounts.push({ priority: p, count });
   }
 
-  // ── Competitor screenshots (no "YOU") ──────────────────────────────────
-  const competitorCols = competitors.slice(0, 3).map((c, i) => ({
-    key: c.name,
-    src: pages[i + 1]?.screenshotBase64,
-    siteUrl: c.url,
-    domain: domainFrom(c.url),
-    // pageIndex i+1: pages[0] = input, pages[1..3] = competitors
-    objectPosition: computeObjectPosition(section.sectionType, pageSections, i + 1),
-  }));
+  // ── Competitor columns ─────────────────────────────────────────────────
+  // hasSection: competitor has at least one finding for this section type
+  const competitorCols = competitors.slice(0, 3).map((c, i) => {
+    const domain = domainFrom(c.url);
+    const hasSection = section.findings.some(
+      (f) => f.site === c.url || f.site === c.name || (domain && f.site.includes(domain))
+    );
+    return {
+      key: c.name,
+      src: pages[i + 1]?.screenshotBase64,
+      siteUrl: c.url,
+      domain,
+      // pageIndex i+1: pages[0] = input, pages[1..3] = competitors
+      scrollFraction: computeScrollFraction(section.sectionType, pageSections, i + 1),
+      hasSection,
+    };
+  });
+
+  const THUMB_HEIGHT = 180;
 
   return (
     <div
@@ -225,75 +243,105 @@ export function SectionCard({
             >
               {competitorCols.map((col) => (
                 <div key={col.key}>
-                  <div
-                    onClick={() => setLightbox({ src: col.src, domain: col.domain })}
-                    style={{
-                      position: "relative",
-                      height: 110,
-                      borderRadius: 10,
-                      overflow: "hidden",
-                      border: "1px solid rgba(0,0,0,0.04)",
-                      cursor: "pointer",
-                      transition: "all 200ms ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      const el = e.currentTarget;
-                      el.style.borderColor = "rgba(0,0,0,0.12)";
-                      el.style.boxShadow = "0 2px 12px rgba(0,0,0,0.06)";
-                      const hint = el.querySelector("[data-expand-hint]") as HTMLElement | null;
-                      if (hint) hint.style.opacity = "1";
-                    }}
-                    onMouseLeave={(e) => {
-                      const el = e.currentTarget;
-                      el.style.borderColor = "rgba(0,0,0,0.04)";
-                      el.style.boxShadow = "none";
-                      const hint = el.querySelector("[data-expand-hint]") as HTMLElement | null;
-                      if (hint) hint.style.opacity = "0";
-                    }}
-                  >
-                    <ScreenshotViewer
-                      src={col.src}
-                      siteUrl={col.siteUrl}
-                      alt={`${label} — ${col.domain}`}
-                      objectPosition={col.objectPosition}
-                      height={110}
-                    />
+                  {col.hasSection ? (
+                    /* ── Competitor HAS this section → screenshot ──── */
                     <div
-                      data-expand-hint
+                      onClick={() => setLightbox({ src: col.src, domain: col.domain })}
                       style={{
-                        position: "absolute",
-                        bottom: 8,
-                        right: 8,
-                        width: 24,
-                        height: 24,
-                        borderRadius: 6,
-                        background: "rgba(255,255,255,0.9)",
-                        backdropFilter: "blur(4px)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        opacity: 0,
-                        transition: "opacity 200ms ease",
-                        zIndex: 1,
+                        position: "relative",
+                        height: THUMB_HEIGHT,
+                        borderRadius: 10,
+                        overflow: "hidden",
+                        border: "1px solid rgba(0,0,0,0.04)",
+                        cursor: "pointer",
+                        transition: "all 200ms ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        const el = e.currentTarget;
+                        el.style.borderColor = "rgba(0,0,0,0.12)";
+                        el.style.boxShadow = "0 2px 12px rgba(0,0,0,0.06)";
+                        const hint = el.querySelector("[data-expand-hint]") as HTMLElement | null;
+                        if (hint) hint.style.opacity = "1";
+                      }}
+                      onMouseLeave={(e) => {
+                        const el = e.currentTarget;
+                        el.style.borderColor = "rgba(0,0,0,0.04)";
+                        el.style.boxShadow = "none";
+                        const hint = el.querySelector("[data-expand-hint]") as HTMLElement | null;
+                        if (hint) hint.style.opacity = "0";
                       }}
                     >
-                      <svg width={12} height={12} viewBox="0 0 14 14" fill="none">
-                        <path
-                          d="M8.5 2H12V5.5M5.5 12H2V8.5M12 2L8 6M2 12L6 8"
-                          stroke="#374151"
-                          strokeWidth={1.3}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                      <ScreenshotViewer
+                        key={col.src ?? col.siteUrl}
+                        src={col.src}
+                        siteUrl={col.siteUrl}
+                        scrollFraction={col.scrollFraction}
+                        alt={`${label} — ${col.domain}`}
+                        height={THUMB_HEIGHT}
+                      />
+                      <div
+                        data-expand-hint
+                        style={{
+                          position: "absolute",
+                          bottom: 8,
+                          right: 8,
+                          width: 24,
+                          height: 24,
+                          borderRadius: 6,
+                          background: "rgba(255,255,255,0.9)",
+                          backdropFilter: "blur(4px)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          opacity: 0,
+                          transition: "opacity 200ms ease",
+                          zIndex: 1,
+                        }}
+                      >
+                        <svg width={12} height={12} viewBox="0 0 14 14" fill="none">
+                          <path
+                            d="M8.5 2H12V5.5M5.5 12H2V8.5M12 2L8 6M2 12L6 8"
+                            stroke="#374151"
+                            strokeWidth={1.3}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    /* ── Competitor does NOT have this section → placeholder ── */
+                    <div
+                      style={{
+                        height: THUMB_HEIGHT,
+                        borderRadius: 10,
+                        border: "1px dashed rgba(0,0,0,0.10)",
+                        background: "#f8fafc",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        padding: "0 12px",
+                        textAlign: "center",
+                      }}
+                    >
+                      <svg width={16} height={16} viewBox="0 0 16 16" fill="none" style={{ opacity: 0.3 }}>
+                        <circle cx="8" cy="8" r="7" stroke="#374151" strokeWidth="1.4"/>
+                        <line x1="5" y1="8" x2="11" y2="8" stroke="#374151" strokeWidth="1.4" strokeLinecap="round"/>
+                      </svg>
+                      <span style={{ fontSize: 11, color: "#9ca3af", lineHeight: 1.4 }}>
+                        No {label.toLowerCase()} section found
+                      </span>
+                    </div>
+                  )}
                   <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 5 }}>
-                    <img
+                    <Image
                       src={`https://www.google.com/s2/favicons?domain=${col.domain}&sz=32`}
                       alt=""
                       width={12}
                       height={12}
+                      unoptimized
                       style={{ borderRadius: 2, flexShrink: 0 }}
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />

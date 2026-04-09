@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Recommendation, Priority } from "@/lib/types/analysis";
+import { toSentenceCase } from "@/lib/utils";
 
 interface InsightSliderProps {
   insights: Recommendation[];
@@ -130,7 +131,7 @@ export function InsightSlider({ insights }: InsightSliderProps) {
                     letterSpacing: "-0.025em",
                   }}
                 >
-                  {insight.title}
+                  {toSentenceCase(insight.title)}
                 </h3>
 
                 {/* Description (evidence merged inline) */}

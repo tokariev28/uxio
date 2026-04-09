@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 
 import { cn } from "@/lib/utils";
 import { SectionCard } from "./results/SectionCard";
 import { SectionNavSidebar, type NavItem } from "./results/SectionNavSidebar";
 import type {
   AnalysisResult,
-  SectionAnalysis,
   SectionType,
 } from "@/lib/types/analysis";
 
@@ -43,7 +43,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // ── Sort sections in canonical page order ──────────────────────────────────
-  const sortedSections: SectionAnalysis[] = [...result.sections].sort(
+  const sortedSections = [...result.sections].sort(
     (a, b) => {
       const ai = SECTION_ORDER.indexOf(a.sectionType);
       const bi = SECTION_ORDER.indexOf(b.sectionType);
@@ -51,13 +51,20 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
     }
   );
 
-  const visibleSections = sortedSections;
+  // Filter to only sections found on the input site (pageSections[0] = input page).
+  // This prevents competitor-only sections from appearing in the nav.
+  const inputSectionTypes = new Set(
+    result.pageSections?.[0]?.sections.map((s) => s.type) ?? []
+  );
+  const visibleSections =
+    inputSectionTypes.size > 0
+      ? sortedSections.filter((s) => inputSectionTypes.has(s.sectionType))
+      : sortedSections; // graceful fallback if pageSections unavailable
 
   // ── Sidebar nav items ─────────────────────────────────────────────────────
-  const navItems: NavItem[] = sortedSections.map((section, i) => ({
+  const navItems: NavItem[] = visibleSections.map((section, i) => ({
     sectionIndex: i,
     label: SECTION_LABELS[section.sectionType] ?? section.sectionType,
-    inputScore: section.findings.find((f) => f.site === "input")?.score ?? null,
   }));
 
   // ── IntersectionObserver — active section tracking ────────────────────────
@@ -92,11 +99,12 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
       <div className="mb-8">
         <div className="flex items-center gap-2.5">
           {result.pages[0]?.url && (
-            <img
+            <Image
               src={`https://www.google.com/s2/favicons?domain=${new URL(result.pages[0].url).hostname}&sz=32`}
               alt=""
               width={20}
               height={20}
+              unoptimized
               className="rounded-sm shrink-0"
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
@@ -128,18 +136,6 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                 : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
             )}
           >
-            <span
-              className={cn(
-                "size-1.5 rounded-full",
-                item.inputScore === null
-                  ? "bg-muted-foreground/30"
-                  : item.inputScore < 0.6
-                    ? "bg-red-500"
-                    : item.inputScore < 0.8
-                      ? "bg-amber-500"
-                      : "bg-green-500"
-              )}
-            />
             {item.label}
           </button>
         ))}

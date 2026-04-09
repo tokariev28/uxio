@@ -19,11 +19,20 @@ export async function runSynthesis(
   // ── Step 1: Build user message ─────────────────────────────────
   const hasSectionData = (ctx.sectionAnalyses?.length ?? 0) > 0;
 
+  // Strip numerical scores from findings before passing to agent6.
+  // Agent5 uses scores internally for self-consistency, but exposing raw numbers
+  // to agent6 causes it to quote them verbatim in recommendation text.
+  const sanitizedAnalyses = ctx.sectionAnalyses?.map((sa) => ({
+    ...sa,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    findings: sa.findings.map(({ scores: _s, score: _sc, ...rest }) => rest),
+  }));
+
   const userMessage = [
     `PRODUCT: ${JSON.stringify(ctx.productBrief)}`,
     `COMPETITORS: ${JSON.stringify(ctx.competitors)}`,
     hasSectionData
-      ? `SECTION ANALYSES: ${JSON.stringify(ctx.sectionAnalyses)}`
+      ? `SECTION ANALYSES: ${JSON.stringify(sanitizedAnalyses)}`
       : `SECTION ANALYSES: [] (visual analysis unavailable — base recommendations on product brief and competitor context only)`,
   ].join("\n\n");
 

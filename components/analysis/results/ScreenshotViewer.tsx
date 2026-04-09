@@ -1,22 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ScreenshotViewerProps {
-  /** Layer 2: full-page screenshot — base64 string or GCS URL */
+  /** Full-page screenshot — base64 string or URL */
   src: string | undefined;
-  /** Layer 1: section-specific screenshot (reserved, always undefined for now) */
-  sectionSrc?: string;
-  /** Used in Layer 3 placeholder — domain + favicon */
+  /** 0.0–1.0 vertical position of the section on the page (startChar / totalChars).
+   *  When provided, the viewer crops the image to the section region via canvas. */
+  scrollFraction?: number;
+  /** Used in the placeholder layer — domain + favicon */
   siteUrl?: string;
   alt: string;
-  /** CSS object-position for crop simulation (e.g. "top", "30% top") */
-  objectPosition?: string;
   height?: number;
   className?: string;
 }
 
-type Layer = 1 | 2 | 3;
+type Layer = "cropped" | "full" | "placeholder";
 
 function normalizeSrc(src: string | undefined): string | undefined {
   if (!src) return undefined;
@@ -39,40 +38,93 @@ function domainFrom(url: string | undefined): string {
  */
 export function ScreenshotViewer({
   src,
-  sectionSrc,
+  scrollFraction,
   siteUrl,
   alt,
-  objectPosition = "top",
   height = 200,
   className,
 }: ScreenshotViewerProps) {
-  // Compute start layer from initial props — parent must pass `key` to reset on src change
-  const startLayer: Layer = sectionSrc ? 1 : src ? 2 : 3;
-  const [layer, setLayer] = useState<Layer>(startLayer);
-  const [loading, setLoading] = useState(startLayer < 3);
-
+  const normalizedSrc = normalizeSrc(src);
   const domain = domainFrom(siteUrl);
-  const activeSrc = normalizeSrc(layer === 1 ? sectionSrc : layer === 2 ? src : undefined);
 
-  function handleError() {
-    if (layer === 1) {
-      const next: Layer = src ? 2 : 3;
-      setLayer(next);
-      setLoading(next === 2);
-    } else {
-      setLayer(3);
+  const [croppedSrc, setCroppedSrc] = useState<string | undefined>(undefined);
+  const [cropError, setCropError] = useState(false);
+  const [layer, setLayer] = useState<Layer>(normalizedSrc ? "cropped" : "placeholder");
+  const [loading, setLoading] = useState(layer !== "placeholder");
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+
+  // Canvas crop — fires when src or scrollFraction change
+  useEffect(() => {
+    if (!normalizedSrc) {
+      setLayer("placeholder");
       setLoading(false);
+      return;
     }
-  }
 
-  function handleLoad() {
-    setLoading(false);
-  }
+    // Reset state for new src
+    setCroppedSrc(undefined);
+    setCropError(false);
+    setLoading(true);
+
+    if (scrollFraction === undefined) {
+      // No scroll position — show full image from top
+      setLayer("full");
+      return;
+    }
+
+    // Crop via canvas
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        const cropStart = Math.max(0, scrollFraction - 0.05);
+        const cropEnd = Math.min(1, scrollFraction + 0.25);
+        const srcY = Math.round(img.naturalHeight * cropStart);
+        const srcH = Math.round(img.naturalHeight * (cropEnd - cropStart));
+
+        // Canvas dimensions: preserve aspect ratio of the crop
+        const aspectRatio = img.naturalWidth / srcH;
+        canvas.width = Math.round(height * aspectRatio);
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("canvas 2d context unavailable");
+
+        ctx.drawImage(
+          img,
+          0, srcY, img.naturalWidth, srcH,  // source: full width, cropped height
+          0, 0, canvas.width, canvas.height   // destination: canvas
+        );
+
+        setCroppedSrc(canvas.toDataURL("image/jpeg", 0.85));
+        setLayer("cropped");
+        setLoading(false);
+      } catch {
+        setCropError(true);
+        setLayer("full");
+      }
+    };
+    img.onerror = () => {
+      setCropError(true);
+      setLayer(src ? "full" : "placeholder");
+      setLoading(src ? true : false);
+    };
+    img.src = normalizedSrc;
+
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [normalizedSrc, scrollFraction]);
+
+  const displaySrc = layer === "cropped" ? croppedSrc : normalizedSrc;
 
   return (
     <div
       className={className}
       style={{ position: "relative", width: "100%", height, overflow: "hidden", borderRadius: 10 }}
+      ref={canvasRef}
     >
       {/* Loading shimmer */}
       {loading && (
@@ -82,28 +134,33 @@ export function ScreenshotViewer({
         />
       )}
 
-      {/* Layer 1 or Layer 2 image */}
-      {activeSrc && (
+      {/* Image layer (cropped or full) */}
+      {(layer === "cropped" || layer === "full") && displaySrc && !loading && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={activeSrc}
+          src={displaySrc}
           alt={alt}
           style={{
             width: "100%",
             height,
             objectFit: "cover",
-            objectPosition,
-            display: loading ? "none" : "block",
+            objectPosition: layer === "full" ? "top" : "center",
+            display: "block",
             borderRadius: 10,
           }}
-          loading="lazy"
-          onLoad={handleLoad}
-          onError={handleError}
+          onError={() => {
+            if (layer === "cropped" || cropError) {
+              setLayer("placeholder");
+            } else {
+              setLayer("placeholder");
+            }
+            setLoading(false);
+          }}
         />
       )}
 
-      {/* Layer 3 — styled placeholder */}
-      {layer === 3 && !loading && (
+      {/* Placeholder */}
+      {layer === "placeholder" && !loading && (
         <div
           style={{
             width: "100%",
