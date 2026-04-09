@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ProgressPanel } from "./ProgressPanel";
 import { ResultsPanel } from "./ResultsPanel";
+import { InspirationGallery } from "./InspirationGallery";
 import type {
   AgentStage,
   AnalysisResult,
@@ -52,9 +53,17 @@ export function AnalysisForm() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  function normalizeUrl(raw: string): string {
+    const s = raw.trim();
+    if (!s) return s;
+    if (/^https?:\/\//i.test(s)) return s;
+    if (s.startsWith("//")) return "https:" + s;
+    return "https://" + s;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const trimmed = url.trim();
+    const trimmed = normalizeUrl(url);
     if (!trimmed) return;
 
     setStages({});
@@ -133,6 +142,7 @@ export function AnalysisForm() {
   }
 
   return (
+    <>
     <AnimatePresence mode="wait">
       {appState === "idle" ? (
         <motion.section
@@ -154,7 +164,7 @@ export function AnalysisForm() {
             </p>
             <form onSubmit={handleSubmit} className="hero-form-wrapper">
               <input
-                type="url"
+                type="text"
                 className="hero-input"
                 placeholder="https://your-saas.com"
                 value={url}
@@ -200,10 +210,10 @@ export function AnalysisForm() {
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
         >
-          {appState !== "running" && (
+          {appState === "error" && (
             <form onSubmit={handleSubmit} className="hero-form-wrapper">
               <input
-                type="url"
+                type="text"
                 className="hero-input"
                 placeholder="https://your-saas.com"
                 value={url}
@@ -229,8 +239,8 @@ export function AnalysisForm() {
                 <div>
                   <p className="font-medium">Almost there — rate limit reached</p>
                   <p className="mt-0.5 text-yellow-700">
-                    Gemini free tier allows 5 requests/min. The analysis retried automatically.
-                    If this persists, wait 1 minute and try again.
+                    The AI provider is temporarily overloaded. The analysis retried automatically.
+                    If this persists, wait a moment and try again.
                   </p>
                 </div>
               </div>
@@ -245,5 +255,14 @@ export function AnalysisForm() {
         </motion.div>
       )}
     </AnimatePresence>
+
+    {appState === "running" && (
+      <div className="fixed bottom-0 left-0 right-0 z-10 pointer-events-none">
+        <div className="pointer-events-auto">
+          <InspirationGallery />
+        </div>
+      </div>
+    )}
+    </>
   );
 }

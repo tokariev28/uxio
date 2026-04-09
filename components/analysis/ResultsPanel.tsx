@@ -90,15 +90,24 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
     <div className="w-full">
       {/* ── Header zone ─────────────────────────────────────────────────── */}
       <div className="mb-8">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">
-          Analysis complete
-        </p>
-        <h1
-          className="text-2xl font-bold tracking-tight text-foreground"
-          style={{ fontFamily: "var(--font-primary)" }}
-        >
-          {result.productBrief.company}
-        </h1>
+        <div className="flex items-center gap-2.5">
+          {result.pages[0]?.url && (
+            <img
+              src={`https://www.google.com/s2/favicons?domain=${new URL(result.pages[0].url).hostname}&sz=32`}
+              alt=""
+              width={20}
+              height={20}
+              className="rounded-sm shrink-0"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          )}
+          <h1
+            className="text-2xl font-bold tracking-tight text-foreground"
+            style={{ fontFamily: "var(--font-primary)" }}
+          >
+            {result.productBrief.company}
+          </h1>
+        </div>
         {result.pages[0]?.url && (
           <p className="mt-0.5 text-sm text-muted-foreground">
             {result.pages[0].url}
@@ -153,6 +162,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
           {visibleSections.map((section, i) => (
             <div
               key={section.sectionType}
+              className="snap-start scroll-mt-6"
               ref={(el) => {
                 sectionRefs.current[i] = el;
               }}
@@ -163,6 +173,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
                 competitors={result.competitors}
                 recommendations={result.recommendations}
                 sectionIndex={i}
+                pageSections={result.pageSections}
               />
             </div>
           ))}

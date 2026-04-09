@@ -56,9 +56,10 @@ export const AGENT_PROMPTS = {
   
   matchScore = average of 4 axes (2 decimal places)
   
-  SELECTION: Top 3 by matchScore. Prefer ≥ 0.75 (direct competitors).
-  If fewer than 3 score ≥ 0.75, take top 3 regardless.
-  
+  SELECTION: Top 5 by matchScore. Prefer ≥ 0.75 (direct competitors).
+  If fewer than 5 score ≥ 0.75, take top 5 regardless.
+  Top 3 = primary competitors shown to user. Positions 4–5 = backup competitors used if a primary fails.
+
   OUTPUT FORMAT — strict JSON:
   {
     "competitors": [
@@ -70,8 +71,8 @@ export const AGENT_PROMPTS = {
       }
     ]
   }
-  
-  STOP: JSON only. Exactly 3 items.
+
+  STOP: JSON only. Exactly 5 items.
   `.trim(),
   
     // ── AGENT 4 · Section Classifier ─────────────────────────────────
@@ -165,6 +166,68 @@ export const AGENT_PROMPTS = {
   STOP: JSON only.
   `.trim(),
   
+    // ── AGENT 5 · Batch Section Analyzer ────────────────────────────
+    // Pipeline: Firecrawl screenshot + all section markdowns → Gemini Flash
+    // Input:    full-page screenshot + array of { type, scrollFraction, markdown }
+    // Output:   JSON array — one analysis object per section
+    // NOTE:     This replaces visionAnalyzer. One call per page (not per section).
+    sectionAnalyzerBatch: `
+  ROLE: Senior Product Design Consultant — B2B SaaS conversion specialist
+  TASK: Analyse ALL sections of ONE landing page in a single pass.
+        You receive the full-page screenshot and each section's markdown + approximate scroll position.
+        Return a separate analysis object for every section received.
+
+  SCROLL POSITION HINT: Each section includes a scroll_position (0% = top, 100% = bottom).
+  Use this to locate the section in the screenshot and focus your visual attention on that region.
+
+  RUBRIC (0.0–1.0 per axis, applied independently per section):
+  - clarity:              First-time visitor understands this section in < 5 seconds?
+  - specificity:          Concrete outcomes / numbers vs. vague generic copy?
+  - icpFit:               Message clearly tailored to the stated ICP?
+  - visualHierarchy:      Clear focal point in the screenshot for this section? Eye knows where to go first?
+  - conversionReadiness:  No unnecessary barriers or competing CTAs? Single clear primary action?
+  - trustSignals:         Credibility elements relevant to B2B buyers present?
+
+  overallScore = average of 6 axes (2 decimal places)
+
+  Score anchor: 0.9 = single verb headline, one CTA, zero jargon. 0.4 = vague tagline with 3+ competing CTAs.
+
+  EVIDENCE RULES (applied per section — no exceptions):
+  - Every strength must start with: (a) exact quote from this section's copy in double quotes, OR (b) a precise visual description from the screenshot ("3-column icon grid", "full-width red CTA button"). Then explain conversion impact.
+  - Every weakness must start with: (a) exact quote in double quotes, OR (b) precise visual description. Then state the specific conversion cost.
+  - FORBIDDEN first words in strengths/weaknesses: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Better, Cleaner, Clearer, Could, Should, Would.
+  - FORBIDDEN generic phrases: "Clean layout", "Good visual hierarchy", "Effective design", "Vague copy", "Lacks specificity".
+  - Max 3 strengths. Max 3 weaknesses. At least 1 of each.
+  - SELF-CONSISTENCY: If weaknesses ≥ 2 items → overallScore must be ≤ 0.65. If overallScore ≥ 0.80 → weaknesses must be ≤ 1 item.
+
+  OUTPUT FORMAT — strict JSON array, one object per section received (same order):
+  [
+    {
+      "sectionType": string,
+      "scores": {
+        "clarity": number,
+        "specificity": number,
+        "icpFit": number,
+        "visualHierarchy": number,
+        "conversionReadiness": number,
+        "trustSignals": number
+      },
+      "overallScore": number,
+      "strengths": string[],
+      "weaknesses": string[],
+      "keyEvidence": {
+        "headlineText": string | null,
+        "ctaText": string | null,
+        "copyQuote": string | null,
+        "visualObservation": string
+      }
+    }
+  ]
+
+  CRITICAL: Array must contain exactly as many objects as sections received. Preserve section order.
+  STOP: JSON array only. No markdown fences. No prose before or after.
+  `.trim(),
+
     // ── AGENT 6 · Synthesis ──────────────────────────────────────────
     // Pipeline: all Agent 5 outputs → this prompt → Gemini Flash
     // Input:    section analysis for input + 3 competitors
@@ -218,13 +281,3 @@ export const AGENT_PROMPTS = {
   
   }
   
-  // Model routing — use this in the orchestrator, not hardcoded in each agent
-  export const AGENT_MODELS = {
-    agent0_gemini: "gemini-2.5-flash-lite",  // Page Intelligence (after Firecrawl)
-    agent2_gemini: "gemini-2.5-flash-lite",  // Competitor Validator (after Tavily)
-    agent4_gemini: "gemini-2.5-flash-lite",  // Section Classifier (after Firecrawl)
-    agent5_gemini: "gemini-2.5-flash",       // Vision Analyzer
-    agent6_gemini: "gemini-2.5-flash",       // Synthesis
-    // Agent 1 = Tavily API only (no Gemini)
-    // Agent 3 = Firecrawl API only (no Gemini)
-  } as const

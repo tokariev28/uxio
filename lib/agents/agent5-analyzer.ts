@@ -1,5 +1,5 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { AGENT_PROMPTS, AGENT_MODELS } from "@/lib/agents/prompts";
+import { AGENT_PROMPTS } from "@/lib/agents/prompts";
+import { aiGenerateMultimodal, CHAINS } from "@/lib/ai/gateway";
 import type {
   PipelineContext,
   SectionAnalysis,
@@ -9,9 +9,11 @@ import type {
   PageSections,
 } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
-import { withGeminiRetry } from "@/lib/agents/gemini-retry";
+import { extractJSON } from "@/lib/utils/json-extract";
 
-interface GeminiVisionResponse {
+// ── Response types ─────────────────────────────────────────────────────────
+
+interface BatchSectionResult {
   sectionType: string;
   scores?: {
     clarity: number;
@@ -32,6 +34,8 @@ interface GeminiVisionResponse {
   };
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
 function siteLabel(
   url: string,
   inputUrl: string,
@@ -48,113 +52,61 @@ async function urlToBase64(url: string): Promise<string> {
   return Buffer.from(buffer).toString("base64");
 }
 
-async function analyzeSection(
-  genAI: GoogleGenerativeAI,
-  markdownSlice: string,
-  screenshotBase64: string | null,
-  ctx: PipelineContext,
-  sectionType: string
-): Promise<GeminiVisionResponse> {
-  const model = genAI.getGenerativeModel({
-    model: AGENT_MODELS.agent5_gemini,
-    systemInstruction: AGENT_PROMPTS.visionAnalyzer,
-  });
+// ── Batch analysis: ONE call per page ─────────────────────────────────────
+// Sends the full-page screenshot ONCE + all section markdowns.
+// Returns an array of section analyses for that page.
 
-  const textPart = { text: `TARGET ICP: ${ctx.productBrief!.icp}\nSECTION TYPE: ${sectionType}\n\nMARKDOWN:\n${markdownSlice}` };
-  const parts: ({ text: string } | { inlineData: { mimeType: string; data: string } })[] = [textPart];
-  if (screenshotBase64) {
-    parts.push({ inlineData: { mimeType: "image/png", data: screenshotBase64 } });
-  }
-
-  const result = await withGeminiRetry(() =>
-    model.generateContent({
-      contents: [{ role: "user", parts }],
-    })
-  );
-
-  const rawText = result.response.text();
-  const text = rawText
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
-  return JSON.parse(text) as GeminiVisionResponse;
-}
-
-async function analyzePage(
-  genAI: GoogleGenerativeAI,
+async function analyzePageBatch(
   page: PageData,
   pageSections: PageSections,
-  site: string,
-  analysisMap: Map<SectionType, SectionAnalysis>,
   ctx: PipelineContext
-): Promise<void> {
-  if (!ctx.productBrief) return;
-
-  const deepSections = pageSections.sections;
-
-  // Resolve to raw base64 — handles GCS URL, raw base64, or existing data URI
-  const rawSrc = page.screenshotBase64!;
+): Promise<BatchSectionResult[]> {
+  // ── Resolve screenshot once ────────────────────────────────────────
+  const rawSrc = page.screenshotBase64;
   let screenshotData: string | null = null;
 
-  try {
-    if (rawSrc.startsWith("http")) {
-      screenshotData = await urlToBase64(rawSrc);
-    } else if (rawSrc.startsWith("data:")) {
-      screenshotData = rawSrc.split(",")[1] ?? rawSrc;
-    } else {
-      screenshotData = rawSrc;
+  if (rawSrc) {
+    try {
+      if (rawSrc.startsWith("http")) {
+        screenshotData = await urlToBase64(rawSrc);
+      } else if (rawSrc.startsWith("data:")) {
+        screenshotData = rawSrc.split(",")[1] ?? rawSrc;
+      } else {
+        screenshotData = rawSrc;
+      }
+      // Write back as stable data URI so the frontend can display it
+      // (GCS signed URLs expire in ~30 min; base64 data URIs never do)
+      page.screenshotBase64 = `data:image/png;base64,${screenshotData}`;
+    } catch (err) {
+      console.warn(
+        `[agent5] Screenshot fetch failed for ${page.url}, continuing without image:`,
+        err instanceof Error ? err.message : String(err)
+      );
     }
-    // Write back as a stable data URI so the frontend can display it
-    // (GCS signed URLs expire in ~30 min; base64 data URIs never do)
-    page.screenshotBase64 = `data:image/png;base64,${screenshotData}`;
-  } catch (err) {
-    console.warn(
-      `[agent5] Screenshot fetch failed for ${page.url}, continuing with text-only analysis:`,
-      err instanceof Error ? err.message : String(err)
-    );
-    // Keep original URL — it may still be valid for frontend display
   }
 
-  await Promise.allSettled(
-    deepSections.map(async (section) => {
-      try {
-        const raw = await analyzeSection(
-          genAI,
-          section.markdownSlice,
-          screenshotData,
-          ctx,
-          section.type
-        );
+  // ── Build structured sections input with scroll position hints ─────
+  const sectionsInput = pageSections.sections
+    .map(
+      (s, i) =>
+        `SECTION ${i + 1}:\nTYPE: ${s.type}\nSCROLL_POSITION: ${(s.scrollFraction * 100).toFixed(0)}% from top\nMARKDOWN:\n${s.markdownSlice}`
+    )
+    .join("\n\n---\n\n");
 
-        const finding: SectionFinding = {
-          site,
-          score: raw.overallScore,
-          scores: raw.scores ?? undefined,
-          strengths: raw.strengths ?? [],
-          weaknesses: raw.weaknesses ?? [],
-          summary: raw.strengths[0] ?? raw.weaknesses[0] ?? "No notable findings",
-          evidence: {
-            headlineText: raw.keyEvidence.headlineText ?? undefined,
-            ctaText: raw.keyEvidence.ctaText ?? undefined,
-            quote: raw.keyEvidence.copyQuote ?? undefined,
-            visualNote: raw.keyEvidence.visualObservation,
-          },
-        };
+  const textContent = `TARGET ICP: ${ctx.productBrief!.icp}\n\nSECTIONS TO ANALYZE:\n\n${sectionsInput}`;
 
-        if (!analysisMap.has(section.type)) {
-          analysisMap.set(section.type, { sectionType: section.type, findings: [] });
-        }
-        analysisMap.get(section.type)!.findings.push(finding);
-      } catch (err) {
-        console.error(
-          `[agent5] Failed to analyze "${section.type}" for ${page.url}:`,
-          err instanceof Error ? err.message : String(err)
-        );
-      }
-    })
-  );
+  // ── Single Flash call (multimodal: screenshot + all sections) ──────
+  const rawText = await aiGenerateMultimodal(CHAINS.flash, {
+    system: AGENT_PROMPTS.sectionAnalyzerBatch,
+    textContent,
+    imageBase64: screenshotData ?? undefined,
+    json: true,
+  });
+
+  return JSON.parse(extractJSON(rawText)) as BatchSectionResult[];
 }
+
+// ── Main orchestration ─────────────────────────────────────────────────────
 
 export async function runAnalyzer(
   ctx: PipelineContext,
@@ -167,33 +119,62 @@ export async function runAnalyzer(
     throw new AgentError("agent5", "pageSections is missing from pipeline context");
   }
 
-  // Emit all page domains being analyzed (input URL + competitors)
-  if (ctx.pages?.length) {
-    const domains = ctx.pages.map((p) => {
-      try {
-        return new URL(p.url).hostname.replace(/^www\./, "");
-      } catch {
-        return p.url;
-      }
-    });
-    onActions?.(domains);
-  }
+  // Emit all page domains being analyzed
+  const domains = ctx.pages.map((p) => {
+    try { return new URL(p.url).hostname.replace(/^www\./, ""); } catch { return p.url; }
+  });
+  onActions?.(domains);
 
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
   const competitors = ctx.competitors ?? [];
+
+  // ── Process all pages in parallel — each analyzePageBatch call is independent
+  const pageJobs = ctx.pages.map((page, i) => {
+    if (!page.screenshotBase64) return Promise.resolve<BatchSectionResult[]>([]);
+    const pageSections = ctx.pageSections![i];
+    if (!pageSections?.sections.length) return Promise.resolve<BatchSectionResult[]>([]);
+    return analyzePageBatch(page, pageSections, ctx);
+  });
+
+  const settled = await Promise.allSettled(pageJobs);
+
   const analysisMap = new Map<SectionType, SectionAnalysis>();
 
-  await Promise.allSettled(
-    ctx.pages.map(async (page, i) => {
-      if (!page.screenshotBase64) return;
+  for (const [i, result] of settled.entries()) {
+    if (result.status === "rejected") {
+      console.error(
+        `[agent5] Failed to analyze page ${ctx.pages[i].url}:`,
+        result.reason instanceof Error ? result.reason.message : String(result.reason)
+      );
+      continue;
+    }
 
-      const pageSections = ctx.pageSections![i];
-      if (!pageSections) return;
+    const page = ctx.pages[i];
+    const site = siteLabel(page.url, ctx.inputUrl, competitors);
 
-      const site = siteLabel(page.url, ctx.inputUrl, competitors);
-      await analyzePage(genAI, page, pageSections, site, analysisMap, ctx);
-    })
-  );
+    for (const raw of result.value) {
+      const sectionType = raw.sectionType as SectionType;
+
+      const finding: SectionFinding = {
+        site,
+        score: raw.overallScore,
+        scores: raw.scores ?? undefined,
+        strengths: raw.strengths ?? [],
+        weaknesses: raw.weaknesses ?? [],
+        summary: raw.strengths[0] ?? raw.weaknesses[0] ?? "No notable findings",
+        evidence: {
+          headlineText: raw.keyEvidence.headlineText ?? undefined,
+          ctaText: raw.keyEvidence.ctaText ?? undefined,
+          quote: raw.keyEvidence.copyQuote ?? undefined,
+          visualNote: raw.keyEvidence.visualObservation ?? undefined,
+        },
+      };
+
+      if (!analysisMap.has(sectionType)) {
+        analysisMap.set(sectionType, { sectionType, findings: [] });
+      }
+      analysisMap.get(sectionType)!.findings.push(finding);
+    }
+  }
 
   return Array.from(analysisMap.values());
 }

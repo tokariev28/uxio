@@ -26,13 +26,11 @@ const EXAMPLES = [
   { name: "Slack",       tagline: "Social proof at scale",                url: "https://slack.com",      image: "/examples/slack.png" },
   { name: "Intercom",    tagline: "Outcome-first value proposition",      url: "https://intercom.com",   image: "/examples/intercom.png" },
   { name: "Webflow",     tagline: "Visual proof in every scroll",         url: "https://webflow.com",    image: "/examples/webflow.png" },
-  { name: "Mixpanel",    tagline: "Data storytelling as positioning",     url: "https://mixpanel.com",   image: "/examples/mixpanel.png" },
   { name: "Calendly",    tagline: "Frictionless CTA hierarchy",           url: "https://calendly.com",   image: "/examples/calendly.png" },
   { name: "Ahrefs",      tagline: "Credibility through specificity",      url: "https://ahrefs.com",     image: "/examples/ahrefs.png" },
   { name: "Pitch",       tagline: "Brand confidence from pixel one",      url: "https://pitch.com",      image: "/examples/pitch.png" },
   { name: "Mercury",     tagline: "Trust in a regulated space",           url: "https://mercury.com",    image: "/examples/mercury.png" },
   { name: "Craft",       tagline: "Aesthetic as the product promise",     url: "https://craft.do",       image: "/examples/craft.png" },
-  { name: "Perplexity",  tagline: "Clarity over complexity",              url: "https://perplexity.ai",  image: "/examples/perplexity.png" },
   { name: "Resend",      tagline: "Developer experience as marketing",    url: "https://resend.com",     image: "/examples/resend.png" },
   { name: "Cron",        tagline: "Minimalism with maximum intent",       url: "https://cron.com",       image: "/examples/cron.png" },
 ] as const;
@@ -193,13 +191,13 @@ export function InspirationGallery() {
 
   return (
     <div className="w-full">
-      <p className="text-2xl font-bold text-foreground mb-5 px-6">
+      <p className="text-2xl font-bold text-foreground mb-5 px-8">
         The bar you&apos;re being measured against
       </p>
       <div
         ref={containerRef}
-        className="flex gap-5 overflow-x-auto px-6 py-4 pb-8 gallery-scroll"
-        style={{ scrollSnapType: "x mandatory" }}
+        className="flex gap-5 overflow-x-auto px-8 py-4 pb-8 gallery-scroll"
+        style={{ scrollSnapType: "x mandatory", scrollPaddingLeft: "2rem" }}
       >
         {EXAMPLES.map((item) => (
           <GalleryCard

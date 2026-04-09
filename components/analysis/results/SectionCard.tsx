@@ -8,6 +8,7 @@ import type {
   SectionAnalysis,
   SectionType,
   PageData,
+  PageSections,
   Competitor,
   Recommendation,
   Priority,
@@ -30,20 +31,28 @@ const SECTION_LABELS: Record<SectionType, string> = {
   footer: "Footer",
 };
 
-const OBJECT_POSITION: Record<SectionType, string> = {
-  hero: "top",
-  navigation: "top",
-  features: "25% top",
-  benefits: "30% top",
-  socialProof: "40% top",
-  testimonials: "45% top",
-  integrations: "50% top",
-  howItWorks: "55% top",
-  pricing: "60% top",
-  faq: "70% top",
-  cta: "80% top",
-  footer: "bottom",
-};
+// Compute CSS object-position from the actual scrollFraction of a section
+// (startChar / totalMarkdownLength → approximate vertical position on page)
+function computeObjectPosition(
+  sectionType: SectionType,
+  pageSections: PageSections[] | undefined,
+  pageIndex: number
+): string {
+  const sections = pageSections?.[pageIndex]?.sections;
+  const match = sections?.find((s) => s.type === sectionType);
+  if (match?.scrollFraction !== undefined) {
+    const pct = Math.min(90, Math.max(0, Math.round(match.scrollFraction * 100)));
+    return `center ${pct}%`;
+  }
+  // Fallback: rough approximation by section type
+  const FALLBACK: Record<SectionType, string> = {
+    hero: "center 0%", navigation: "center 0%", features: "center 25%",
+    benefits: "center 30%", socialProof: "center 40%", testimonials: "center 45%",
+    integrations: "center 50%", howItWorks: "center 55%", pricing: "center 60%",
+    faq: "center 70%", cta: "center 80%", footer: "center 90%",
+  };
+  return FALLBACK[sectionType] ?? "center 0%";
+}
 
 const PRIORITY_ORDER: Record<Priority, number> = {
   critical: 0,
@@ -76,6 +85,7 @@ interface SectionCardProps {
   competitors: Competitor[];
   recommendations: Recommendation[];
   sectionIndex: number;
+  pageSections?: PageSections[];
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -86,11 +96,11 @@ export function SectionCard({
   competitors,
   recommendations,
   sectionIndex,
+  pageSections,
 }: SectionCardProps) {
   const [lightbox, setLightbox] = useState<{ src: string | undefined; domain: string } | null>(null);
 
   const label = SECTION_LABELS[section.sectionType] ?? section.sectionType;
-  const objPos = OBJECT_POSITION[section.sectionType] ?? "top";
 
   // ── Insights: filter by section ────────────────────────────────────────
   const sectionInsights = recommendations
@@ -111,6 +121,8 @@ export function SectionCard({
     src: pages[i + 1]?.screenshotBase64,
     siteUrl: c.url,
     domain: domainFrom(c.url),
+    // pageIndex i+1: pages[0] = input, pages[1..3] = competitors
+    objectPosition: computeObjectPosition(section.sectionType, pageSections, i + 1),
   }));
 
   return (
@@ -243,7 +255,7 @@ export function SectionCard({
                       src={col.src}
                       siteUrl={col.siteUrl}
                       alt={`${label} — ${col.domain}`}
-                      objectPosition={objPos}
+                      objectPosition={col.objectPosition}
                       height={110}
                     />
                     <div
@@ -276,9 +288,19 @@ export function SectionCard({
                       </svg>
                     </div>
                   </div>
-                  <p style={{ marginTop: 7, fontSize: 12, fontWeight: 500, color: "#374151", letterSpacing: "-0.005em" }}>
-                    {col.domain}
-                  </p>
+                  <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 5 }}>
+                    <img
+                      src={`https://www.google.com/s2/favicons?domain=${col.domain}&sz=32`}
+                      alt=""
+                      width={12}
+                      height={12}
+                      style={{ borderRadius: 2, flexShrink: 0 }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                    <p style={{ fontSize: 12, fontWeight: 500, color: "#9ca3af", letterSpacing: "-0.005em" }}>
+                      {col.domain}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>

@@ -8,6 +8,19 @@ import {
 import { cn } from "@/lib/utils";
 import type { Priority, Recommendation } from "@/lib/types/analysis";
 
+function toSentenceCase(str: string): string {
+  if (!str) return str;
+  return str
+    .split(" ")
+    .map((word, i) => {
+      if (i === 0) return word;
+      // Keep acronyms/all-caps words (e.g. CTA, SEO, UI, API)
+      if (word.length > 1 && word === word.toUpperCase()) return word;
+      return word.toLowerCase();
+    })
+    .join(" ");
+}
+
 interface RecommendationCardProps {
   recommendation: Recommendation;
   index: number;
@@ -55,7 +68,7 @@ export function RecommendationCard({
             {config.label}
           </span>
           <CardTitle className="text-sm font-medium leading-snug">
-            {index + 1}. {title}
+            {index + 1}. {toSentenceCase(title)}
           </CardTitle>
         </div>
         <CardDescription className="line-clamp-2 text-xs">

@@ -84,14 +84,7 @@ export async function runPipeline(
       stage: "synthesis",
       label: "Synthesizing recommendations",
       run: async (ctx) => {
-        const synthesis = await runSynthesis(ctx, (delaySecs) => {
-          writer.send({
-            type: "progress",
-            stage: "synthesis",
-            status: "running",
-            message: `Rate limit hit — retrying in ${delaySecs}s…`,
-          });
-        });
+        const synthesis = await runSynthesis(ctx);
         ctx.recommendations = synthesis.recommendations;
         ctx.executiveSummary = synthesis.executiveSummary;
         ctx.overallScores = synthesis.overallScores;
@@ -126,6 +119,7 @@ export async function runPipeline(
       recommendations: ctx.recommendations!,
       executiveSummary: ctx.executiveSummary,
       overallScores: ctx.overallScores,
+      pageSections: ctx.pageSections,
     };
 
     const quality = scoreAnalysisQuality(result);

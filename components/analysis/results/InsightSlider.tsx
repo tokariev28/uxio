@@ -233,6 +233,8 @@ export function InsightSlider({ insights }: InsightSliderProps) {
               onClick={goPrev}
               disabled={safeIndex === 0}
               aria-label="Previous insight"
+              onMouseEnter={(e) => { if (safeIndex !== 0) (e.currentTarget as HTMLButtonElement).style.background = "#e5e7eb"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f3f4f6"; }}
               style={{
                 width: 28,
                 height: 28,
@@ -253,6 +255,8 @@ export function InsightSlider({ insights }: InsightSliderProps) {
               onClick={goNext}
               disabled={safeIndex === insights.length - 1}
               aria-label="Next insight"
+              onMouseEnter={(e) => { if (safeIndex !== insights.length - 1) (e.currentTarget as HTMLButtonElement).style.background = "#e5e7eb"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f3f4f6"; }}
               style={{
                 width: 28,
                 height: 28,
