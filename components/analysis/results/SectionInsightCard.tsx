@@ -99,20 +99,41 @@ export function SectionInsightCard({ insight, index, total }: InsightCardProps) 
         </span>
       </div>
 
-      {/* Action item */}
+      {/* Action item + optional impact */}
       {insight.suggestedAction && (
         <div
           style={{
             borderTop: "1px solid #f3f4f6",
             paddingTop: 12,
             marginTop: 14,
-            fontSize: 13,
-            fontWeight: 600,
-            color: "#111827",
-            lineHeight: 1.5,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
           }}
         >
-          → {insight.suggestedAction}
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#111827",
+              lineHeight: 1.5,
+            }}
+          >
+            → {insight.suggestedAction}
+          </span>
+
+          {insight.impact && (
+            <span
+              style={{
+                fontSize: 12,
+                color: "#6b7280",
+                lineHeight: 1.5,
+                paddingLeft: 14,
+              }}
+            >
+              ↳ {insight.impact}
+            </span>
+          )}
         </div>
       )}
     </div>

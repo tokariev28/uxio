@@ -6,6 +6,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { SectionCard } from "./results/SectionCard";
 import { SectionNavSidebar, type NavItem } from "./results/SectionNavSidebar";
+import { SummaryCard } from "./results/SummaryCard";
 import type {
   AnalysisResult,
   SectionType,
@@ -154,6 +155,9 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
 
         {/* Main content */}
         <div className="flex-1 min-w-0 flex flex-col gap-6">
+          {/* Summary card */}
+          <SummaryCard result={result} />
+
           {/* Section cards */}
           {visibleSections.map((section, i) => (
             <div
@@ -165,11 +169,9 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
             >
               <SectionCard
                 section={section}
-                pages={result.pages}
                 competitors={result.competitors}
                 recommendations={result.recommendations}
                 sectionIndex={i}
-                pageSections={result.pageSections}
               />
             </div>
           ))}

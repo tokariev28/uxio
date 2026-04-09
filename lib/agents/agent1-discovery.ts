@@ -85,7 +85,7 @@ export async function runDiscovery(
     },
     {
       label: "category",
-      query: `${brief.industry} software alternatives 2025`,
+      query: `${brief.industry} software alternatives ${new Date().getFullYear()}`,
     },
   ];
 
@@ -94,13 +94,21 @@ export async function runDiscovery(
 
   const inputDomain = rootDomain(ctx.inputUrl);
 
-  const allResults = await Promise.all(
+  const settled = await Promise.allSettled(
     queries.map(({ label, query }) =>
       tavilySearch(query, apiKey).then((results) =>
         results.map((r) => ({ url: r.url, label }))
       )
     )
   );
+
+  const allResults = settled
+    .filter((r): r is PromiseFulfilledResult<{ url: string; label: string }[]> => r.status === "fulfilled")
+    .map((r) => r.value);
+
+  if (allResults.length === 0) {
+    throw new AgentError("agent1", "All Tavily search queries failed");
+  }
 
   const map = new Map<string, CompetitorCandidate>();
 
