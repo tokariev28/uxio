@@ -1,8 +1,8 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { AGENT_PROMPTS, AGENT_MODELS } from "@/lib/agents/prompts";
+import { AGENT_PROMPTS } from "@/lib/agents/prompts";
+import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
+import { extractJSON } from "@/lib/utils/json-extract";
 import type { PipelineContext, Competitor } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
-import { withGeminiRetry } from "@/lib/agents/gemini-retry";
 
 export async function runValidator(
   ctx: PipelineContext,
@@ -30,26 +30,17 @@ export async function runValidator(
   // ── Step 1: Build user message ─────────────────────────────────
   const userMessage = `PRODUCT BRIEF:\n${JSON.stringify(productBrief, null, 2)}\n\nCANDIDATES:\n${JSON.stringify(candidates, null, 2)}`;
 
-  // ── Step 2: Gemini Flash-Lite call ─────────────────────────────
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
-  const model = genAI.getGenerativeModel({
-    model: AGENT_MODELS.agent2_gemini,
-    systemInstruction: AGENT_PROMPTS.competitorValidator,
+  // ── Step 2: AI Gateway call (Flash-Lite → GPT-5.4 fallback) ──────────────────
+  const rawText = await aiGenerate(CHAINS.flashLite, {
+    system: AGENT_PROMPTS.competitorValidator,
+    prompt: userMessage,
+    json: true,
   });
 
-  const geminiResult = await withGeminiRetry(() => model.generateContent(userMessage));
-  const rawText = geminiResult.response.text();
-
-  // ── Step 3: Strip markdown fences ─────────────────────────────
-  const text = rawText
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
-  // ── Step 4: Parse JSON ─────────────────────────────────────────
+  // ── Step 3: Parse JSON ─────────────────────────────────────────
   let raw: { competitors: unknown[] };
   try {
-    raw = JSON.parse(text);
+    raw = JSON.parse(extractJSON(rawText));
   } catch (err) {
     throw new AgentError(
       "agent2",
@@ -61,14 +52,17 @@ export async function runValidator(
   if (!Array.isArray(raw?.competitors)) {
     throw new AgentError("agent2", 'Response missing "competitors" array');
   }
-  if (raw.competitors.length !== 3) {
+  if (raw.competitors.length < 3) {
     throw new AgentError(
       "agent2",
-      `Expected exactly 3 competitors, got ${raw.competitors.length}`
+      `Expected at least 3 competitors, got ${raw.competitors.length}`
     );
   }
 
-  const competitors: Competitor[] = raw.competitors.map((item, i) => {
+  // Accept 3–5: top 3 = primary, positions 4–5 = backup fallbacks for agent3
+  const validatedPool = raw.competitors.slice(0, 5);
+
+  const competitors: Competitor[] = validatedPool.map((item, i) => {
     const c = item as Record<string, unknown>;
     for (const field of ["url", "name", "matchReason"] as const) {
       if (typeof c[field] !== "string" || !(c[field] as string).trim()) {

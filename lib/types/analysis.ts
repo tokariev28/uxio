@@ -57,6 +57,7 @@ export type SectionType =
 export interface ClassifiedSection {
   type: SectionType;
   markdownSlice: string;
+  scrollFraction: number; // 0.0–1.0, startChar / totalMarkdownLength
 }
 
 export interface PageSections {
@@ -125,6 +126,7 @@ export interface AnalysisResult {
   recommendations: Recommendation[];
   executiveSummary?: string;
   overallScores?: OverallScores;
+  pageSections?: PageSections[]; // for section-precise screenshot positioning in UI
 }
 
 // ── SSE Events ─────────────────────────────────────────────────

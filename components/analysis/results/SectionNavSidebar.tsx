@@ -34,7 +34,7 @@ export function SectionNavSidebar({
           key={item.sectionIndex}
           onClick={() => onClickItem(item.sectionIndex)}
           className={cn(
-            "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
+            "flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
             activeIndex === item.sectionIndex
               ? "bg-muted font-medium text-foreground"
               : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"

@@ -1,15 +1,14 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { AGENT_PROMPTS, AGENT_MODELS } from "@/lib/agents/prompts";
+import { AGENT_PROMPTS } from "@/lib/agents/prompts";
+import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
+import { extractJSON } from "@/lib/utils/json-extract";
 import type { PipelineContext, Recommendation, Priority, SectionType, OverallScores } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
-import { withGeminiRetry } from "@/lib/agents/gemini-retry";
 
 const VALID_PRIORITIES = new Set<Priority>(["critical", "high", "medium"]);
 const VALID_SECTION_TYPES = new Set<SectionType>(["hero", "navigation", "features", "benefits", "socialProof", "testimonials", "integrations", "howItWorks", "pricing", "faq", "cta", "footer"]);
 
 export async function runSynthesis(
   ctx: PipelineContext,
-  onRetry?: (delaySeconds: number) => void,
 ): Promise<{ recommendations: Recommendation[]; executiveSummary: string; overallScores?: OverallScores }> {
   if (!ctx.productBrief) {
     throw new AgentError("agent6", "productBrief is missing from pipeline context");
@@ -28,42 +27,29 @@ export async function runSynthesis(
       : `SECTION ANALYSES: [] (visual analysis unavailable — base recommendations on product brief and competitor context only)`,
   ].join("\n\n");
 
-  // ── Step 2: Gemini Flash call ──────────────────────────────────
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
-  const model = genAI.getGenerativeModel({
-    model: AGENT_MODELS.agent6_gemini,
-    systemInstruction: AGENT_PROMPTS.synthesis,
-  });
-
-  let geminiResult: Awaited<ReturnType<typeof model.generateContent>>;
+  // ── Step 2: AI Gateway call (Flash → GPT-5.4 fallback) ───────────────────────
+  let rawText: string;
   try {
-    geminiResult = await withGeminiRetry(
-      () => model.generateContent(userMessage),
-      onRetry
-    );
+    rawText = await aiGenerate(CHAINS.flash, {
+      system: AGENT_PROMPTS.synthesis,
+      prompt: userMessage,
+      json: true,
+    });
   } catch (err) {
     throw new AgentError(
       "agent6",
-      `Gemini failed after all retries: ${err instanceof Error ? err.message : String(err)}`
+      `AI generation failed: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 
-  const rawText = geminiResult.response.text();
-
-  // ── Step 3: Strip markdown fences ─────────────────────────────
-  const text = rawText
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
-  // ── Step 4: Parse JSON ─────────────────────────────────────────
+  // ── Step 3: Parse JSON ─────────────────────────────────────────
   let raw: { recommendations: unknown[]; executiveSummary?: unknown; overallScores?: Record<string, unknown> };
   try {
-    raw = JSON.parse(text);
+    raw = JSON.parse(extractJSON(rawText)) as typeof raw;
   } catch (err) {
     throw new AgentError(
       "agent6",
-      `Gemini response is not valid JSON: ${err instanceof Error ? err.message : String(err)}`
+      `AI response is not valid JSON: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 

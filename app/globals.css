@@ -244,6 +244,8 @@
   }
   html {
     font-family: var(--font-primary);
+    scroll-snap-type: y proximity;
+    scroll-behavior: smooth;
   }
   h1 {
     font-weight: 700;

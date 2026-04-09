@@ -1,9 +1,9 @@
 import FirecrawlApp from "@mendable/firecrawl-js";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { AGENT_PROMPTS, AGENT_MODELS } from "@/lib/agents/prompts";
+import { AGENT_PROMPTS } from "@/lib/agents/prompts";
+import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
+import { extractJSON } from "@/lib/utils/json-extract";
 import type { ProductBrief } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
-import { withGeminiRetry } from "@/lib/agents/gemini-retry";
 
 export async function runAgent0(
   url: string,
@@ -30,26 +30,17 @@ export async function runAgent0(
     );
   }
 
-  // ── Step 2: Gemini Flash-Lite extraction ───────────────────────
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
-  const model = genAI.getGenerativeModel({
-    model: AGENT_MODELS.agent0_gemini,
-    systemInstruction: AGENT_PROMPTS.pageIntelligence,
+  // ── Step 2: AI Gateway extraction (Flash-Lite → GPT-5.4 fallback) ───────────
+  const rawText = await aiGenerate(CHAINS.flashLite, {
+    system: AGENT_PROMPTS.pageIntelligence,
+    prompt: scraped.markdown!,
+    json: true,
   });
-
-  const geminiResult = await withGeminiRetry(() => model.generateContent(scraped.markdown!));
-  const rawText = geminiResult.response.text();
-
-  // Strip markdown fences in case the model wraps the JSON despite instructions
-  const text = rawText
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
 
   // ── Step 3: Parse JSON ─────────────────────────────────────────
   let raw: Record<string, unknown>;
   try {
-    raw = JSON.parse(text);
+    raw = JSON.parse(extractJSON(rawText));
   } catch (err) {
     throw new AgentError(
       "agent0",

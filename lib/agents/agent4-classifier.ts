@@ -1,5 +1,6 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { AGENT_PROMPTS, AGENT_MODELS } from "@/lib/agents/prompts";
+import { AGENT_PROMPTS } from "@/lib/agents/prompts";
+import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
+import { extractJSON } from "@/lib/utils/json-extract";
 import type {
   PipelineContext,
   PageSections,
@@ -7,7 +8,6 @@ import type {
   SectionType,
 } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
-import { withGeminiRetry } from "@/lib/agents/gemini-retry";
 
 const VALID_SECTION_TYPES = new Set<SectionType>([
   "hero",
@@ -25,30 +25,22 @@ const VALID_SECTION_TYPES = new Set<SectionType>([
 ]);
 
 async function classifyPage(
-  genAI: GoogleGenerativeAI,
   url: string,
   markdown: string
 ): Promise<PageSections> {
-  const model = genAI.getGenerativeModel({
-    model: AGENT_MODELS.agent4_gemini,
-    systemInstruction: AGENT_PROMPTS.sectionClassifier,
+  const rawText = await aiGenerate(CHAINS.flashLite, {
+    system: AGENT_PROMPTS.sectionClassifier,
+    prompt: markdown,
+    json: true,
   });
-
-  const geminiResult = await withGeminiRetry(() => model.generateContent(markdown));
-  const rawText = geminiResult.response.text();
-
-  const text = rawText
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
 
   let raw: { sections: unknown[] };
   try {
-    raw = JSON.parse(text);
+    raw = JSON.parse(extractJSON(rawText));
   } catch (err) {
     throw new AgentError(
       "agent4",
-      `Gemini response is not valid JSON for ${url}: ${err instanceof Error ? err.message : String(err)}`
+      `AI response is not valid JSON for ${url}: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 
@@ -68,6 +60,7 @@ async function classifyPage(
       return {
         type: s.type as SectionType,
         markdownSlice: markdown.slice(start, end),
+        scrollFraction: markdown.length > 0 ? start / markdown.length : 0,
       };
     });
 
@@ -94,14 +87,12 @@ export async function runClassifier(
     onActions?.(domains);
   }
 
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
-
   const results = await Promise.allSettled(
     ctx.pages.map((page) => {
       if (!page.markdown) {
         return Promise.resolve<PageSections>({ url: page.url, sections: [] });
       }
-      return classifyPage(genAI, page.url, page.markdown);
+      return classifyPage(page.url, page.markdown);
     })
   );
 
