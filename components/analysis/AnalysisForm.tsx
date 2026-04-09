@@ -2,7 +2,8 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { Clock } from "lucide-react";
+import Image from "next/image";
+import { AlertCircle, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ProgressPanel } from "./ProgressPanel";
@@ -51,6 +52,8 @@ export function AnalysisForm() {
   );
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [urlError, setUrlError] = useState<string | null>(null);
+  const [validating, setValidating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   function normalizeUrl(raw: string): string {
@@ -65,6 +68,35 @@ export function AnalysisForm() {
     e.preventDefault();
     const trimmed = normalizeUrl(url);
     if (!trimmed) return;
+
+    // Client-side format check
+    try {
+      const parsed = new URL(trimmed);
+      if (!parsed.hostname.includes(".")) throw new Error("no tld");
+    } catch {
+      setUrlError("That doesn't look like a valid URL. Try https://example.com");
+      return;
+    }
+
+    // Reachability check
+    setValidating(true);
+    setUrlError(null);
+    try {
+      const res = await fetch("/api/validate-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: trimmed }),
+      });
+      const data = await res.json();
+      if (!data.valid) {
+        setUrlError("We couldn't reach this address. Check the URL and try again.");
+        return;
+      }
+    } catch {
+      // Network failure reaching our own API — skip validation and proceed
+    } finally {
+      setValidating(false);
+    }
 
     setStages({});
     setResult(null);
@@ -153,7 +185,7 @@ export function AnalysisForm() {
         >
           <div className="hero-content">
             <Link href="/">
-              <img src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" />
+              <Image src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" />
             </Link>
             <h1 className="hero-heading">
               The honest audit<br />
@@ -168,17 +200,23 @@ export function AnalysisForm() {
                 className="hero-input"
                 placeholder="https://your-saas.com"
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
                 required
               />
               <button
                 type="submit"
-                disabled={!url.trim()}
+                disabled={!url.trim() || validating}
                 className="hero-submit"
               >
-                Analyze
+                {validating ? "Checking…" : "Analyze"}
               </button>
             </form>
+            {urlError && (
+              <p className="flex items-center gap-1.5 text-sm text-destructive mt-2">
+                <AlertCircle className="size-4 shrink-0" />
+                {urlError}
+              </p>
+            )}
             <div className="insight-cards-row">
               {INSIGHT_CARDS.map((card) => (
                 <div
@@ -217,15 +255,15 @@ export function AnalysisForm() {
                 className="hero-input"
                 placeholder="https://your-saas.com"
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
                 required
               />
               <button
                 type="submit"
-                disabled={!url.trim()}
+                disabled={!url.trim() || validating}
                 className="hero-submit"
               >
-                Analyze
+                {validating ? "Checking…" : "Analyze"}
               </button>
             </form>
           )}
@@ -251,7 +289,16 @@ export function AnalysisForm() {
             )
           )}
 
-          {appState === "done" && result && <ResultsPanel result={result} />}
+          {appState === "done" && result && (
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full"
+            >
+              <ResultsPanel result={result} />
+            </motion.div>
+          )}
         </motion.div>
       )}
     </AnimatePresence>

@@ -42,7 +42,23 @@ function siteLabel(
   competitors: Array<{ url: string; name: string }>
 ): string {
   if (url === inputUrl) return "input";
-  return competitors.find((c) => c.url === url)?.name ?? url;
+  // Exact match first
+  const exact = competitors.find((c) => c.url === url);
+  if (exact) return exact.name;
+  // Domain-based fallback — handles trailing slash, http/https, or any
+  // minor URL difference introduced by Firecrawl redirects or backup substitutions
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    const byDomain = competitors.find((c) => {
+      try {
+        return new URL(c.url).hostname.replace(/^www\./, "") === host;
+      } catch {
+        return false;
+      }
+    });
+    if (byDomain) return byDomain.name;
+  } catch { /* ignore invalid URLs */ }
+  return url;
 }
 
 async function urlToBase64(url: string): Promise<string> {

@@ -1,6 +1,7 @@
 "use client";
 
 import type { Recommendation, Priority } from "@/lib/types/analysis";
+import { toSentenceCase } from "@/lib/utils";
 
 interface InsightCardProps {
   insight: Recommendation;
@@ -57,7 +58,7 @@ export function SectionInsightCard({ insight, index, total }: InsightCardProps) 
 
       {/* Title */}
       <p style={{ fontSize: 15, fontWeight: 600, color: "#111827", margin: 0, lineHeight: 1.4 }}>
-        {insight.title}
+        {toSentenceCase(insight.title)}
       </p>
 
       {/* Body text — full, no truncation */}

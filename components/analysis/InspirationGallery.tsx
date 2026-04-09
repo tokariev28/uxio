@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, RefObject } from "react";
+import Image from "next/image";
 import {
   motion,
   useMotionValue,
@@ -35,7 +36,12 @@ const EXAMPLES = [
   { name: "Cron",        tagline: "Minimalism with maximum intent",       url: "https://cron.com",       image: "/examples/cron.png" },
 ] as const;
 
+// Triple the list so the loop is seamless
+const LOOPED_EXAMPLES = [...EXAMPLES, ...EXAMPLES, ...EXAMPLES];
+
 type Example = (typeof EXAMPLES)[number];
+
+const SCROLL_SPEED = 0.6; // px per frame (~36px/s at 60fps)
 
 /* ── Local hooks ────────────────────────────────────────────────────────── */
 
@@ -52,18 +58,24 @@ function useIsTouchDevice(): boolean {
 
 interface GalleryCardProps {
   item: Example;
+  instanceKey: string;
   scrollXMV: MotionValue<number>;
   containerRef: RefObject<HTMLDivElement | null>;
   reducedMotion: boolean;
   isTouch: boolean;
+  onCardMouseEnter: () => void;
+  onCardMouseLeave: () => void;
 }
 
 function GalleryCard({
   item,
+  instanceKey,
   scrollXMV,
   containerRef,
   reducedMotion,
   isTouch,
+  onCardMouseEnter,
+  onCardMouseLeave,
 }: GalleryCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -117,17 +129,20 @@ function GalleryCard({
 
   const handleMouseEnter = () => {
     if (!isTouch) translateYRaw.set(-8);
+    onCardMouseEnter();
   };
 
   const handleMouseLeave = () => {
     mouseXRaw.set(0);
     mouseYRaw.set(0);
     translateYRaw.set(0);
+    onCardMouseLeave();
   };
 
   return (
     <motion.div
       ref={cardRef}
+      key={instanceKey}
       className="relative shrink-0 cursor-pointer overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-shadow"
       style={{
         height: "38vh",
@@ -136,7 +151,6 @@ function GalleryCard({
         rotateX: reducedMotion ? 0 : mouseRotateX,
         translateY,
         transformPerspective: 1400,
-        scrollSnapAlign: "start",
       }}
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
@@ -144,10 +158,11 @@ function GalleryCard({
       onClick={() => window.open(item.url, "_blank", "noopener")}
     >
       {/* Screenshot / placeholder */}
-      <img
+      <Image
         src={item.image}
         alt={item.name}
-        className="w-full h-full object-cover object-top"
+        fill
+        className="object-cover object-top"
         draggable={false}
       />
 
@@ -180,7 +195,9 @@ export function InspirationGallery() {
   const scrollXMV = useMotionValue(0);
   const reducedMotion = useReducedMotion() ?? false;
   const isTouch = useIsTouchDevice();
+  const isHovered = useRef(false);
 
+  /* Sync scrollLeft → scrollXMV (drives per-card tilt) */
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -189,24 +206,53 @@ export function InspirationGallery() {
     return () => el.removeEventListener("scroll", onScroll);
   }, [scrollXMV]);
 
+  /* Auto-scroll RAF loop */
+  useEffect(() => {
+    if (reducedMotion || isTouch) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    let rafId: number;
+
+    function tick() {
+      if (!isHovered.current && el) {
+        el.scrollLeft += SCROLL_SPEED;
+        // When we've scrolled past the first copy, jump back seamlessly
+        const oneThird = el.scrollWidth / 3;
+        if (el.scrollLeft >= oneThird) {
+          el.scrollLeft -= oneThird;
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [reducedMotion, isTouch]);
+
   return (
     <div className="w-full">
       <p className="text-2xl font-bold text-foreground mb-5 px-8">
-        The bar you&apos;re being measured against
+        Websites we love
       </p>
       <div
         ref={containerRef}
         className="flex gap-5 overflow-x-auto px-8 py-4 pb-8 gallery-scroll"
-        style={{ scrollSnapType: "x mandatory", scrollPaddingLeft: "2rem" }}
+        style={{ scrollPaddingLeft: "2rem" }}
+        onMouseEnter={() => { isHovered.current = true; }}
+        onMouseLeave={() => { isHovered.current = false; }}
       >
-        {EXAMPLES.map((item) => (
+        {LOOPED_EXAMPLES.map((item, i) => (
           <GalleryCard
-            key={item.name}
+            key={`${item.name}-${i}`}
+            instanceKey={`${item.name}-${i}`}
             item={item}
             scrollXMV={scrollXMV}
             containerRef={containerRef}
             reducedMotion={reducedMotion}
             isTouch={isTouch}
+            onCardMouseEnter={() => { isHovered.current = true; }}
+            onCardMouseLeave={() => { isHovered.current = false; }}
           />
         ))}
       </div>

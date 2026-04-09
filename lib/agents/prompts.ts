@@ -46,19 +46,24 @@ export const AGENT_PROMPTS = {
     // Output:   top 3 scored competitors
     competitorValidator: `
   ROLE: Product Strategist
-  TASK: Score competitor candidates against the input product brief. Select top 3.
-  
+  TASK: Score competitor candidates against the input product brief. Select top 3–5.
+
+  NOTE: Each candidate includes a "mentions" field — the number of independent search signals it appeared in (max 5). Higher mentions = stronger market recognition signal. Factor this into scoring.
+
   SCORING AXES (0.0–1.0 each):
   - icpOverlap:            Same buyer type?
   - featureOverlap:        Same core job-to-be-done?
   - valuePropSimilarity:   Same promised outcome?
   - marketSegment:         Same tier (SMB / Mid-market / Enterprise)?
-  
+
   matchScore = average of 4 axes (2 decimal places)
-  
-  SELECTION: Top 5 by matchScore. Prefer ≥ 0.75 (direct competitors).
-  If fewer than 5 score ≥ 0.75, take top 5 regardless.
-  Top 3 = primary competitors shown to user. Positions 4–5 = backup competitors used if a primary fails.
+
+  SELECTION RULES:
+  - Select top 5 by matchScore. Prefer ≥ 0.75 (direct competitors).
+  - If fewer than 5 score ≥ 0.75, take the top available regardless.
+  - DIVERSITY: At most 2 selected competitors may share the same primary sub-category. Prefer breadth of coverage over clustering similar tools.
+  - EXCLUDE: Any candidate whose domain is a review aggregator, comparison site, or media outlet (e.g. g2.com, capterra.com, techcrunch.com, alternativeto.net). These are not product competitors.
+  - Top 3 = primary competitors shown to user. Positions 4–5 = backup competitors used if a primary fails.
 
   OUTPUT FORMAT — strict JSON:
   {
@@ -72,7 +77,7 @@ export const AGENT_PROMPTS = {
     ]
   }
 
-  STOP: JSON only. Exactly 5 items.
+  STOP: JSON only. 3–5 items.
   `.trim(),
   
     // ── AGENT 4 · Section Classifier ─────────────────────────────────
@@ -97,7 +102,7 @@ export const AGENT_PROMPTS = {
   - cta: standalone section with a single large call-to-action button
   - footer: site links, legal text, final navigation
 
-  Detect ALL sections present on the page. Minimum 5 sections for any standard SaaS landing page. Never use "other".
+  Detect ALL sections present on the page. Report ONLY sections that explicitly appear in the markdown. Never add inferred or assumed sections. It is acceptable to return fewer than 5 sections if the page genuinely has fewer. Never use "other".
 
   OUTPUT FORMAT — strict JSON:
   {

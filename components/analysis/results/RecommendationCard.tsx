@@ -5,21 +5,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, toSentenceCase } from "@/lib/utils";
 import type { Priority, Recommendation } from "@/lib/types/analysis";
-
-function toSentenceCase(str: string): string {
-  if (!str) return str;
-  return str
-    .split(" ")
-    .map((word, i) => {
-      if (i === 0) return word;
-      // Keep acronyms/all-caps words (e.g. CTA, SEO, UI, API)
-      if (word.length > 1 && word === word.toUpperCase()) return word;
-      return word.toLowerCase();
-    })
-    .join(" ");
-}
 
 interface RecommendationCardProps {
   recommendation: Recommendation;

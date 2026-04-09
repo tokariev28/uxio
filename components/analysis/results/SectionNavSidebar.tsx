@@ -3,20 +3,12 @@ import { cn } from "@/lib/utils";
 export interface NavItem {
   sectionIndex: number;
   label: string;
-  inputScore: number | null;
 }
 
 interface SectionNavSidebarProps {
   items: NavItem[];
   activeIndex: number;
   onClickItem: (index: number) => void;
-}
-
-function getDotClass(score: number | null): string {
-  if (score === null) return "bg-muted-foreground/30";
-  if (score < 0.6) return "bg-red-500";
-  if (score < 0.8) return "bg-amber-500";
-  return "bg-green-500";
 }
 
 export function SectionNavSidebar({
@@ -40,12 +32,6 @@ export function SectionNavSidebar({
               : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           )}
         >
-          <span
-            className={cn(
-              "size-2 shrink-0 rounded-full",
-              getDotClass(item.inputScore)
-            )}
-          />
           {item.label}
         </button>
       ))}
