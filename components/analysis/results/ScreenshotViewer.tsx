@@ -51,7 +51,7 @@ export function ScreenshotViewer({
   const [cropError, setCropError] = useState(false);
   const [layer, setLayer] = useState<Layer>(normalizedSrc ? "cropped" : "placeholder");
   const [loading, setLoading] = useState(layer !== "placeholder");
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
 
   // Canvas crop — fires when src or scrollFraction change
   useEffect(() => {
@@ -124,7 +124,7 @@ export function ScreenshotViewer({
     <div
       className={className}
       style={{ position: "relative", width: "100%", height, overflow: "hidden", borderRadius: 10 }}
-      ref={canvasRef as React.RefObject<HTMLDivElement>}
+      ref={canvasRef}
     >
       {/* Loading shimmer */}
       {loading && (
