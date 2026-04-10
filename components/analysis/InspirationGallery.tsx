@@ -145,7 +145,7 @@ function GalleryCard({
       key={instanceKey}
       className="relative shrink-0 cursor-pointer overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-shadow"
       style={{
-        height: "38vh",
+        height: "240px",
         aspectRatio: "16/10",
         rotateY: reducedMotion ? 0 : rotateY,
         rotateX: reducedMotion ? 0 : mouseRotateX,
