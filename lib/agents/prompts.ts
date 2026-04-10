@@ -15,12 +15,12 @@ export const AGENT_PROMPTS = {
 
   RULES:
   - company: exact name from the page.
-  - industry: infer from context if not explicitly stated (e.g. "Project Management Software").
+  - industry: use a short, standardized market category (e.g. "Project Management", "CRM", "Analytics Platform", "DevTools", "Email Marketing"). Do NOT copy the product's own marketing tagline or self-description verbatim — write what a user would type to search for competitors in this space.
   - icp: infer the target buyer from messaging if not explicitly stated.
   - coreValueProp: infer the primary outcome promised if not explicitly stated.
   - keyFeatures: verbatim or close paraphrase from the page, max 6.
   - pricingVisible / hasFreeTrialOrFreemium: true/false based on page content.
-  - primaryCTAText: exact button label. Return null if none found.
+  - primaryCTAText: The single most conversion-oriented action on the page — the button that starts a trial, opens the product, signs up, or contacts sales. Exact label from page. Return null if none found. EXCLUDE: "Read more", "Learn more", "Continue reading", "Read the story", "Watch demo", "See how it works" — these are content navigation links, not conversion actions.
   - Never fabricate specific facts (pricing numbers, company names, feature names).
 
   OUTPUT FORMAT — strict JSON, no prose:
@@ -28,9 +28,9 @@ export const AGENT_PROMPTS = {
     "company": string,
     "industry": string,
     "icp": string,
-    "icpKeyword": "2-3 word short form of ICP for search queries",
+    "icpKeyword": "2-3 word short form of ICP for search queries (what OTHER people would type to find this audience, NOT the company's own label — e.g. 'AI developers' not 'innovators', 'SMB sales teams' not 'growth-oriented organizations')",
     "coreValueProp": string,
-    "cvpKeyword": "2-3 word short form of core value prop for search queries",
+    "cvpKeyword": "2-3 word short form of core value prop for search queries (what OTHER people would search to find this category, NOT the company's own tagline — e.g. 'AI models API' not 'responsible AI', 'all-in-one CRM' not 'integrated growth platform', 'project management' not 'work OS')",
     "keyFeatures": string[],
     "pricingVisible": boolean,
     "hasFreeTrialOrFreemium": boolean,
@@ -40,6 +40,45 @@ export const AGENT_PROMPTS = {
   STOP: JSON only. No markdown fences. No explanation.
   `.trim(),
   
+    // ── AGENT 1 · LLM Competitor Discovery ──────────────────────────
+    // Pipeline: ProductBrief → this prompt → Gemini Flash-Lite
+    // Input:    company, industry, ICP, value prop
+    // Output:   JSON array of { url, name } — 6-8 well-known direct competitors
+    // NOTE:     Runs in parallel with Tavily searches. Results are merged by domain.
+    competitorDiscovery: `
+  ROLE: Market Research Analyst
+  TASK: List the 8 most well-known direct competitors for the product described below.
+
+  RULES:
+  - Only include direct competitors: same buyer type, same core job-to-be-done.
+  - Use the real homepage URL (e.g. "https://asana.com", not a deep link or blog post).
+  - Prefer widely recognized, commercially active products — no niche, regional, or hobby tools.
+  - Do NOT include: review aggregators (G2, Capterra), the input company itself, or open-source projects with no commercial offering.
+
+  TIER-1 CRITERIA — all returned competitors MUST meet these:
+  - Exists for 3+ years with thousands of verified reviews on G2 or Capterra.
+  - Recognized by name by any practitioner in this space without explanation.
+  - Competes at the same or higher market tier (SMB / mid-market / enterprise).
+
+  Think step by step:
+  1. What is the primary G2 category for this type of product?
+  2. Which companies are "Leaders" or "High Performers" in that G2 category by review volume?
+  3. Return those — not niche alternatives, not recently-founded tools.
+
+  EXAMPLES OF CORRECT TIER-1 THINKING:
+  - For CRM: Salesforce, HubSpot, Pipedrive — NOT Streak or Less Annoying CRM
+  - For sales outreach / intelligence: ZoomInfo, Outreach, Salesloft — NOT Saleshandy or Instantly
+  - For project management: Jira, Asana, Monday.com — NOT Goodday or Efficient
+  - For email marketing: Mailchimp, HubSpot, Klaviyo — NOT Moosend or Brevo
+
+  OUTPUT FORMAT — strict JSON array, 6–8 items:
+  [
+    { "url": "https://...", "name": "string" }
+  ]
+
+  STOP: JSON array only. No markdown fences. No prose.
+  `.trim(),
+
     // ── AGENT 2 · Competitor Validator & Ranker ──────────────────────
     // Pipeline: Tavily results (from Agent 1) → this prompt → Gemini Flash-Lite
     // Input:    productBrief + candidate list from Tavily
@@ -63,7 +102,9 @@ export const AGENT_PROMPTS = {
   - If fewer than 5 score ≥ 0.75, take the top available regardless.
   - DIVERSITY: At most 2 selected competitors may share the same primary sub-category. Prefer breadth of coverage over clustering similar tools.
   - EXCLUDE: Any candidate whose domain is a review aggregator, comparison site, or media outlet (e.g. g2.com, capterra.com, techcrunch.com, alternativeto.net). These are not product competitors.
+  - EXCLUDE INFRASTRUCTURE: Do not select generic cloud infrastructure providers (AWS, Azure, Google Cloud Platform, DigitalOcean, Heroku) as competitors for companies that sell AI models, AI APIs, or AI research services. Infrastructure platforms are deployment venues, not product competitors. An acceptable exception: if the cloud provider has a clearly separate, standalone AI model product competing for the same ICP (e.g. a dedicated LLM API product with its own pricing page and brand separate from the cloud platform).
   - Top 3 = primary competitors shown to user. Positions 4–5 = backup competitors used if a primary fails.
+  - TIER RULE: When two candidates have similar matchScore (within 0.10), strongly prefer the one with higher market presence (more mentions, widely recognized brand). B2B buyers benchmark against market leaders — a well-known competitor with 0.75 matchScore is more analytically valuable than a niche tool with 0.85 matchScore.
 
   OUTPUT FORMAT — strict JSON:
   {
@@ -92,7 +133,7 @@ export const AGENT_PROMPTS = {
   - hero: full-width headline + subtitle + primary CTA above the fold
   - navigation: top nav bar with logo and links
   - features: icon/card grid describing product capabilities
-  - benefits: outcome-focused copy, "you will get X" statements
+  - benefits: outcome-focused copy, "you will get X" statements, or company mission/values block (e.g. "We build X to serve Y" + a grid of principles, documents, or commitments)
   - socialProof: customer logos, review counts, G2/Capterra badges
   - testimonials: quotes from named customers
   - integrations: logos of tools that connect to the product
@@ -219,8 +260,8 @@ export const AGENT_PROMPTS = {
       "typographyReadability": number,
       "densityBalance": number
     },
-    "overallScore": number,
-    "confidence": number,
+    "overallScore": number,    // 0.0–1.0 using the formula above
+    "confidence": number,      // 0.0–1.0: 1.0 = full visual + copy evidence; 0.7 = text-only; 0.4 = inferred
     "strengths": string[],
     "weaknesses": string[],
     "keyEvidence": {
@@ -344,6 +385,14 @@ export const AGENT_PROMPTS = {
 
   Max 3 strengths. Max 3 weaknesses. At least 1 of each.
 
+  EVIDENCE FORMAT EXAMPLES:
+    GOOD strength: "Make it fast" headline signals speed but gives no measurable outcome — visitors cannot evaluate the claim without a benchmark.
+    GOOD weakness: "3-column icon grid" at 40% scroll spreads attention across 9 feature tiles with no visual cue indicating which matters most.
+    BAD: "Clean visual hierarchy" — no quote, no number, not grounded.
+    BAD: "Lacks social proof" — must name the missing element with a quote or cite a competitor: Asana shows "184,000+ teams" directly beside its primary CTA.
+
+  If using a visual description (option b), it MUST include a specific count or dimension ("3-column", "full-width", "2-step", "above-the-fold").
+
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   OUTPUT FORMAT — strict JSON array, one object per section received (same order)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -362,8 +411,8 @@ export const AGENT_PROMPTS = {
         "typographyReadability": number,
         "densityBalance": number
       },
-      "overallScore": number,
-      "confidence": number,
+      "overallScore": number,    // 0.0–1.0 using the formula above
+      "confidence": number,      // 0.0–1.0: 1.0 = screenshot + full copy available; 0.7 = text-only analysis; 0.4 = inferred from sparse markdown
       "strengths": string[],
       "weaknesses": string[],
       "keyEvidence": {
@@ -413,7 +462,7 @@ export const AGENT_PROMPTS = {
     "recommendations": [
       {
         "priority": "critical" | "high" | "medium",
-        "section": "hero" | "navigation" | "features" | "benefits" | "socialProof" | "testimonials" | "integrations" | "howItWorks" | "pricing" | "faq" | "cta" | "footer",
+        "section": "hero" | "navigation" | "features" | "benefits" | "socialProof" | "testimonials" | "integrations" | "howItWorks" | "pricing" | "faq" | "cta" | "footer" | "videoDemo" | "comparison" | "metrics",
         "title": string,
         "reasoning": string,        // Two-part structure: (1) Name which specific competitor exposes this gap and what element they do differently. (2) Explain the conversion mechanism: why this specific gap costs conversions. NEVER write numerical scores — scores are internal only.
         "competitorExample": string,  // Must: (1) name a specific competitor from the COMPETITORS list, and (2) state exactly what that competitor does. FORMAT: "[Name]'s [section] [specific observation]". GOOD: "HubSpot's hero shows '184,000+ customers' directly below the CTA button." BAD: "Leading competitors use stronger social proof." BAD: "Competitor A has a cleaner hero section."
