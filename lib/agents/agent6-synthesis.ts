@@ -7,6 +7,21 @@ import { AgentError } from "@/lib/agents/errors";
 const VALID_PRIORITIES = new Set<Priority>(["critical", "high", "medium"]);
 const VALID_SECTION_TYPES = new Set<SectionType>(["hero", "navigation", "features", "benefits", "socialProof", "testimonials", "integrations", "howItWorks", "pricing", "faq", "cta", "footer", "videoDemo", "comparison", "metrics"]);
 
+/**
+ * Normalise LLM-returned section strings to match VALID_SECTION_TYPES.
+ * Handles: capitalisation ("Hero" → "hero"), trailing " section" suffix,
+ * and spaces in camelCase ("Social Proof" → "socialProof" won't work,
+ * but "SocialProof" → "socialProof" will via first-char lowercasing).
+ */
+function normalizeSectionType(raw: unknown): string {
+  if (typeof raw !== "string") return String(raw ?? "");
+  const trimmed = raw.trim().replace(/\s+section$/i, "").replace(/\s+/g, "");
+  // All-caps input (e.g. "FAQ", "CTA", "HERO") → full lowercase
+  if (trimmed === trimmed.toUpperCase() && trimmed.length > 0) return trimmed.toLowerCase();
+  // Mixed/title case → just lowercase the first character (preserves camelCase like "socialProof")
+  return trimmed.replace(/^[A-Z]/, (c) => c.toLowerCase());
+}
+
 // ── Compute overallScores from Agent5 data (not LLM-generated) ─────────────
 function computeOverallScores(ctx: PipelineContext): OverallScores | undefined {
   const analyses = ctx.sectionAnalyses;
@@ -89,6 +104,7 @@ export async function runSynthesis(
   }
 
   // ── Step 3: Parse JSON ─────────────────────────────────────────
+  // Must be `let` so the retry block below can reassign on success
   let raw: { recommendations: unknown[]; executiveSummary?: unknown };
   try {
     raw = JSON.parse(extractJSON(rawText)) as typeof raw;
@@ -104,6 +120,34 @@ export async function runSynthesis(
     throw new AgentError("agent6", 'Response missing "recommendations" array');
   }
 
+  // ── Step 5b: Retry if LLM returned empty recommendations array ────
+  // Transient failure: model returned valid JSON but empty array.
+  // Retry once with a minimal prompt stripped of SECTION ANALYSES bulk.
+  if (raw.recommendations.length === 0) {
+    console.warn("[agent6] LLM returned empty recommendations — retrying with minimal prompt");
+    const minimalMessage = [
+      `PRODUCT: ${JSON.stringify(ctx.productBrief)}`,
+      `COMPETITORS: ${JSON.stringify(ctx.competitors)}`,
+      `SECTION ANALYSES: [] (retry — base recommendations on product brief and competitor context only)`,
+    ].join("\n\n");
+    try {
+      const retryText = await aiGenerate(CHAINS.flash, {
+        system: AGENT_PROMPTS.synthesis,
+        prompt: minimalMessage,
+        json: true,
+      });
+      const retryRaw = JSON.parse(extractJSON(retryText)) as typeof raw;
+      if (Array.isArray(retryRaw?.recommendations) && retryRaw.recommendations.length > 0) {
+        raw = retryRaw;
+        console.warn(`[agent6] Retry succeeded: ${raw.recommendations.length} recommendations`);
+      } else {
+        console.error("[agent6] Retry also returned empty recommendations — proceeding with empty");
+      }
+    } catch (retryErr) {
+      console.error("[agent6] Retry failed:", retryErr instanceof Error ? retryErr.message : String(retryErr));
+    }
+  }
+
   // Determine expected sections from pipeline context
   const expectedSections = new Set(
     (ctx.sectionAnalyses ?? []).map((s) => s.sectionType)
@@ -111,11 +155,6 @@ export async function runSynthesis(
 
   // ── Step 6: Map to Recommendation[] ───────────────────────────
   const rawRecs = raw.recommendations;
-  console.log(`[agent6] LLM returned ${rawRecs.length} raw recommendations`);
-  if (rawRecs.length > 0) {
-    const sampleSections = rawRecs.slice(0, 3).map((r) => (r as Record<string, unknown>).section);
-    console.log(`[agent6] First 3 section values from LLM:`, sampleSections);
-  }
 
   const recommendations = rawRecs.map((item, i) => {
     const r = item as Record<string, unknown>;
@@ -126,10 +165,10 @@ export async function runSynthesis(
         `recommendations[${i}] has invalid priority: "${r.priority}"`
       );
     }
-    if (!VALID_SECTION_TYPES.has(r.section as SectionType)) {
+    const normalizedSection = normalizeSectionType(r.section);
+    if (!VALID_SECTION_TYPES.has(normalizedSection as SectionType)) {
       console.warn(
-        `[agent6] DROPPED recommendations[${i}]: section="${r.section}" not in whitelist ` +
-        `(priority="${r.priority}", title="${r.title}")`
+        `[agent6] DROPPED recommendations[${i}]: section raw="${r.section}" normalized="${normalizedSection}" not in whitelist`
       );
       return null;
     }
@@ -141,7 +180,7 @@ export async function runSynthesis(
 
     return {
       priority: r.priority as Priority,
-      section: r.section as SectionType,
+      section: normalizedSection as SectionType,
       title: r.title as string,
       reasoning: r.reasoning as string,
       exampleFromCompetitor: r.competitorExample as string,
