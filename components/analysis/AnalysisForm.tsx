@@ -67,7 +67,10 @@ export function AnalysisForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = normalizeUrl(url);
-    if (!trimmed) return;
+    if (!trimmed) {
+      setUrlError("Enter your landing page URL to get started.");
+      return;
+    }
 
     // Client-side format check
     try {
@@ -188,35 +191,36 @@ export function AnalysisForm() {
               <Image src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" />
             </Link>
             <h1 className="hero-heading">
-              The honest audit<br />
-              <em>your landing page needs.</em>
+              See your landing page<br />
+              <em>through your competitor's eyes.</em>
             </h1>
             <p className="hero-subtitle">
-              Paste any URL. Get a structured critique against top-performing pages — hero, CTA, trust signals, and more.
+              Uxio benchmarks your landing page against your actual competitors&nbsp;—<br />and shows you the exact gaps, ranked by impact
             </p>
-            <form onSubmit={handleSubmit} className="hero-form-wrapper">
-              <input
-                type="text"
-                className="hero-input"
-                placeholder="https://your-saas.com"
-                value={url}
-                onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
-                required
-              />
-              <button
-                type="submit"
-                disabled={!url.trim() || validating}
-                className="hero-submit"
-              >
-                {validating ? "Checking…" : "Analyze"}
-              </button>
-            </form>
-            {urlError && (
-              <p className="flex items-center gap-1.5 text-sm text-destructive mt-2">
-                <AlertCircle className="size-4 shrink-0" />
-                {urlError}
-              </p>
-            )}
+            <div className="hero-form-area">
+              <form onSubmit={handleSubmit} className="hero-form-wrapper">
+                <input
+                  type="text"
+                  className="hero-input"
+                  placeholder="https://your-saas.com"
+                  value={url}
+                  onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
+                />
+                <button
+                  type="submit"
+                  disabled={validating}
+                  className="hero-submit"
+                >
+                  {validating ? "Checking…" : "Analyze"}
+                </button>
+              </form>
+              {urlError && (
+                <p className="hero-url-error">
+                  <AlertCircle className="size-4 shrink-0" />
+                  {urlError}
+                </p>
+              )}
+            </div>
             <div className="insight-cards-row">
               {INSIGHT_CARDS.map((card) => (
                 <div
@@ -256,11 +260,10 @@ export function AnalysisForm() {
                 placeholder="https://your-saas.com"
                 value={url}
                 onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
-                required
               />
               <button
                 type="submit"
-                disabled={!url.trim() || validating}
+                disabled={validating}
                 className="hero-submit"
               >
                 {validating ? "Checking…" : "Analyze"}

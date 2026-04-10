@@ -37,7 +37,22 @@ function renderReasoningText(text: string, competitors: Competitor[]) {
     const domain = getDomain(comp.url);
 
     return (
-      <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 3, verticalAlign: "middle" }}>
+      <a
+        key={i}
+        href={comp.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 3,
+          verticalAlign: "middle",
+          color: "#111",
+          textDecoration: "none",
+          borderBottom: "1px dashed #9ca3af",
+          cursor: "pointer",
+        }}
+      >
         {isFirst && domain && (
           <img
             src={`https://www.google.com/s2/favicons?domain=${domain}&sz=16`}
@@ -47,8 +62,8 @@ function renderReasoningText(text: string, competitors: Competitor[]) {
             style={{ borderRadius: 2, verticalAlign: "middle" }}
           />
         )}
-        <strong style={{ color: "#111", fontWeight: 600 }}>{part}</strong>
-      </span>
+        <strong style={{ fontWeight: 600 }}>{part}</strong>
+      </a>
     );
   });
 }
@@ -137,7 +152,7 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
             >
               {/* Body */}
               <div style={{ padding: "24px 26px 14px" }}>
-                {/* Priority */}
+                {/* Priority + Confidence */}
                 <div
                   style={{
                     display: "flex",
@@ -161,6 +176,18 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
                   <span style={{ color: PRIORITY_COLORS[insight.priority] }}>
                     {insight.priority}
                   </span>
+                  {typeof insight.confidence === "number" && (
+                    <>
+                      <span style={{ color: "#d1d5db" }}>·</span>
+                      <span
+                        style={{
+                          color: insight.confidence >= 0.7 ? "#16a34a" : insight.confidence >= 0.4 ? "#d97706" : "#dc2626",
+                        }}
+                      >
+                        {insight.confidence >= 0.7 ? "High confidence" : insight.confidence >= 0.4 ? "Medium confidence" : "Low confidence"}
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 {/* Title */}

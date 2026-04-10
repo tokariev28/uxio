@@ -80,6 +80,7 @@ export interface SectionFinding {
   site: string; // "input" or competitor URL/name
   score: number; // 0–1
   scores?: SectionScores;
+  confidence?: number; // 0–1, how confident the agent is in this finding
   strengths: string[];
   weaknesses: string[];
   summary: string;
@@ -108,6 +109,7 @@ export interface Recommendation {
   exampleFromCompetitor: string;
   suggestedAction: string;
   impact?: string; // Expected outcome of implementing this recommendation
+  confidence?: number; // 0–1, how confident the agent is in this recommendation
 }
 
 // ── Overall Scores (Agent 6 output) ───────────────────────────

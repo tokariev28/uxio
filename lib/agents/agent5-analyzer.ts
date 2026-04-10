@@ -24,6 +24,7 @@ interface BatchSectionResult {
     trustSignals: number;
   };
   overallScore: number;
+  confidence?: number;
   strengths: string[];
   weaknesses: string[];
   keyEvidence: {
@@ -177,6 +178,7 @@ export async function runAnalyzer(
         site,
         score: raw.overallScore,
         scores: raw.scores ?? undefined,
+        confidence: typeof raw.confidence === "number" ? raw.confidence : undefined,
         strengths: raw.strengths ?? [],
         weaknesses: raw.weaknesses ?? [],
         summary: raw.strengths[0] ?? raw.weaknesses[0] ?? "No notable findings",

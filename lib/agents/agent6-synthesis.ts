@@ -142,6 +142,8 @@ export async function runSynthesis(
         typeof r.impact === "string" && (r.impact as string).trim()
           ? (r.impact as string).trim()
           : undefined,
+      confidence:
+        typeof r.confidence === "number" ? r.confidence : undefined,
     };
   });
 

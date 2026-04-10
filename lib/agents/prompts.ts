@@ -152,6 +152,7 @@ export const AGENT_PROMPTS = {
       "trustSignals": number
     },
     "overallScore": number,
+    "confidence": number,  // 0.0–1.0. How confident you are in this analysis. 1.0 = screenshot + markdown both present and clear; 0.7 = text-only analysis (no screenshot or screenshot unclear); 0.4 = inferred from limited content, low certainty.
     "strengths": string[],   // max 3 · Must start with: (a) a direct quote from the page in double quotes, OR (b) a concrete visual description ("3-column grid showing X"). Then explain the conversion impact. INVALID: "Clean layout" / "Good visual hierarchy" / "Effective design".
     "weaknesses": string[],  // max 3 · Must start with: (a) a direct quote in double quotes, OR (b) a concrete visual description. Then state the specific conversion cost. INVALID: "Vague copy" / "Lacks specificity" / "Could be improved".
     "keyEvidence": {
@@ -219,6 +220,7 @@ export const AGENT_PROMPTS = {
         "trustSignals": number
       },
       "overallScore": number,
+      "confidence": number,  // 0.0–1.0. How confident you are in this analysis. 1.0 = screenshot + markdown both present and clear; 0.7 = text-only analysis (no screenshot or screenshot unclear); 0.4 = inferred from limited content, low certainty.
       "strengths": string[],
       "weaknesses": string[],
       "keyEvidence": {
@@ -273,7 +275,8 @@ export const AGENT_PROMPTS = {
         "reasoning": string,        // Two-part structure: (1) Name which specific competitor exposes this gap and what element they do differently. (2) Explain the conversion mechanism: why this specific gap costs conversions. NEVER write numerical scores — scores are internal only.
         "competitorExample": string,  // Must: (1) name a specific competitor from the COMPETITORS list, and (2) state exactly what that competitor does. FORMAT: "[Name]'s [section] [specific observation]". GOOD: "HubSpot's hero shows '184,000+ customers' directly below the CTA button." BAD: "Leading competitors use stronger social proof." BAD: "Competitor A has a cleaner hero section."
         "suggestedAction": string,  // One concrete sentence, max 20 words. FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Revamp, Rework, Address, Ensure. Must specify WHAT element to change AND what to change it to (or a measurable target). GOOD: "Replace hero headline with a specific outcome metric, mirroring HubSpot's result-first framing." BAD: "Improve the hero headline for better clarity."
-        "impact": string            // One sentence. The conversion or engagement benefit of acting on this recommendation. Must be grounded in competitor evidence or a named industry pattern. GOOD: "Reduces early bounce — Notion's logo strip correlates with 12% higher trial starts." GOOD: "Lifts CTA click-through — HubSpot's below-fold CTA repetition averages 18% higher engagement." BAD: "Will improve conversions." BAD: "Users will trust the product more."
+        "impact": string,           // One sentence. The conversion or engagement benefit of acting on this recommendation. Must be grounded in competitor evidence or a named industry pattern. GOOD: "Reduces early bounce — Notion's logo strip correlates with 12% higher trial starts." GOOD: "Lifts CTA click-through — HubSpot's below-fold CTA repetition averages 18% higher engagement." BAD: "Will improve conversions." BAD: "Users will trust the product more."
+        "confidence": number        // 0.0–1.0. How confident you are in this recommendation. 1.0 = grounded in strong visual/copy evidence from both input and competitor. 0.7 = based on text analysis only. 0.4 = inferred from limited data or industry best practices.
       }
     ]
   }

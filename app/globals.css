@@ -302,9 +302,10 @@
 }
 
 .hero-heading {
-  font-size: clamp(2.8rem, 5.5vw, 5rem);
+  font-size: clamp(2.2rem, 4vw, 3.75rem);
   font-weight: 700;
   line-height: 1.1;
+  letter-spacing: -0.03em;
   text-align: center;
   color: #ffffff;
 }
@@ -318,18 +319,34 @@
 
 .hero-subtitle {
   color: rgba(255, 255, 255, 0.5);
-  font-size: clamp(1rem, 1.5vw, 1.2rem);
-  max-width: 520px;
+  font-size: clamp(0.9375rem, 1.35vw, 1.1rem);
+  max-width: 640px;
   text-align: center;
   line-height: 1.6;
 }
 
 /* ─── Hero Form ─────────────────────────────────────────────────────────── */
+.hero-form-area {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 580px;
+  margin-top: 1rem;
+}
+
+.hero-url-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.8125rem;
+  color: oklch(0.80 0.16 22);
+}
+
 .hero-form-wrapper {
   display: flex;
   gap: 8px;
   width: 100%;
-  max-width: 580px;
 }
 
 .hero-input {

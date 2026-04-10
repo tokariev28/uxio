@@ -132,7 +132,9 @@ export async function runPipeline(
     };
 
     const quality = scoreAnalysisQuality(result);
-    console.log("[Uxio] Quality report:", JSON.stringify(quality, null, 2));
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[Uxio] Quality report:", JSON.stringify(quality, null, 2));
+    }
     writer.send({ type: "complete", data: result, quality });
   } catch (err) {
     const message =
