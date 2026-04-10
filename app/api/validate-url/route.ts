@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     let res = await fetch(url, {
       method: "HEAD",
       signal: controller.signal,
-      redirect: "follow",
+      redirect: "manual",
     });
 
     if (res.status === 405) {
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
           method: "GET",
           headers: { Range: "bytes=0-0" },
           signal: getController.signal,
-          redirect: "follow",
+          redirect: "manual",
         });
       } finally {
         clearTimeout(getTimer);

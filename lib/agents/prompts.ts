@@ -82,10 +82,21 @@ export const AGENT_PROMPTS = {
   - For HR / people management (e.g. Rippling, Workday): Gusto, BambooHR, Lattice, Deel, TriNet — NOT single-function tools (expense management only, scheduling only)
   - For collaboration docs / wiki (e.g. Notion, Confluence): Coda, Slab, Slite, Nuclino, Tettra — NOT project management tools, even if they overlap
   — Specific well-known products —
-  - For B2B sales intelligence + engagement (e.g. Apollo.io): ZoomInfo, Outreach, Salesloft, HubSpot Sales Hub, Lusha — NOT cold-email-only tools (Instantly, Smartlead)
-  - For engineering issue tracking / PM (e.g. Linear): Jira, Shortcut, GitHub Issues, Asana, ClickUp — NOT generic to-do apps or note-taking tools
-  - For AI / LLM API platform (e.g. Anthropic / Claude): OpenAI, Google AI, Cohere, Mistral AI, AI21 Labs — NOT chatbot builders, AI wrappers, or model aggregators
-  - For all-in-one CRM + marketing automation (e.g. HubSpot): Salesforce, ActiveCampaign, Marketo, Zoho CRM, Klaviyo — NOT single-channel tools (Mailchimp alone, Calendly)
+  - For B2B sales intelligence + engagement (e.g. Apollo.io): ZoomInfo, Outreach, Salesloft, Cognism, Lusha — NOT LinkedIn or LinkedIn Sales Navigator (social network; Sales Navigator is a prospecting addon only — no email sequencing, no automated cadences, no contact data export), NOT Salesforce or HubSpot full platform (CRM, different job-to-be-done), NOT conversation intelligence tools (Gong, Chorus record calls — different category entirely), NOT cold-email-only tools (Instantly, Smartlead, Lemlist)
+  - For engineering issue tracking / PM (e.g. Linear): Jira, Shortcut, ClickUp, Height, Plane — NOT GitHub or GitLab or Bitbucket (version-control platforms; issue tracking is a bundled minor feature on a code-hosting homepage), NOT Trello (generic visual kanban aimed at any team — different ICP and no engineering-specific features), NOT Notion or Confluence (docs/wiki tools, not issue trackers)
+  - For AI / LLM API platform (e.g. Anthropic / Claude): OpenAI, Google AI (Gemini API), Cohere, Mistral AI, AI21 Labs — NOT Hugging Face (model hub and community repository — its homepage is about sharing models, not a competing commercial API), NOT Character.ai (consumer entertainment chatbot, no API product), NOT Perplexity (AI search engine, consumer product), NOT LangChain or LlamaIndex (open-source orchestration frameworks, not model providers), NOT AWS Bedrock / Vertex AI / Azure OpenAI (managed cloud sub-products — see infrastructure exclusion rule)
+  - For all-in-one CRM + marketing automation (e.g. HubSpot): Salesforce, ActiveCampaign, Marketo, Zoho CRM, Klaviyo — NOT Intercom (customer messaging and support chat — its homepage leads with "customer service", not CRM or marketing automation), NOT Zendesk (help-desk ticketing platform, not a CRM or campaign tool), NOT single-channel tools (Mailchimp alone, Calendly), NOT project management tools (Monday.com, Asana)
+
+  INVALID COMPETITOR PATTERNS — commonly confused, always exclude:
+  - Platform-with-feature-bundled: A competitor must be in the SAME primary market. GitHub.com is a code-hosting platform — GitHub Issues is an incidental feature. GitHub is NOT a direct competitor to issue trackers (Linear, Shortcut). GitLab and Bitbucket have the same problem.
+  - Version-control / DevOps infrastructure: GitHub, GitLab, Bitbucket, Vercel, Netlify are deployment/hosting platforms — exclude them unless the input product IS a version-control or CI/CD tool.
+  - Social network with a prospecting addon: LinkedIn's primary purpose is professional social networking. LinkedIn Sales Navigator is a prospecting overlay, not a sales engagement or intelligence platform (no email sequencing, no contact export, no cadences). LinkedIn is NOT a competitor to Apollo, ZoomInfo, or Outreach.
+  - Model hub / open-source community: Hugging Face is a model repository and community hub. It is NOT a competing commercial API for building AI products. Its homepage leads with "the AI community", not "build AI applications with our API". Do not include huggingface.co as a competitor to Anthropic, OpenAI, or Cohere.
+  - Consumer AI products: Character.ai (entertainment chatbot), Perplexity (AI search), Claude.ai consumer tier — these are end-user consumer products, not API platforms competing for developer or enterprise buyers.
+  - Orchestration frameworks: LangChain, LlamaIndex, AutoGen, CrewAI — these are open-source developer libraries, not AI model providers. They sit on top of APIs like OpenAI/Anthropic — exclude them as competitors to API providers.
+  - Adjacent-category confusion: Intercom and Zendesk are customer support/messaging platforms — NOT competitors to CRM+marketing suites like HubSpot. Gong and Chorus are conversation intelligence tools — NOT competitors to sales intelligence+engagement platforms like Apollo.
+  - Database or storage platforms: Raw Postgres, MongoDB, Supabase, Firebase — infrastructure, not product competitors.
+  - Note-taking / docs tools for project managers: Notion and Confluence are knowledge-base tools — only valid competitors to other knowledge-base/wiki products, not to purpose-built issue trackers.
 
   OUTPUT FORMAT — strict JSON array, 6–8 items:
   [
@@ -119,6 +130,12 @@ export const AGENT_PROMPTS = {
   - DIVERSITY: At most 2 selected competitors may share the same primary sub-category. Prefer breadth of coverage over clustering similar tools.
   - EXCLUDE: Any candidate whose domain is a review aggregator, comparison site, or media outlet (e.g. g2.com, capterra.com, techcrunch.com, alternativeto.net). These are not product competitors.
   - EXCLUDE INFRASTRUCTURE: Do not select generic cloud infrastructure providers (AWS, Azure, Google Cloud Platform, DigitalOcean, Heroku) as competitors for companies that sell AI models, AI APIs, or AI research services. Infrastructure platforms are deployment venues, not product competitors. This includes managed AI services that are sub-products of a cloud provider under the same billing and brand umbrella — Vertex AI (GCP), Amazon Bedrock (AWS), and Azure OpenAI Service all count as infrastructure and must be excluded. An acceptable exception: a standalone AI product with its own independent brand, pricing page, and direct signup flow that is not co-billed under the parent cloud platform (e.g. OpenAI, Mistral, Cohere).
+  - EXCLUDE FEATURE-BUNDLERS: Do not select a platform whose PRIMARY purpose is unrelated to the input product, even if it bundles the input's core feature as a minor add-on. A valid competitor's homepage headline must describe the same primary job-to-be-done as the input product. INVALID EXAMPLES BY CATEGORY:
+    · Issue tracking: github.com / gitlab.com / bitbucket.org — code-hosting platforms, issue tracker is incidental. notion.so / confluence.atlassian.com — docs/wiki tools. trello.com — generic visual kanban, not engineering PM.
+    · Sales intelligence/outreach: linkedin.com / linkedin.com/sales — social network; Sales Navigator lacks email sequencing and bulk contact export. salesforce.com without "outreach" qualifier — CRM, not engagement platform.
+    · AI / LLM API: huggingface.co — model hub/community repository, not a commercial API competitor. character.ai / perplexity.ai — consumer products, not API platforms. langchain.com / llamaindex.ai — orchestration frameworks, not model providers.
+    · CRM + marketing automation: intercom.com — customer messaging/support, leads with "customer service" not CRM. zendesk.com — help-desk ticketing, not CRM. monday.com — project management, not CRM.
+    If unsure, ask: does this competitor's homepage describe selling the same primary outcome as the input product? If not, exclude it.
   - Top 3 = primary competitors shown to user. Positions 4–5 = backup competitors used if a primary fails.
   - TIER RULE: When two candidates have similar matchScore (within 0.10), strongly prefer the one with higher market presence (more mentions, widely recognized brand). B2B buyers benchmark against market leaders — a well-known competitor with 0.75 matchScore is more analytically valuable than a niche tool with 0.85 matchScore.
 
@@ -341,47 +358,67 @@ export const AGENT_PROMPTS = {
 
     clarity              First-time visitor grasps this section's purpose in < 5 seconds?
                          0.9 = single declarative headline, one section purpose, zero ambiguity
+                         0.7 = message is understandable but requires a moment of thought — competent but unremarkable
+                         0.5 = purpose is eventually clear but competing messages or unnecessary complexity slow comprehension
                          0.4 = requires rereading; multiple possible interpretations
 
     specificity          Concrete outcomes / numbers vs. vague adjective-driven copy?
                          0.9 = 3+ measurable claims ("Cut onboarding from 3 days to 4 h")
+                         0.7 = 1-2 concrete claims mixed with some adjective copy — adequate but not sharp
+                         0.5 = mostly adjective-driven with one vague metric or imprecise claim
                          0.4 = pure adjective copy ("powerful", "easy", "seamless") — zero metrics
 
     icpFit               Message identifies exact buyer role, pain, and buying stage?
                          0.9 = names role + pain + context ("For RevOps teams in siloed orgs")
+                         0.7 = identifies broad role or industry but not the specific pain or buying stage
+                         0.5 = addresses a recognizable audience category without naming role or pain
                          0.4 = generic audience ("For businesses that want to grow")
 
   CONVERSION ARCHITECTURE — directly governs funnel progression (weighted ×1.2)
 
     attentionRatio       Single conversion goal; no exit routes; no competing CTAs?
                          0.9 = no navigation bar, exactly one action path, all links converge on same goal
+                         0.7 = one clear primary CTA but minor secondary links present (e.g. "Learn more" alongside "Start trial")
+                         0.5 = two equally prominent CTAs competing for attention, or primary CTA diluted by navigation links
                          0.4 = full site nav present, 3+ CTA variants, footer links throughout
 
     ctaQuality           CTA copy is specific and benefit-led; placement follows value delivery; visual prominence is unmistakable?
                          0.9 = action-specific copy ("Start free trial — no card needed"), high-contrast button, placed after value delivery
+                         0.7 = clear action verb with some specificity ("Get started free"), adequate contrast, reasonable placement
+                         0.5 = generic but recognizable CTA ("Sign up"), average prominence, placement doesn't follow value delivery
                          0.4 = generic verb ("Submit", "Learn more"), low contrast, placed before the visitor understands why
 
     trustSignals         Social proof quality (CRAVENS) and proximity to the anxiety it resolves?
                          0.9 = specific testimonials (name + company + measurable outcome), recognizable logos, placed beside the related risk/claim
+                         0.7 = recognizable logos present or named testimonials without measurable outcomes
+                         0.5 = generic social proof ("Trusted by thousands") without names, logos, or specific outcomes
                          0.4 = generic praise ("Love this product! — J.D."), no logos, social proof in footer only
 
-  VISUAL QUALITY — shapes first impression and cognitive processing (weighted ×1.0)
+  VISUAL DESIGN — shapes first impression, brand perception, and cognitive processing (weighted ×1.0)
 
-    visualHierarchy      Can you trace a clear H1 → subhead → benefit → CTA path in 3 seconds with relaxed eyes?
-                         0.9 = obvious 3-step visual sequence; every element weighted by importance; single focal entry point
-                         0.4 = uniform type weight throughout; multiple equally-dominant elements competing
+    visualHierarchy      Can you trace a clear visual reading path in 3 seconds? Do size, color, and contrast guide the eye to what matters most?
+                         0.9 = obvious visual sequence with a single focal entry point; color and contrast used deliberately to separate primary from secondary elements (e.g. saturated CTA button on a muted background); consistent visual language across the section
+                         0.7 = clear primary element visible but color or contrast choices don't strongly differentiate it from surrounding content; adequate but not deliberate
+                         0.5 = multiple elements compete for attention; no clear color differentiation between primary action and secondary content; inconsistent visual weight
+                         0.4 = uniform visual weight throughout; no color or contrast strategy; everything looks equally important
 
-    cognitiveEase        Does the section follow industry layout conventions and reward a fast skim?
-                         0.9 = zero unexplained acronyms; key phrases bold; subheadings as standalone meaning units; conventional layout orientation
-                         0.4 = wall of prose; unexplained jargon; unconventional layout requiring orientation before reading
+    cognitiveEase        Does the layout follow recognizable patterns? Are visual elements (icons, images, cards) consistent in style and aligned to a grid?
+                         0.9 = conventional layout; consistent icon/illustration style throughout (e.g. all line icons, same stroke weight); elements aligned to a visible grid; key phrases bold; subheadings as standalone meaning units
+                         0.7 = conventional layout, scannable, but minor inconsistencies in visual style (e.g. mixed icon styles or uneven card heights)
+                         0.5 = layout is recognizable but visual elements are inconsistent — different icon styles, misaligned cards, or mixed illustration approaches create visual noise
+                         0.4 = wall of prose; inconsistent visual language; elements appear randomly placed rather than following a grid or visual system
 
-    typographyReadability Body text ≥ 16px equivalent; clear 3-level type hierarchy (H1 / body / caption); comfortable line length (≤ 75 chars)?
-                         0.9 = distinct size/weight for each hierarchy level; readable at normal viewing distance
+    typographyReadability Clear type hierarchy (H1 / body / caption); intentional font pairing; comfortable line length (≤ 75 chars)?
+                         0.9 = distinct size/weight/color for each hierarchy level; font pairing feels intentional and reinforces brand character; readable at normal viewing distance
+                         0.7 = adequate type hierarchy with 2 clear levels; readable but font choices feel generic rather than intentional
+                         0.5 = type sizes present but hierarchy is weak — hard to distinguish heading from body at a glance; font choices don't reinforce the brand
                          0.4 = uniform font size; overcrowded lines or very narrow columns; competing decorative and functional typefaces
 
-    densityBalance       Whitespace actively manages cognitive load — not emptiness, a confidence signal?
-                         0.9 = generous padding; elements breathe; content density matches message complexity
-                         0.4 = tightly packed; margins crowded; cramming signals uncertainty or information overload
+    densityBalance       Does whitespace actively manage cognitive load and create visual rhythm between elements?
+                         0.9 = generous padding; elements breathe; content density matches message complexity; clear visual rhythm — spacing between sections feels intentional and consistent
+                         0.7 = adequate spacing; elements are readable but padding could be more generous; rhythm is present but not refined
+                         0.5 = slightly cramped or slightly sparse — spacing doesn't actively guide the eye; inconsistent gaps between similar elements
+                         0.4 = tightly packed; margins crowded; no visual rhythm; cramming signals uncertainty or information overload
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   SCORING FORMULA
@@ -410,21 +447,21 @@ export const AGENT_PROMPTS = {
   PRIMARY axes carry the most weight in your judgment.
   BY DESIGN LOW axes are structurally constrained — do not penalize below 0.5.
 
-  hero:         PRIMARY: clarity, icpFit, ctaQuality.
-  features:     PRIMARY: clarity, specificity, cognitiveEase. BY DESIGN LOW: trustSignals.
-  benefits:     PRIMARY: icpFit, specificity, clarity. BY DESIGN LOW: ctaQuality.
-  socialProof:  PRIMARY: trustSignals, specificity (logo count + named review sources). BY DESIGN LOW: icpFit.
-  testimonials: PRIMARY: trustSignals, specificity (name + company + measurable outcome in quotes). BY DESIGN LOW: attentionRatio, visualHierarchy.
-  integrations: PRIMARY: specificity (brand count), cognitiveEase. BY DESIGN LOW: icpFit, ctaQuality.
-  howItWorks:   PRIMARY: clarity, cognitiveEase, visualHierarchy. BY DESIGN LOW: trustSignals.
-  pricing:      PRIMARY: clarity, ctaQuality, trustSignals (guarantees/logos near price).
+  hero:         PRIMARY: clarity, icpFit, ctaQuality, visualHierarchy (color/contrast must guide eye to headline → CTA).
+  features:     PRIMARY: clarity, specificity, cognitiveEase (icon/card consistency matters here). BY DESIGN LOW: trustSignals.
+  benefits:     PRIMARY: icpFit, specificity, clarity, densityBalance (spacing between benefit items). BY DESIGN LOW: ctaQuality.
+  socialProof:  PRIMARY: trustSignals, specificity (logo count + named review sources), cognitiveEase (logo grid alignment). BY DESIGN LOW: icpFit.
+  testimonials: PRIMARY: trustSignals, specificity (name + company + measurable outcome in quotes), typographyReadability (quote styling). BY DESIGN LOW: attentionRatio.
+  integrations: PRIMARY: specificity (brand count), cognitiveEase (logo grid consistency and alignment). BY DESIGN LOW: icpFit, ctaQuality.
+  howItWorks:   PRIMARY: clarity, cognitiveEase, visualHierarchy (step numbering + visual flow). BY DESIGN LOW: trustSignals.
+  pricing:      PRIMARY: clarity, ctaQuality, trustSignals (guarantees/logos near price), visualHierarchy (tier comparison clarity).
   faq:          PRIMARY: clarity, cognitiveEase, specificity (answers concrete not vague). BY DESIGN LOW: attentionRatio.
-  cta:          PRIMARY: ctaQuality, clarity, attentionRatio. BY DESIGN LOW: densityBalance.
+  cta:          PRIMARY: ctaQuality, clarity, attentionRatio, visualHierarchy (button contrast and prominence). BY DESIGN LOW: densityBalance.
   navigation:   PRIMARY: cognitiveEase, visualHierarchy. BY DESIGN LOW: attentionRatio (many links is correct), ctaQuality.
   footer:       PRIMARY: cognitiveEase, typographyReadability. BY DESIGN LOW: ctaQuality, icpFit, attentionRatio.
-  videoDemo:    PRIMARY: clarity, ctaQuality. BY DESIGN LOW: specificity, trustSignals.
-  comparison:   PRIMARY: specificity, clarity, icpFit. BY DESIGN LOW: attentionRatio.
-  metrics:      PRIMARY: specificity (numbers must have context), trustSignals. BY DESIGN LOW: icpFit, ctaQuality, visualHierarchy.
+  videoDemo:    PRIMARY: clarity, ctaQuality, visualHierarchy (thumbnail/player prominence). BY DESIGN LOW: specificity, trustSignals.
+  comparison:   PRIMARY: specificity, clarity, icpFit, cognitiveEase (table/grid readability). BY DESIGN LOW: attentionRatio.
+  metrics:      PRIMARY: specificity (numbers must have context), trustSignals, typographyReadability (large number styling). BY DESIGN LOW: icpFit, ctaQuality.
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   EVIDENCE RULES (applied per section — no exceptions)
@@ -432,23 +469,88 @@ export const AGENT_PROMPTS = {
 
   Strengths / weaknesses — max 3 each. Every item MUST start with:
     (a) exact quote from this section's copy in double quotes, OR
-    (b) precise visual description from the screenshot ("3-column icon grid", "full-width red CTA button")
-  Then explain conversion impact (strengths) or specific conversion cost (weaknesses).
+    (b) precise visual description from the screenshot ("3-column icon grid", "full-width red CTA button", "monochrome icon set with 2px stroke")
+  Then explain the design quality or conversion impact — both are equally valid.
+
+  BALANCE: Aim for a mix of design observations and conversion observations across strengths and weaknesses. Do not write all 3 strengths about copy/CTA or all 3 about layout — cover both dimensions.
 
   FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Better, Cleaner, Clearer, Could, Should, Would.
-  FORBIDDEN phrases: "Clean layout", "Good visual hierarchy", "Effective design", "Vague copy", "Lacks specificity".
+  FORBIDDEN phrases: "Clean layout", "Good visual hierarchy", "Effective design", "Vague copy", "Lacks specificity", "Visually appealing".
   FORBIDDEN: referencing sectionType field names in text — write human-readable names (Hero, FAQ, Benefits, etc.).
   FORBIDDEN: quoting URL strings, query parameters, tracking parameters, or data attributes (e.g. "?s_signup-url=...", "hubs_signup-cta=...") — these are markup artifacts, not page copy. If a section's markdown contains only URLs or query strings with no human-readable copy, write a single weakness: "No readable copy present — section contains only markup artifacts." and set confidence to 0.2.
 
   Max 3 strengths. Max 3 weaknesses. At least 1 of each.
 
-  EVIDENCE FORMAT EXAMPLES:
-    GOOD weakness: "Make it fast" headline signals speed but gives no measurable outcome — visitors cannot evaluate the claim without a benchmark.
-    GOOD weakness: "3-column icon grid" at 40% scroll spreads attention across 9 feature tiles with no visual cue indicating which matters most.
-    BAD: "Clean visual hierarchy" — no quote, no number, not grounded.
-    BAD: "Lacks social proof" — must name the missing element with a quote or cite a competitor: Asana shows "184,000+ teams" directly beside its primary CTA.
+  EVIDENCE FORMAT EXAMPLES — organized by section type to guide your analysis:
 
-  If using a visual description (option b), it MUST include a specific count or dimension ("3-column", "full-width", "2-step", "above-the-fold").
+  ── Hero section ──
+    GOOD strength: "Start free — no credit card" CTA removes the primary purchase anxiety before the visitor commits, reducing drop-off at the decision point.
+    GOOD strength: Hero section pairs a product screenshot showing the actual dashboard interface with a 2-line headline — visitors see the product before reading about it.
+    GOOD strength: High-contrast blue CTA button is the only saturated element against a neutral white/gray palette — the eye is pulled to the action before reading any copy.
+    GOOD weakness: "Make it fast" headline signals speed but gives no measurable outcome — visitors cannot evaluate the claim without a benchmark.
+    GOOD weakness: Hero background uses a generic stock photo of people in a meeting — no visible product screenshot or branded illustration to anchor what the product actually looks like.
+    GOOD weakness: CTA button uses the same muted gray as body text against a light background — zero color contrast to separate the primary action from surrounding content.
+    GOOD weakness: "The all-in-one platform for modern teams" headline could describe any SaaS tool — no role, pain point, or outcome that tells a visitor this is for them.
+    BAD: "Strong hero section with good messaging" — no quote, no visual detail, pure opinion.
+    BAD: "The hero is visually appealing" — subjective, no evidence, no design or conversion logic.
+
+  ── Features section ──
+    GOOD strength: 4-column feature grid uses a consistent monochrome line-icon style (thin stroke, single accent color) with equal card heights, creating visual rhythm across all tiles.
+    GOOD strength: "Cut report generation from 3 hours to 10 minutes" under the Analytics feature tile — specific metric that converts a feature description into a measurable outcome.
+    GOOD weakness: 6 feature cards use 3 different icon styles (2 filled, 2 outlined, 2 illustrated) — inconsistent visual language breaks the grid's cohesion and makes the section feel assembled from different sources.
+    GOOD weakness: "3-column icon grid" at 40% scroll spreads attention across 9 feature tiles with no visual cue indicating which matters most — all tiles have equal size and weight.
+    GOOD weakness: Feature titles ("Smart Sync", "Power Flow", "AutoMagic") use invented product terminology with no explanation — first-time visitors must guess what each feature does.
+    BAD: "Good feature layout" — no count, no visual detail, no evidence.
+    BAD: "Features could be more specific" — forbidden opener pattern + no quote showing what is currently vague.
+
+  ── Social Proof / Testimonials ──
+    GOOD strength: Full-width logo strip of 12 recognizable brands immediately below the hero fold provides a trust anchor before the visitor reads any copy.
+    GOOD strength: "Reduced our onboarding time by 60%" — Sarah Chen, VP Engineering at Dropbox — named person, title, company, and measurable outcome makes this testimonial verifiable and credible.
+    GOOD strength: 5-star rating badge with "4.8 on G2 from 2,400+ reviews" placed directly beside the pricing CTA — trust signal positioned at the exact decision point where purchase anxiety peaks.
+    GOOD weakness: Testimonial quotes are attributed to first name and last initial only ("— Sarah L.") with no company name or role — anonymous praise carries the same weight as no testimonial.
+    GOOD weakness: Logo strip shows 8 logos but all are startup brands with low recognition — the trust signal fails to transfer credibility because visitors don't recognize the companies.
+    GOOD weakness: "Trusted by thousands of teams worldwide" with no logos, no names, no review scores — an unverifiable claim that functions as filler rather than evidence.
+    BAD: "Lacks social proof" — must name the missing element or cite what a competitor does instead.
+    BAD: "Good testimonials section" — no quote, no count, not grounded.
+
+  ── Pricing ──
+    GOOD strength: 3 pricing tiers laid out in equal-width cards with the recommended tier highlighted by a contrasting border and "Most Popular" badge — visual hierarchy immediately directs attention to the preferred plan.
+    GOOD strength: "14-day free trial — no credit card required" placed below every tier's CTA button — the same anxiety-reducing copy is repeated at every decision point, not just one.
+    GOOD weakness: Pricing table lists 15+ features per tier with no grouping or category headers — the comparison requires row-by-row scanning instead of a quick skim of what matters.
+    GOOD weakness: All 3 tier CTA buttons use the same color and label ("Get Started") — no visual differentiation signals which tier the company recommends.
+    BAD: "Pricing is clear and well-organized" — no visual detail about what makes it clear.
+
+  ── Navigation / Footer ──
+    GOOD strength: Top navigation uses a single accent-colored "Sign Up" button while all other links are neutral text — the conversion action is visually isolated from navigation links.
+    GOOD weakness: Navigation bar contains 8 top-level items plus 3 dropdown menus — cognitive load on first visit is high, and no visual grouping helps visitors find what they need.
+    GOOD weakness: Footer spans 5 columns with 40+ links in uniform 12px gray text — no visual hierarchy distinguishes primary resources from legal boilerplate.
+    BAD: "Clean navigation" — no count, no visual detail.
+
+  ── How It Works / FAQ / CTA ──
+    GOOD strength: 3-step numbered process with connecting arrows and alternating left-right layout — the visual flow guides the eye through each step without reading any copy.
+    GOOD strength: FAQ section groups 12 questions under 3 category headings ("Getting Started", "Billing", "Security") with an accordion that reveals one answer at a time — visitors find their concern without scanning everything.
+    GOOD weakness: "How it works" section lists 5 steps as a plain numbered list with no icons, illustrations, or visual progression — the section reads as body text rather than a guided process.
+    GOOD weakness: Standalone CTA section at 80% scroll uses the same headline as the hero ("Get Started Today") — the repeated copy signals that the page has nothing new to add after the visitor has scrolled this far.
+    BAD: "The FAQ section is comprehensive" — no quote, no count, no structure detail.
+
+  ── General design observations (applicable to any section) ──
+    GOOD weakness: Section uses 4 different font sizes with no consistent hierarchy — body text, captions, and subheadings are within 2px of each other, making the page hard to scan.
+    GOOD weakness: Card grid has uneven vertical spacing — 24px gap above the first row but 40px below the last, creating an unbalanced visual weight at the section boundary.
+    GOOD strength: Section transitions use consistent 80px vertical padding with a subtle background color shift (white → light gray → white) — each section boundary is visually distinct without hard dividers.
+    BAD: "Nice color palette" — subjective, must specify what colors, where, and what effect they create.
+    BAD: "The page has good typography" — no measurement, no quote, no number.
+    BAD: "Clean layout" — banned phrase. Must describe what makes it clean: grid alignment, consistent spacing, visual rhythm.
+
+  ── BAD patterns (never write any of these) ──
+    BAD: "Clean visual hierarchy" — no quote, no number, not grounded.
+    BAD: "Improve the CTA copy for better conversions" — forbidden opener + no specifics.
+    BAD: "Consider adding more testimonials" — "consider" is a forbidden opener; must instead quote the ABSENCE: "No customer names or outcomes are visible above the fold, unlike Notion's 'Used by 30M+ people' placed at the first scroll."
+    BAD: "The design feels modern" — "feels" is subjective; must specify what visual elements create that impression (font choices, spacing, color palette, illustrations).
+    BAD: "Great use of whitespace" — must describe where and how much: "80px vertical section padding with 32px card gaps creates breathing room between the 3 feature columns."
+    BAD: "Strong brand identity" — must point to specific elements: consistent color usage, icon style, typography choices, illustration style.
+    BAD: "Could benefit from more contrast" — forbidden opener + no specifics about which elements need contrast and what the current contrast ratio looks like.
+
+  If using a visual description (option b), it MUST include a specific count, dimension, or visual detail ("3-column", "full-width", "2px stroke", "monochrome", "above-the-fold", "high-contrast blue", "80px padding", "12px gray text").
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   OUTPUT FORMAT — strict JSON array, one object per section received (same order)
@@ -482,6 +584,7 @@ export const AGENT_PROMPTS = {
   ]
 
   CRITICAL: Array must contain exactly as many objects as sections received. Preserve section order.
+  JSON SAFETY: Never include literal newlines inside string values — use \\n if a newline is needed. Do not include unescaped double-quotes inside strings.
   STOP: JSON array only. No markdown fences. No prose before or after.
   `.trim(),
 
@@ -505,26 +608,95 @@ export const AGENT_PROMPTS = {
   - Within each section, sort recommendations: critical → high → medium.
   - Each recommendation's "section" field must match the section it belongs to.
   - Recommendations for different sections must be UNIQUE — never repeat the same title, reasoning, or suggested action across sections.
-  - Every recommendation must name a specific competitor as evidence. BAD: "Competitors use stronger social proof." BAD: "Leading tools display metrics prominently." GOOD: "Stripe displays 145k customer logos above the fold." Generic references to "competitors" or "leading tools" are forbidden — always use the actual name from the COMPETITORS list.
+  - Every recommendation must name a specific competitor as evidence. Generic references to "competitors" or "leading tools" are forbidden — always use the actual name from the COMPETITORS list.
+    BAD: "Competitors use stronger social proof."
+    BAD: "Leading tools display metrics prominently."
+    BAD: "Other products in this space have clearer CTAs."
+    BAD: "Other competitors have better design."
+    GOOD: "Stripe displays 145k customer logos above the fold."
+    GOOD: "Asana's hero anchors '184,000+ teams' directly below its primary CTA."
+    GOOD: "Linear's feature grid uses a unified monochrome icon style with consistent card dimensions."
   - No generic UX advice applicable to any product.
   - competitorExample must be a direct quote or precise visual description.
-  - reasoning must explain WHY the gap costs conversions — do NOT quote or paraphrase the competitorExample text here.
+  - reasoning must explain WHY the gap weakens the page — do NOT quote or paraphrase the competitorExample text here.
   - competitorExample must contain specific evidence NEW to reasoning (do not repeat what reasoning already says). Max 2 sentences.
   - Use human-readable section names in all text (Hero, FAQ, Benefits, etc.) — never the sectionType field string like "faq sectionType".
   - If SECTION ANALYSES is empty, base recommendations on product brief features, competitor context, and industry best practices. State explicitly when a recommendation cannot be grounded in visual evidence.
+  - BALANCE: Across all recommendations for a page, ensure a mix of copy/conversion recommendations AND visual/design recommendations. Do not produce recommendations that are all about CTA text and headlines — also address layout, color, imagery, iconography, and visual consistency where the data supports it.
 
   OUTPUT FORMAT — strict JSON:
   {
-    "executiveSummary": string,   // 2 sentences. S1: The input's strongest asset — cite the SPECIFIC section and copy element working best (e.g. "The Benefits section's 'Cut onboarding from 3 days to 4 hours' is the page's sharpest proof point."). S2: The single biggest gap — name which competitor and which section shows the strongest contrast (e.g. "The Hero trails Stripe's equivalent, which anchors trust with '135,000+ businesses' before the CTA."). FORBIDDEN openers: "The landing page demonstrates", "Overall, the site shows", "The analysis reveals". Lead with the most specific observation available.
+    "executiveSummary": string,
+    // 3 sentences. This is the most important text the user reads — it must deliver clear, actionable conclusions.
+    // S1: The input's strongest asset — cite the SPECIFIC section and element working best (copy, visual, or both). What is the page doing well?
+    // S2: The single biggest gap — name which competitor and which section shows the strongest contrast. Where is the page falling behind?
+    // S3: The single highest-priority action — one concrete change that would have the most impact, grounded in what a specific competitor does better.
+    // GOOD S1 examples:
+    //   "The Benefits section's 'Cut onboarding from 3 days to 4 hours' is the page's sharpest proof point."
+    //   "The Features section's consistent 4-column icon grid with monochrome line icons creates the page's strongest visual impression — polished and intentional."
+    //   "The Hero pairs a live product screenshot with 'Start free — no credit card' — the combination of visual proof and anxiety-free CTA is the page's most effective conversion element."
+    // GOOD S2 examples:
+    //   "The Hero trails Stripe's equivalent, which anchors trust with '135,000+ businesses' before the CTA."
+    //   "The Features section's mixed icon styles and uneven card heights fall short of Linear's unified visual grid — the lack of visual consistency weakens the overall product impression."
+    // GOOD S3 examples:
+    //   "Adding a named testimonial with a measurable outcome directly below the hero CTA — as HubSpot does — would address the trust gap at the page's most critical decision point."
+    //   "Replacing the generic stock hero image with a product screenshot showing the core workflow would let visitors evaluate visual fit before reading any copy, following Figma's pattern."
+    //   "Unifying the feature icons to a single line-icon style and equalizing card heights would bring the grid to Linear's level of visual polish — the fastest way to raise the page's perceived quality."
+    // FORBIDDEN openers: "The landing page demonstrates", "Overall, the site shows", "The analysis reveals", "In summary", "To summarize". Lead with the most specific observation available.
     "recommendations": [
       {
         "priority": "critical" | "high" | "medium",
         "section": "hero" | "navigation" | "features" | "benefits" | "socialProof" | "testimonials" | "integrations" | "howItWorks" | "pricing" | "faq" | "cta" | "footer" | "videoDemo" | "comparison" | "metrics",
         "title": string,
-        "reasoning": string,        // Two-part structure: (1) Refer to the specific competitor by name: e.g. "Stripe shows 145k logos at the fold while the input page has none." (2) Explain WHY that gap costs conversions. NEVER write numerical scores — scores are internal only.
-        "competitorExample": string,  // Must: (1) name a specific competitor from the COMPETITORS list, and (2) state exactly what that competitor does. FORMAT: "[Name]'s [section] [specific observation]". GOOD: "HubSpot's hero shows '184,000+ customers' directly below the CTA button." BAD: "Leading competitors use stronger social proof." BAD: "Competitor A has a cleaner hero section."
-        "suggestedAction": string,  // One concrete sentence, max 20 words. FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Revamp, Rework, Address, Ensure. Must specify WHAT element to change AND what to change it to (or a measurable target). GOOD: "Replace hero headline with a specific outcome metric, mirroring HubSpot's result-first framing." BAD: "Improve the hero headline for better clarity."
-        "impact": string,           // One sentence. Describe the conversion MECHANISM — how and why the change produces a result. Ground it in competitor evidence or a named industry pattern. NEVER invent percentages or statistics. GOOD: "When visitors see a logo strip before the first scroll (as Notion does), decision-makers have a trust anchor before evaluating the CTA — reducing early exit." GOOD: "Repeating the CTA after social proof (HubSpot's pattern) gives visitors who needed evidence a second conversion opportunity." BAD: "Will improve conversions." BAD: "Correlates with 18% higher engagement." — no fabricated numbers.
+        "reasoning": string,
+        // Two-part structure: (1) Refer to the specific competitor by name. (2) Explain WHY that gap weakens the page — through lost conversions, reduced trust, or diminished design quality. NEVER write numerical scores.
+        // GOOD reasoning examples:
+        //   "Stripe shows 145k logos at the fold while the input page has none — first-time visitors lack a trust anchor at the moment they evaluate whether to engage."
+        //   "Linear's feature section uses a unified icon style with consistent card sizing, while the input page mixes 3 different icon styles — the visual inconsistency signals a lack of product polish to design-aware buyers."
+        //   "HubSpot's hero places a product screenshot beside the headline, while the input page uses abstract illustration — visitors cannot see what the product looks like before committing to a trial."
+        //   "Notion's pricing page highlights the recommended tier with a contrasting border and 'Most Popular' label, while the input page gives all 3 tiers equal visual weight — visitors receive no guidance on which plan fits them."
+        // BAD reasoning examples:
+        //   "The competitor has a better hero section" — no specifics about what makes it better.
+        //   "The input page could benefit from stronger visual hierarchy" — forbidden phrasing, no competitor reference, no evidence.
+        //   "This would increase conversions by approximately 15%" — never fabricate statistics.
+        "competitorExample": string,
+        // Must: (1) name a specific competitor, and (2) state exactly what that competitor does — copy/CTA observation OR visual design observation.
+        // FORMAT: "[Name]'s [section] [specific observation]".
+        // GOOD examples:
+        //   "HubSpot's hero shows '184,000+ customers' directly below the CTA button."
+        //   "Linear's features section uses a consistent monochrome icon set with uniform card heights, creating visual rhythm across all tiles."
+        //   "Stripe's pricing page highlights the 'Scale' tier with a blue border and 'Recommended' badge — the only element with a saturated accent color."
+        //   "Notion's hero pairs a full-width product screenshot with a single 6-word headline — the product is visible before any copy is read."
+        //   "Figma's testimonial section shows headshots, full names, company logos, and a specific metric per quote — '50% faster prototyping' — rather than anonymous praise."
+        // BAD examples:
+        //   "Leading competitors use stronger social proof." — no competitor named, no specific evidence.
+        //   "Competitor A has a cleaner hero section." — "cleaner" is subjective, no visual detail.
+        //   "Other tools in this space have better design." — generic, no name, no evidence.
+        "suggestedAction": string,
+        // One concrete sentence, max 20 words. FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Revamp, Rework, Address, Ensure.
+        // Must specify WHAT element to change AND what to change it to. Can address copy, CTA, layout, color, imagery, or any design element.
+        // GOOD examples:
+        //   "Replace hero headline with a specific outcome metric, mirroring HubSpot's result-first framing."
+        //   "Unify the 6 feature icons to a single line-icon style with one accent color, matching Linear's consistent grid."
+        //   "Add a full-width product screenshot to the hero, positioned beside the headline as Notion does."
+        //   "Highlight the recommended pricing tier with a contrasting border color and 'Most Popular' badge, following Stripe's pattern."
+        //   "Place a named testimonial with measurable outcome ('reduced X by Y%') directly below the hero CTA."
+        //   "Switch the hero background from stock photo to a branded product screenshot showing the core workflow."
+        // BAD examples:
+        //   "Improve the hero headline for better clarity." — forbidden opener + no specifics.
+        //   "Make the design more consistent." — no specifics about what to change.
+        //   "Add more whitespace." — no specifics about where and how much.
+        "impact": string,
+        // One sentence. Describe the design or conversion MECHANISM — how and why the change produces a result. Ground it in competitor evidence or a named industry pattern. NEVER invent percentages or statistics.
+        // GOOD examples:
+        //   "When visitors see a logo strip before the first scroll (as Notion does), decision-makers have a trust anchor before evaluating the CTA — reducing early exit."
+        //   "A consistent icon style across feature cards (as Linear uses) creates visual cohesion — the grid reads as one intentional system rather than assembled from separate sources, reinforcing product polish."
+        //   "Showing the actual product interface in the hero (as Figma does) lets visitors evaluate visual fit before reading any copy — reducing the 'what does it look like?' uncertainty that delays sign-up."
+        //   "Highlighting the recommended pricing tier with a visual accent (Stripe's blue border) reduces decision paralysis — visitors without strong preference default to the guided option."
+        // BAD examples:
+        //   "Will improve conversions." — no mechanism explained.
+        //   "Creates a better user experience." — vague, no design or conversion logic.
+        //   "Correlates with 18% higher engagement." — never fabricate numbers.
         "confidence": number        // 0.0–1.0. How confident you are in this recommendation. 1.0 = grounded in strong visual/copy evidence from both input and competitor. 0.7 = based on text analysis only. 0.4 = inferred from limited data or industry best practices.
       }
     ]

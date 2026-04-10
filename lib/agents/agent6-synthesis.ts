@@ -5,6 +5,7 @@ import { normalizeSectionType } from "@/lib/utils/normalize-section-type";
 import { stripInlineCode } from "@/lib/utils/markdown-clean";
 import type { PipelineContext, Recommendation, Priority, SectionType, OverallScores } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
+import { jsonrepair } from "jsonrepair";
 
 const VALID_PRIORITIES = new Set<Priority>(["critical", "high", "medium"]);
 const VALID_SECTION_TYPES = new Set<SectionType>(["hero", "navigation", "features", "benefits", "socialProof", "testimonials", "integrations", "howItWorks", "pricing", "faq", "cta", "footer", "videoDemo", "comparison", "metrics"]);
@@ -69,13 +70,17 @@ export async function runSynthesis(
     findings: sa.findings.map(({ scores: _s, score: _sc, ...rest }) => rest),
   }));
 
+  const failedNote = ctx.failedUrls?.length
+    ? `\n\nNOTE: The following competitor URLs could NOT be analyzed. Do NOT reference them as examples: ${ctx.failedUrls.join(", ")}`
+    : "";
+
   const userMessage = [
     `PRODUCT: ${JSON.stringify(ctx.productBrief)}`,
     `COMPETITORS: ${JSON.stringify(ctx.competitors)}`,
     hasSectionData
       ? `SECTION ANALYSES: ${JSON.stringify(sanitizedAnalyses)}`
       : `SECTION ANALYSES: [] (visual analysis unavailable — base recommendations on product brief and competitor context only)`,
-  ].join("\n\n");
+  ].join("\n\n") + failedNote;
 
   // ── Step 2: AI Gateway call (Flash → GPT-5.4 fallback) ───────────────────────
   let rawText: string;
@@ -96,7 +101,7 @@ export async function runSynthesis(
   // Must be `let` so the retry block below can reassign on success
   let raw: { recommendations: unknown[]; executiveSummary?: unknown };
   try {
-    raw = JSON.parse(extractJSON(rawText)) as typeof raw;
+    raw = JSON.parse(jsonrepair(extractJSON(rawText))) as typeof raw;
   } catch (err) {
     throw new AgentError(
       "agent6",
@@ -125,7 +130,7 @@ export async function runSynthesis(
         prompt: minimalMessage,
         json: true,
       });
-      const retryRaw = JSON.parse(extractJSON(retryText)) as typeof raw;
+      const retryRaw = JSON.parse(jsonrepair(extractJSON(retryText))) as typeof raw;
       if (Array.isArray(retryRaw?.recommendations) && retryRaw.recommendations.length > 0) {
         raw = retryRaw;
         console.warn(`[agent6] Retry succeeded: ${raw.recommendations.length} recommendations`);
@@ -180,8 +185,12 @@ export async function runSynthesis(
         typeof r.impact === "string" && (r.impact as string).trim()
           ? stripInlineCode((r.impact as string).trim())
           : undefined,
-      confidence:
-        typeof r.confidence === "number" ? r.confidence : undefined,
+      confidence: (() => {
+        if (typeof r.confidence !== "number") return undefined;
+        // Rescale 1–10 scale to 0–1 (same logic as agent5) then clamp to valid range
+        const v = r.confidence > 1 ? Math.round((r.confidence / 10) * 100) / 100 : r.confidence;
+        return Math.max(0, Math.min(1, v));
+      })(),
     };
   }).filter((r): r is NonNullable<typeof r> => r !== null);
 

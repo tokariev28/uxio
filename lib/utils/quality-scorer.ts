@@ -17,7 +17,7 @@ const GENERIC_VERB_RE =
 
 function isEvidenceGrounded(text: string, competitorNames: string[]): boolean {
   if (typeof text !== 'string') return false;
-  if (/"[^"]{3,}"/.test(text)) return true;
+  if (/["""][^"""]{3,}["""]/.test(text)) return true;
   if (/\b\d+[%xk$ms]?\b/.test(text)) return true;
   return competitorNames.some((name) =>
     text.toLowerCase().includes(name.toLowerCase())
@@ -42,7 +42,7 @@ function round1(n: number): number {
 
 export function scoreAnalysisQuality(result: AnalysisResult): QualityReport {
   const warnings: string[] = [];
-  const competitorNames = result.competitors.map((c) => c.name);
+  const competitorNames = (result.competitors ?? []).map((c) => c.name);
   const allFindings: SectionFinding[] = result.sections.flatMap(
     (s) => s.findings
   );

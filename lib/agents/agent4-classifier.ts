@@ -10,6 +10,7 @@ import type {
   SectionType,
 } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
+import { jsonrepair } from "jsonrepair";
 
 const VALID_SECTION_TYPES = new Set<SectionType>([
   "hero",
@@ -47,7 +48,7 @@ async function classifyPage(
 
   let raw: { sections: unknown[] };
   try {
-    raw = JSON.parse(extractJSON(rawText));
+    raw = JSON.parse(jsonrepair(extractJSON(rawText)));
   } catch (err) {
     throw new AgentError(
       "agent4",
@@ -60,15 +61,18 @@ async function classifyPage(
   }
 
   const seen = new Set<SectionType>();
-  const sections: ClassifiedSection[] = raw.sections
+  const rawSections: ClassifiedSection[] = raw.sections
     .map((item) => {
       const s = item as Record<string, unknown>;
-      const start = typeof s.startChar === "number" ? s.startChar : 0;
-      const end = typeof s.endChar === "number" ? s.endChar : cleanMd.length;
+      const rawStart = typeof s.startChar === "number" ? s.startChar : 0;
+      const rawEnd = typeof s.endChar === "number" ? s.endChar : cleanMd.length;
+      // Clamp to valid bounds — LLM sometimes returns positions beyond text length
+      const clampedStart = Math.max(0, Math.min(rawStart, cleanMd.length));
+      const clampedEnd = Math.max(clampedStart, Math.min(rawEnd, cleanMd.length));
       return {
         type: normalizeSectionType(s.type) as SectionType,
-        markdownSlice: cleanMd.slice(start, end),
-        scrollFraction: cleanMd.length > 0 ? start / cleanMd.length : 0,
+        markdownSlice: cleanMd.slice(clampedStart, clampedEnd),
+        scrollFraction: cleanMd.length > 0 ? clampedStart / cleanMd.length : 0,
       };
     })
     .filter((s) => VALID_SECTION_TYPES.has(s.type))
@@ -78,6 +82,14 @@ async function classifyPage(
       seen.add(s.type);
       return true;
     });
+
+  // Fallback: if LLM omitted all position data, every section gets scrollFraction=0,
+  // which makes the agent5 sort and the UI sidebar order meaningless.
+  // Distribute them evenly across the page using their detection order instead.
+  const allAtZero = rawSections.length > 1 && rawSections.every((s) => s.scrollFraction === 0);
+  const sections = allAtZero
+    ? rawSections.map((s, i) => ({ ...s, scrollFraction: i / rawSections.length }))
+    : rawSections;
 
   return { url, sections };
 }

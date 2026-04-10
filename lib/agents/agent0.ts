@@ -58,6 +58,12 @@ export async function runAgent0(
   if (!Array.isArray(raw.keyFeatures)) {
     throw new AgentError("agent0", "Missing or invalid field: keyFeatures");
   }
+  const validFeatures = (raw.keyFeatures as unknown[]).filter(
+    (f): f is string => typeof f === "string" && f.trim().length > 0
+  );
+  if (validFeatures.length === 0) {
+    throw new AgentError("agent0", "keyFeatures array is empty — page may not describe product features");
+  }
 
   // ── Step 5: Map to ProductBrief ────────────────────────────────
   return {
@@ -67,9 +73,7 @@ export async function runAgent0(
     icpKeyword: typeof raw.icpKeyword === "string" ? raw.icpKeyword : "",
     coreValueProp: raw.coreValueProp as string,
     cvpKeyword: typeof raw.cvpKeyword === "string" ? raw.cvpKeyword : "",
-    keyFeatures: (raw.keyFeatures as unknown[]).filter(
-      (f): f is string => typeof f === "string"
-    ),
+    keyFeatures: validFeatures,
     pricingModel:
       typeof raw.pricingModel === "string" ? raw.pricingModel : undefined,
     primaryCTAText:

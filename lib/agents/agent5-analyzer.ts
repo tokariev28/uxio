@@ -12,6 +12,7 @@ import type {
 } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 import { extractJSON } from "@/lib/utils/json-extract";
+import { jsonrepair } from "jsonrepair";
 
 // ── Response types ─────────────────────────────────────────────────────────
 
@@ -75,7 +76,7 @@ function siteLabel(
 }
 
 async function urlToBase64(url: string): Promise<string> {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`Screenshot fetch failed: ${res.status}`);
   const buffer = await res.arrayBuffer();
   return Buffer.from(buffer).toString("base64");
@@ -87,38 +88,43 @@ async function urlToBase64(url: string): Promise<string> {
 // quality-scorer's isEvidenceGrounded() check passes.
 
 function needsGrounding(text: string): boolean {
-  if (/"[^"]{3,}"/.test(text)) return false; // already quoted
-  if (/\b\d+/.test(text)) return false;        // already has a number
+  if (/["""][^"""]{3,}["""]/.test(text)) return false; // already quoted (ASCII or smart quotes)
+  if (/\b\d+/.test(text)) return false;                 // already has a number
   return true;
 }
 
-function groundInsight(
-  text: string,
-  evidence: { copyQuote: string | null; headlineText: string | null }
-): string {
-  if (!needsGrounding(text)) return text;
-  const quote = evidence.copyQuote ?? evidence.headlineText;
-  if (!quote || quote.length < 3) return text;
-  return `"${quote}" — ${text}`;
-}
-
 /**
- * Apply evidence grounding to a list of insights, but only prepend a quote
- * to the FIRST ungrounded item. Subsequent ungrounded items are left as-is
- * to avoid repeating the same anchor quote across all bullets.
+ * Apply evidence grounding to a list of insights. Cycles through available
+ * evidence fields (copyQuote → headlineText → visualObservation) so each
+ * ungrounded item gets a different anchor quote instead of repeating one.
  */
 function applyGrounding(
   items: string[],
-  evidence: { copyQuote: string | null; headlineText: string | null }
+  evidence: { copyQuote: string | null; headlineText: string | null; visualObservation?: string | null }
 ): string[] {
-  let groundingUsed = false;
+  const quotes = [evidence.copyQuote, evidence.headlineText, evidence.visualObservation]
+    .filter((q): q is string => typeof q === "string" && q.length >= 3);
+  let quoteIdx = 0;
   return items.map((item) => {
     if (!needsGrounding(item)) return item;
-    if (groundingUsed) return item;
-    const grounded = groundInsight(item, evidence);
-    if (grounded !== item) groundingUsed = true;
-    return grounded;
+    if (quoteIdx >= quotes.length) return item;
+    const quote = quotes[quoteIdx];
+    quoteIdx++;
+    return `"${quote}" — ${item}`;
   });
+}
+
+// ── Deterministic score computation ───────────────────────────────────────
+// LLMs frequently get multi-step weighted arithmetic wrong. Computing the
+// overallScore from sub-scores in code guarantees correct, consistent values.
+function computeWeightedScore(scores: BatchSectionResult['scores']): number {
+  if (!scores) return -1;
+  const raw = (
+    scores.clarity * 1.5 + scores.specificity * 1.5 + scores.icpFit * 1.5 +
+    scores.attentionRatio * 1.2 + scores.ctaQuality * 1.2 + scores.trustSignals * 1.2 +
+    scores.visualHierarchy + scores.cognitiveEase + scores.typographyReadability + scores.densityBalance
+  ) / 12.6;
+  return Math.round(raw * 100) / 100;
 }
 
 // ── Section content truncation ─────────────────────────────────────────────
@@ -177,7 +183,7 @@ async function analyzePageBatch(
     )
     .join("\n\n---\n\n");
 
-  const textContent = `TARGET ICP: ${ctx.productBrief!.icp}\n\nSECTIONS TO ANALYZE:\n\n${sectionsInput}`;
+  const textContent = `TARGET ICP: ${ctx.productBrief!.icp}\n\nYou will analyze exactly ${limitedSections.length} sections. Your JSON array must contain exactly ${limitedSections.length} objects.\n\nSECTIONS TO ANALYZE:\n\n${sectionsInput}`;
 
   // ── Single Flash call (multimodal: screenshot + all sections) ──────
   const rawText = await aiGenerateMultimodal(CHAINS.flash, {
@@ -187,7 +193,49 @@ async function analyzePageBatch(
     json: true,
   });
 
-  return JSON.parse(extractJSON(rawText)) as BatchSectionResult[];
+  let parsed: BatchSectionResult[];
+  try {
+    parsed = JSON.parse(extractJSON(rawText)) as BatchSectionResult[];
+  } catch {
+    // Tier 2: jsonrepair fixes common LLM JSON flaws (literal newlines in strings,
+    // trailing commas, unescaped quotes) without burning a full LLM retry.
+    try {
+      parsed = JSON.parse(jsonrepair(extractJSON(rawText))) as BatchSectionResult[];
+    } catch {
+      // Tier 3: JSON is structurally broken — retry the LLM call once as last resort.
+      console.warn(`[agent5] JSON parse failed for ${page.url} — retrying LLM call`);
+      const retryText = await aiGenerateMultimodal(CHAINS.flash, {
+        system: AGENT_PROMPTS.sectionAnalyzerBatch,
+        textContent,
+        imageBase64: screenshotData ?? undefined,
+        json: true,
+      });
+      try {
+        parsed = JSON.parse(jsonrepair(extractJSON(retryText))) as BatchSectionResult[];
+      } catch (retryErr) {
+        throw new AgentError(
+          "agent5",
+          `AI response is not valid JSON for ${page.url}: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`
+        );
+      }
+    }
+  }
+
+  // Validate output count matches input sections
+  if (parsed.length !== limitedSections.length) {
+    console.warn(
+      `[agent5] Section count mismatch for ${page.url}: expected ${limitedSections.length}, got ${parsed.length}`
+    );
+  }
+
+  // Cap confidence at 0.7 for text-only analysis (no screenshot available)
+  if (!screenshotData) {
+    for (const item of parsed) {
+      if (item.confidence !== undefined && item.confidence > 0.7) item.confidence = 0.7;
+    }
+  }
+
+  return parsed;
 }
 
 // ── Main orchestration ─────────────────────────────────────────────────────
@@ -211,10 +259,9 @@ export async function runAnalyzer(
 
   const competitors = ctx.competitors ?? [];
 
-  // ── Process all pages in parallel — each analyzePageBatch call is independent
-  const pageJobs = ctx.pages.map((page) => {
-    // Match pageSections by URL instead of index to prevent misalignment
-    // when Agent4 skips a page via Promise.allSettled
+  // ── Build analysis job for a single page ──────────────────────────────────
+  const makeJob = (page: PageData): Promise<BatchSectionResult[]> => {
+    // Match pageSections by URL to prevent misalignment when Agent4 skips a page
     const pageSections = ctx.pageSections!.find((ps) => ps.url === page.url);
     if (!pageSections?.sections.length) {
       console.warn(
@@ -225,9 +272,33 @@ export async function runAnalyzer(
     // Analyze even without screenshot (text-only fallback) — lower quality
     // than multimodal but better than skipping the page entirely
     return analyzePageBatch(page, pageSections, ctx);
-  });
+  };
 
-  const settled = await Promise.allSettled(pageJobs);
+  // ── Prioritize input page: analyze it first, then competitors in parallel ──
+  // agent3 always places the input page at index 0 in ctx.pages.
+  // Awaiting it sequentially before starting competitor calls prevents the
+  // most-important page from being starved by concurrent gateway rate limits.
+  const [inputPage, ...competitorPages] = ctx.pages;
+
+  const inputResult = await makeJob(inputPage).then(
+    (value): PromiseSettledResult<BatchSectionResult[]> => ({ status: "fulfilled", value }),
+    (reason): PromiseSettledResult<BatchSectionResult[]> => ({ status: "rejected", reason })
+  );
+
+  // Stagger competitor calls by 600 ms each to spread gateway burst load.
+  // Adds at most 1.2 s of wall time for 3 competitors, but avoids simultaneous
+  // multimodal calls that can trigger rate limits even after the input-first fix.
+  const competitorSettled = await Promise.allSettled(
+    competitorPages.map(
+      (page, i) =>
+        new Promise<BatchSectionResult[]>((resolve, reject) => {
+          setTimeout(() => makeJob(page).then(resolve, reject), i * 600);
+        })
+    )
+  );
+
+  // Reassemble in original page order so settled[i] aligns with ctx.pages[i]
+  const settled: PromiseSettledResult<BatchSectionResult[]>[] = [inputResult, ...competitorSettled];
 
   const failedUrls: string[] = [];
   const analysisMap = new Map<SectionType, SectionAnalysis>();
@@ -252,14 +323,33 @@ export async function runAnalyzer(
       const evidenceCtx = {
         copyQuote: kev.copyQuote,
         headlineText: kev.headlineText,
+        visualObservation: kev.visualObservation,
       };
 
-      const groundedStrengths = applyGrounding(raw.strengths ?? [], evidenceCtx).map(stripInlineCode);
-      const groundedWeaknesses = applyGrounding(raw.weaknesses ?? [], evidenceCtx).map(stripInlineCode);
+      const groundedStrengths = applyGrounding(
+        (raw.strengths ?? []).filter((s): s is string => typeof s === "string"),
+        evidenceCtx,
+      ).map(stripInlineCode);
+      const groundedWeaknesses = applyGrounding(
+        (raw.weaknesses ?? []).filter((s): s is string => typeof s === "string"),
+        evidenceCtx,
+      ).map(stripInlineCode);
+
+      // Compute score deterministically from sub-scores (LLMs get weighted arithmetic wrong)
+      const computedScore = computeWeightedScore(raw.scores);
+      let score = computedScore >= 0 ? computedScore : Math.max(0, Math.min(1, raw.overallScore));
+
+      // Enforce self-consistency rules from the prompt rubric
+      if (groundedWeaknesses.length >= 3 && score > 0.50) score = 0.50;
+      else if (groundedWeaknesses.length >= 2 && score > 0.65) score = 0.65;
+      if (score >= 0.80 && groundedWeaknesses.length > 1) score = 0.79;
+      if (raw.scores && (raw.scores.clarity < 0.5 || raw.scores.specificity < 0.5 || raw.scores.icpFit < 0.5) && score > 0.60) {
+        score = 0.60;
+      }
 
       const finding: SectionFinding = {
         site,
-        score: raw.overallScore,
+        score,
         scores: raw.scores ?? undefined,
         confidence:
           typeof raw.confidence === "number"

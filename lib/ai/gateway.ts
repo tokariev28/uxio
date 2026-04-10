@@ -18,11 +18,15 @@ function isTransientError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
   return (
     msg.includes("429") ||
+    msg.includes("502") ||
     msg.includes("503") ||
+    msg.includes("504") ||
     msg.includes("rate") ||
     msg.includes("timeout") ||
     msg.includes("overloaded") ||
-    msg.includes("service unavailable")
+    msg.includes("service unavailable") ||
+    msg.includes("econnrefused") ||
+    msg.includes("connection reset")
   );
 }
 

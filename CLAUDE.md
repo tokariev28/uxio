@@ -41,7 +41,7 @@ Sequential orchestration in `orchestrator.ts`:
 
 Each agent receives `PipelineContext` (accumulates results), returns a typed result, and throws `AgentError` (from `lib/agents/errors.ts`) on failure.
 
-All Gemini system prompts live in `lib/agents/prompts.ts` (key: `AGENT_PROMPTS`). Agent 1 uses `AGENT_PROMPTS.competitorDiscovery` for its LLM discovery leg; results are merged into the candidate map with `source: "llm-knowledge"` and `mentions: 2` base weight (entries confirmed by both Tavily and LLM get +2 boost).
+All Gemini system prompts live in `lib/agents/prompts.ts` (key: `AGENT_PROMPTS`). Agent 1 uses `AGENT_PROMPTS.competitorDiscovery` for its LLM discovery leg; results are merged into the candidate map with `source: "llm-knowledge"` and `mentions: 2` base weight (entries confirmed by both Tavily and LLM get +2 boost). Both `competitorDiscovery` and `competitorValidator` contain extensive **negative examples** (invalid competitor patterns — GitHub for Linear, LinkedIn for Apollo, Hugging Face for Anthropic, Intercom/Zendesk for HubSpot, etc.). Do not remove or shorten these sections — they exist because the LLM reliably hallucinates these false positives without them.
 
 **Agent 3 two-pass scraping**: `scrapePageWithRetry()` first scrapes without delay; if `isUsableMarkdown()` returns false (< 300 chars or JS-error signals), it retries with `waitFor: 8000ms` to allow client-side hydration. Returns whichever pass had more content.
 
@@ -76,7 +76,7 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 
 ### Shared Utilities (`/lib/utils/`)
 
-- **`json-extract.ts`** — `extractJSON(text)` strips LLM preamble/postamble and returns the first JSON object or array by scanning brackets. All agents use this — never call `JSON.parse()` on raw LLM output directly.
+- **`json-extract.ts`** — `extractJSON(text)` strips LLM preamble/postamble and returns the first JSON object or array by scanning brackets. All agents pair this with `jsonrepair` (from the `jsonrepair` package) as a second recovery tier before falling back to an LLM retry — the pattern is `JSON.parse(jsonrepair(extractJSON(text)))`. Never call `JSON.parse()` on raw LLM output directly; never skip the `jsonrepair` tier.
 - **`normalize-section-type.ts`** — `normalizeSectionType(raw)` converts any LLM-returned section string to the canonical camelCase `SectionType` value: strips trailing " section", camelCases multi-word inputs (`"social proof"` → `"socialProof"`, `"how it works"` → `"howItWorks"`), lowercases all-caps acronyms (`"FAQ"` → `"faq"`). Used by agents 4, 5, and 6 — always import from here, never re-implement locally.
 - **`scrape-quality.ts`** — `isUsableMarkdown(md)` returns `false` if content is < 300 chars or contains JS-not-rendered signals. Used by Agent 0 (fail fast) and Agent 3 (trigger two-pass retry).
 - **`ssrf.ts`** — `isUnsafeUrl(raw)` returns an error string or `null`. Allows HTTP and HTTPS, blocks private IPs (127.x, 10.x, 192.168.x, 172.16–31.x, 169.254.x), blocks non-standard ports (only 80/443 or no port). Shared by both API routes — do not duplicate this logic inline.
@@ -86,7 +86,7 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 ### API Security (`/app/api/analyze/route.ts`)
 
 - **Rate limiting**: In-memory IP-based, 2 requests per minute per IP
-- **SSRF protection**: Both HTTP and HTTPS allowed; blocks private IPs and non-standard ports via `isUnsafeUrl()` from `lib/utils/ssrf.ts` — applied in both `/api/analyze` and `/api/validate-url`
+- **SSRF protection**: Both HTTP and HTTPS allowed; blocks private IPs and non-standard ports via `isUnsafeUrl()` from `lib/utils/ssrf.ts` — applied in both `/api/analyze` and `/api/validate-url`. The validate-url route uses `redirect: "manual"` on both its HEAD and GET probes — do not change to `redirect: "follow"`, which would allow bypass via attacker-controlled 301 redirects to private IPs.
 - **CORS**: Origin header validated against host — cross-origin requests rejected
 
 ### UI
@@ -137,9 +137,10 @@ All keys are server-side only — never exposed to the client.
 - API route runs Node.js runtime (not Edge) — Firecrawl and Gemini SDKs require it
 - No server-side persistence — all pipeline data lives in memory for the duration of one request
 - Agents run sequentially; Agent 3 and Agent 5 process pages in parallel internally
+- **Agent 5 parallelism is intentionally asymmetric**: the input page is awaited first (sequentially), then competitor pages are started in parallel with a 600 ms stagger between each. Do not refactor this into a single `Promise.allSettled` — the sequential-first pattern prevents the input page from being rate-limited by simultaneous competitor LLM calls, and the stagger prevents burst contention on the gateway.
 - Agent 3 mutates `ctx.competitors` to only include successfully scraped competitors (backups may substitute primaries)
 - Screenshots are used by Agent 5 for analysis but stripped from SSE payload before sending to client
-- shadcn components use `base-nova` style, neutral base color, lucide icons
+- shadcn components use `base-nova` style, neutral base color, lucide icons; `@base-ui/react` is the primitive layer (replaces `@radix-ui/react-*`) — import primitives from `@base-ui/react/<component>` when customizing or adding new `components/ui/` files
 - All agent prompts enforce evidence-based output: generic verbs are forbidden, every insight must cite specific copy or visual elements
 - `SectionFinding` and `Recommendation` carry a `confidence` field (0–1) indicating how certain the agent is in each finding
 - `@react-pdf/renderer` is a client-side dependency (~750 KB); `AnalysisPDF.tsx` has a `"use client"` directive and must only ever be accessed via `import("./AnalysisPDF")` — never import it statically from any file

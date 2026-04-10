@@ -5,7 +5,7 @@
  * ("social proof" / "Social Proof" → "socialProof", "how it works" → "howItWorks").
  */
 export function normalizeSectionType(raw: unknown): string {
-  if (typeof raw !== "string") return String(raw ?? "");
+  if (typeof raw !== "string") return "";
   const trimmed = raw.trim().replace(/\s+section$/i, "");
   const words = trimmed.split(/\s+/);
   if (words.length === 1) {

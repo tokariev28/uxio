@@ -202,6 +202,7 @@ export interface PipelineContext {
   pages?: PageData[];
   pageSections?: PageSections[];
   sectionAnalyses?: SectionAnalysis[];
+  failedUrls?: string[];
   recommendations?: Recommendation[];
   executiveSummary?: string;
   overallScores?: OverallScores;

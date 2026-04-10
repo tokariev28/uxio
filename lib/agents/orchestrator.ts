@@ -115,6 +115,7 @@ export async function runPipeline(
           writer.send({ type: "progress", stage: "analysis", status: "running", message: "Analyzing design patterns…", actions });
         const { analyses, failedUrls } = await runAnalyzer(ctx, onActions);
         ctx.sectionAnalyses = analyses;
+        ctx.failedUrls = failedUrls;
 
         if (failedUrls.length > 0) {
           const hostnames = failedUrls.map((u) => {
@@ -152,6 +153,19 @@ export async function runPipeline(
       stage: "synthesis",
       label: "Synthesizing recommendations",
       run: async (ctx) => {
+        // Filter out competitors that failed analysis — prevents Agent 6 from
+        // fabricating examples based on competitors it never actually analyzed.
+        if (ctx.failedUrls?.length && ctx.competitors?.length) {
+          const failedDomains = new Set(
+            ctx.failedUrls.map((u) => {
+              try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
+            })
+          );
+          ctx.competitors = ctx.competitors.filter((c) => {
+            try { return !failedDomains.has(new URL(c.url).hostname.replace(/^www\./, "")); } catch { return true; }
+          });
+        }
+
         const synthesis = await runSynthesis(ctx);
         ctx.recommendations = synthesis.recommendations;
         ctx.executiveSummary = synthesis.executiveSummary;

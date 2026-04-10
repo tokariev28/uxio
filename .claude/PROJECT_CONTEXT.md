@@ -38,8 +38,20 @@ The backend implements a 7-agent pipeline end-to-end:
 | 5 | Vision Analyzer | Firecrawl screenshot → Gemini Vision | ✅ | Flash |
 | 6 | Synthesis | Gemini | ✅ | Flash |
 
-Agent system prompts → `lib/agents/prompts.ts`
-Model routing constants → `AGENT_MODELS` in the same file.
+**Agent 1 LLM leg** enforces TIER-1 criteria (3+ years active, thousands of G2/Capterra reviews, recognized-without-explanation brand) and uses a chain-of-thought step before returning 8 candidates. Agents 1 (Tavily leg) and 3 (Firecrawl) are pure API calls — no prompts in `prompts.ts`.
+
+**Agent 2** applies three rules beyond 4-axis scoring: DIVERSITY (max 2 competitors from same sub-category), INFRASTRUCTURE exclusion (blocks AWS/Azure/GCP/Vertex AI/Bedrock/Azure OpenAI as product competitors), TIER RULE (prefers well-known brand when matchScores within 0.10). Returns top 5 — positions 1–3 primary, 4–5 backup.
+
+**Agent 4** deduplicates classified sections by type per page — only the first occurrence is retained.
+
+**Agent 5** active prompt: `AGENT_PROMPTS.sectionAnalyzerBatch` (`visionAnalyzer` key is legacy reference, not in active code path). Each `SectionFinding.confidence`: `1.0` (screenshot available), `0.7` (text-only), `0.4` (thin content).
+
+**Agent 6** strips numerical scores from Agent 5 output before synthesis. `overallScores` computed programmatically from Agent 5 data — not LLM-generated.
+
+**Result assembly**: `screenshotBase64` stripped from `PageData` before SSE `complete` event (~4–12 MB payload reduction). Screenshots resolved to base64 in Agent 3 while GCS URLs are fresh (30–60 min TTL).
+
+Agent system prompts → `lib/agents/prompts.ts` (key: `AGENT_PROMPTS`)
+Model routing → `CHAINS` constant in `lib/ai/gateway.ts` (not in `prompts.ts`)
 
 **Out of scope for the MVP:**
 
