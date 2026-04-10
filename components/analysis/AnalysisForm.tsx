@@ -24,6 +24,7 @@ const INSIGHT_CARDS = [
     title: "Social proof below the fold",
     body: "Apollo places logos only at the bottom. Users don't scroll — trust never builds.",
     action: "Move G2 badges and customer logos directly into the hero section.",
+    impact: "Lifts first-visit trust signals above the scroll threshold.",
   },
   {
     id: "center",
@@ -31,6 +32,7 @@ const INSIGHT_CARDS = [
     title: "Two competing primary CTAs",
     body: "Apollo's hero shows 'Get started' and 'Watch demo' at equal visual weight — attention is split.",
     action: "Make 'Get started free' the sole primary CTA. Demote 'Watch demo' to a text link.",
+    impact: "Reduces decision fatigue; focuses conversion on a single action.",
   },
   {
     id: "right",
@@ -38,6 +40,7 @@ const INSIGHT_CARDS = [
     title: "Value prop skips the 'who for'",
     body: "Apollo's headline answers what the tool does, but not which team it's for.",
     action: "Add 'for B2B revenue teams' directly in the subheadline for persona clarity.",
+    impact: "Improves qualified visitor resonance and reduces bounce from wrong-fit traffic.",
   },
 ] as const;
 
@@ -290,6 +293,7 @@ export function AnalysisForm() {
                   <div className="insight-card-recommendation">
                     <p className="insight-card-recommendation-label">Recommendation</p>
                     <p className="insight-card-recommendation-text">{card.action}</p>
+                    <p className="insight-card-impact">↳ {card.impact}</p>
                   </div>
                 </div>
               ))}

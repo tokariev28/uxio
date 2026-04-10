@@ -423,7 +423,7 @@
 }
 
 .insight-card {
-  width: 280px;
+  width: 320px;
   flex-shrink: 0;
   background: #ffffff;
   border-radius: 16px;
@@ -439,18 +439,21 @@
 }
 
 .insight-card-center {
+  width: 340px;
   z-index: 2;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .insight-card-left {
-  transform: translateX(-16px) scale(0.94);
+  width: 380px;
+  transform: translateX(8px) scale(0.78);
   opacity: 0.5;
   filter: blur(1px);
 }
 
 .insight-card-right {
-  transform: translateX(16px) scale(0.94);
+  width: 380px;
+  transform: translateX(-8px) scale(0.78);
   opacity: 0.5;
   filter: blur(1px);
 }
@@ -523,6 +526,14 @@
   line-height: 1.4;
   letter-spacing: -0.015em;
   margin: 0;
+}
+
+.insight-card-impact {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 6px 0 0;
+  font-style: italic;
 }
 
 @media (max-width: 767px) {

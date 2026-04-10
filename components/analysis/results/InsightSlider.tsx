@@ -202,7 +202,7 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
               {insight.suggestedAction && (
                 <div
                   style={{
-                    margin: "6px 26px 0",
+                    margin: "6px 26px 24px",
                     background: "#f7f7f8",
                     borderRadius: 12,
                     padding: "16px 18px",
@@ -231,38 +231,33 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
                   >
                     {insight.suggestedAction.replace(/\.?\s*$/, ".")}
                   </p>
+                  {insight.impact && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 8,
+                      }}
+                    >
+                      <span style={{ fontSize: 14, color: "#9ca3af", flexShrink: 0, marginTop: 1 }}>
+                        ↳
+                      </span>
+                      <p
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 400,
+                          color: "#6b7280",
+                          lineHeight: 1.7,
+                          margin: 0,
+                          fontStyle: "italic",
+                        }}
+                      >
+                        {insight.impact}
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {/* Impact block */}
-              {insight.impact && (
-                <div
-                  style={{
-                    margin: "8px 26px 24px",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 8,
-                  }}
-                >
-                  <span style={{ fontSize: 14, color: "#9ca3af", flexShrink: 0, marginTop: 1 }}>
-                    ↳
-                  </span>
-                  <p
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 400,
-                      color: "#6b7280",
-                      lineHeight: 1.7,
-                      margin: 0,
-                      fontStyle: "italic",
-                    }}
-                  >
-                    {insight.impact}
-                  </p>
-                </div>
-              )}
-              {!insight.impact && insight.suggestedAction && (
-                <div style={{ marginBottom: 24 }} />
               )}
             </div>
           </motion.div>
