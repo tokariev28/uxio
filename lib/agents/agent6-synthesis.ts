@@ -2,6 +2,7 @@ import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
 import { extractJSON } from "@/lib/utils/json-extract";
 import { normalizeSectionType } from "@/lib/utils/normalize-section-type";
+import { stripInlineCode } from "@/lib/utils/markdown-clean";
 import type { PipelineContext, Recommendation, Priority, SectionType, OverallScores } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 
@@ -26,21 +27,22 @@ function computeOverallScores(ctx: PipelineContext): OverallScores | undefined {
     scoresBySite.set(f.site, existing);
   }
 
+  // If the input page produced no scored findings, returning { input: 0 } would show
+  // a misleading "0" in the arc gauge. Return undefined so the UI hides the gauge instead.
+  if (!scoresBySite.has("input")) return undefined;
+
   const avg = (nums: number[]) =>
     nums.length > 0 ? Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 100) / 100 : 0;
 
-  const result: OverallScores = { input: 0 };
+  const result: OverallScores = { input: avg(scoresBySite.get("input")!) };
 
   for (const [site, scores] of scoresBySite) {
-    if (site === "input") {
-      result.input = avg(scores);
-    } else {
-      // Use competitor name as key (e.g. "competitor1", "competitor2", etc.)
-      const competitorIndex = [...scoresBySite.keys()]
-        .filter((k) => k !== "input")
-        .indexOf(site);
-      result[`competitor${competitorIndex + 1}`] = avg(scores);
-    }
+    if (site === "input") continue;
+    // Use competitor name as key (e.g. "competitor1", "competitor2", etc.)
+    const competitorIndex = [...scoresBySite.keys()]
+      .filter((k) => k !== "input")
+      .indexOf(site);
+    result[`competitor${competitorIndex + 1}`] = avg(scores);
   }
 
   return result;
@@ -128,10 +130,12 @@ export async function runSynthesis(
         raw = retryRaw;
         console.warn(`[agent6] Retry succeeded: ${raw.recommendations.length} recommendations`);
       } else {
-        console.error("[agent6] Retry also returned empty recommendations — proceeding with empty");
+        throw new AgentError("agent6", "LLM returned empty recommendations on both attempts — synthesis failed");
       }
     } catch (retryErr) {
+      if (retryErr instanceof AgentError) throw retryErr;
       console.error("[agent6] Retry failed:", retryErr instanceof Error ? retryErr.message : String(retryErr));
+      throw new AgentError("agent6", `Retry call failed: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`);
     }
   }
 
@@ -168,13 +172,13 @@ export async function runSynthesis(
     return {
       priority: r.priority as Priority,
       section: normalizedSection as SectionType,
-      title: r.title as string,
-      reasoning: r.reasoning as string,
-      exampleFromCompetitor: r.competitorExample as string,
-      suggestedAction: r.suggestedAction as string,
+      title: stripInlineCode(r.title as string),
+      reasoning: stripInlineCode(r.reasoning as string),
+      exampleFromCompetitor: stripInlineCode(r.competitorExample as string),
+      suggestedAction: stripInlineCode(r.suggestedAction as string),
       impact:
         typeof r.impact === "string" && (r.impact as string).trim()
-          ? (r.impact as string).trim()
+          ? stripInlineCode((r.impact as string).trim())
           : undefined,
       confidence:
         typeof r.confidence === "number" ? r.confidence : undefined,
@@ -206,7 +210,7 @@ export async function runSynthesis(
 
   const executiveSummary =
     typeof raw.executiveSummary === "string" && raw.executiveSummary.trim()
-      ? raw.executiveSummary.trim()
+      ? stripInlineCode(raw.executiveSummary.trim())
       : "";
 
   // Compute overallScores programmatically from Agent5 section scores —

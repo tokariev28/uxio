@@ -85,6 +85,26 @@ export async function runPipeline(
         const onActions = (actions: string[]) =>
           writer.send({ type: "progress", stage: "classification", status: "running", message: "Classifying page sections…", actions });
         ctx.pageSections = await runClassifier(ctx, onActions);
+
+        // Surface a clear warning if the input page produced no classifiable sections.
+        // This happens when Firecrawl returns thin content for JS SPAs.
+        const inputSections = ctx.pageSections?.find((ps) => {
+          try {
+            return new URL(ps.url).hostname.replace(/^www\./, "") === new URL(ctx.inputUrl).hostname.replace(/^www\./, "");
+          } catch {
+            return ps.url === ctx.inputUrl;
+          }
+        });
+        if (!inputSections?.sections.length) {
+          writer.send({
+            type: "progress",
+            stage: "classification",
+            status: "running",
+            message:
+              "Input page sections could not be classified — page may use client-side rendering. " +
+              "Analysis will proceed with competitor data only.",
+          });
+        }
       },
     },
     {

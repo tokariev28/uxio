@@ -156,11 +156,7 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
         {anyRunning && (
           <p className="mt-5" style={{ fontSize: 13, color: "rgba(0,0,0,0.45)", lineHeight: 1.55 }}>
             Analysis typically takes 2–4 minutes.
-            {notification?.isGranted ? (
-              <span style={{ marginLeft: 4 }}>
-                We&apos;ll notify you when it&apos;s complete.
-              </span>
-            ) : notification?.showConfirmation ? (
+            {notification?.showConfirmation ? (
               <AnimatePresence>
                 <motion.span
                   key="confirmed"
@@ -171,6 +167,10 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
                   ✓ You&apos;ll be notified.
                 </motion.span>
               </AnimatePresence>
+            ) : notification?.isGranted ? (
+              <span style={{ marginLeft: 4 }}>
+                We&apos;ll notify you when it&apos;s complete.
+              </span>
             ) : notification?.showBanner ? (
               <>
                 {" "}

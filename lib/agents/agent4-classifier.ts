@@ -2,6 +2,7 @@ import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
 import { extractJSON } from "@/lib/utils/json-extract";
 import { normalizeSectionType } from "@/lib/utils/normalize-section-type";
+import { stripMarkdownLinks } from "@/lib/utils/markdown-clean";
 import type {
   PipelineContext,
   PageSections,
@@ -32,9 +33,15 @@ async function classifyPage(
   url: string,
   markdown: string
 ): Promise<PageSections> {
+  // Strip markdown links + bare URLs before sending to LLM.
+  // Long tracking URLs (100-200 chars each) cause the LLM's startChar/endChar
+  // estimates to drift by hundreds of positions, producing slices that land
+  // inside URL query strings instead of actual page content.
+  const cleanMd = stripMarkdownLinks(markdown);
+
   const rawText = await aiGenerate(CHAINS.flashLite, {
     system: AGENT_PROMPTS.sectionClassifier,
-    prompt: markdown,
+    prompt: cleanMd,
     json: true,
   });
 
@@ -57,11 +64,11 @@ async function classifyPage(
     .map((item) => {
       const s = item as Record<string, unknown>;
       const start = typeof s.startChar === "number" ? s.startChar : 0;
-      const end = typeof s.endChar === "number" ? s.endChar : markdown.length;
+      const end = typeof s.endChar === "number" ? s.endChar : cleanMd.length;
       return {
         type: normalizeSectionType(s.type) as SectionType,
-        markdownSlice: markdown.slice(start, end),
-        scrollFraction: markdown.length > 0 ? start / markdown.length : 0,
+        markdownSlice: cleanMd.slice(start, end),
+        scrollFraction: cleanMd.length > 0 ? start / cleanMd.length : 0,
       };
     })
     .filter((s) => VALID_SECTION_TYPES.has(s.type))

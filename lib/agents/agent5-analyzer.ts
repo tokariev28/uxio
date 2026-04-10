@@ -1,6 +1,6 @@
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerateMultimodal, CHAINS } from "@/lib/ai/gateway";
-import { stripMarkdownLinks } from "@/lib/utils/markdown-clean";
+import { stripMarkdownLinks, stripInlineCode } from "@/lib/utils/markdown-clean";
 import { normalizeSectionType } from "@/lib/utils/normalize-section-type";
 import type {
   PipelineContext,
@@ -216,7 +216,12 @@ export async function runAnalyzer(
     // Match pageSections by URL instead of index to prevent misalignment
     // when Agent4 skips a page via Promise.allSettled
     const pageSections = ctx.pageSections!.find((ps) => ps.url === page.url);
-    if (!pageSections?.sections.length) return Promise.resolve<BatchSectionResult[]>([]);
+    if (!pageSections?.sections.length) {
+      console.warn(
+        `[agent5] Skipping ${page.url} — no sections from classifier (empty scrape or classification failure)`
+      );
+      return Promise.resolve<BatchSectionResult[]>([]);
+    }
     // Analyze even without screenshot (text-only fallback) — lower quality
     // than multimodal but better than skipping the page entirely
     return analyzePageBatch(page, pageSections, ctx);
@@ -249,8 +254,8 @@ export async function runAnalyzer(
         headlineText: kev.headlineText,
       };
 
-      const groundedStrengths = applyGrounding(raw.strengths ?? [], evidenceCtx);
-      const groundedWeaknesses = applyGrounding(raw.weaknesses ?? [], evidenceCtx);
+      const groundedStrengths = applyGrounding(raw.strengths ?? [], evidenceCtx).map(stripInlineCode);
+      const groundedWeaknesses = applyGrounding(raw.weaknesses ?? [], evidenceCtx).map(stripInlineCode);
 
       const finding: SectionFinding = {
         site,
