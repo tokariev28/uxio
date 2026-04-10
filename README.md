@@ -1,10 +1,10 @@
 # Uxio — AI Competitive Landing Page Analyzer
 
-**Get instant, evidence-based competitive design intelligence for your SaaS landing page.**
+**The honest audit your landing page needs.**
 
-Paste any SaaS URL → Uxio finds your top competitors, scrapes their landing pages, and delivers prioritized design recommendations backed by specific copy and visual evidence.
+Paste any SaaS URL → Uxio benchmarks it against your top competitors and delivers prioritized design recommendations backed by specific copy and visual evidence — hero, CTAs, trust signals, and more.
 
-![Uxio hero](./uxio-initial.png)
+![Uxio hero](./screenshot-hero.png)
 
 ---
 
@@ -16,10 +16,11 @@ Paste any SaaS URL → Uxio finds your top competitors, scrapes their landing pa
 4. **Classifies page sections** (hero, pricing, social proof, features, CTA, footer…)
 5. **Analyzes each section** for strengths, weaknesses, and scores across 6 dimensions
 6. **Generates prioritized recommendations** — critical, high, and medium priority — each citing specific evidence from competitor pages
+7. **Caches results** for 2 hours — revisiting the same URL shows results instantly without re-running the pipeline
+8. **Exports a PDF** of the full analysis with one click
+9. **Notifies you** via browser notification when analysis finishes while the tab is in the background
 
 Results stream in real time via Server-Sent Events (SSE). The full analysis takes ~60–120 seconds.
-
-![Uxio analysis in progress](./uxio-analyzing.png)
 
 ---
 
@@ -27,17 +28,17 @@ Results stream in real time via Server-Sent Events (SSE). The full analysis take
 
 A 7-agent sequential pipeline runs entirely on the server:
 
-| # | Agent | What it does | APIs used |
-|---|-------|-------------|-----------|
-| 0 | Page Intelligence | Extracts a product brief from your URL | Firecrawl + Gemini |
-| 1 | Multi-Signal Discovery | Finds competitors via search + LLM knowledge | Tavily + Gemini |
-| 2 | Competitor Validator | Scores and ranks the top 3 | Gemini |
-| 3 | Scraper | Two-pass scrape of all competitor pages | Firecrawl |
-| 4 | Section Classifier | Identifies and deduplicates page sections | Gemini |
-| 5 | Vision Analyzer | Analyzes screenshots + markdown per section | Gemini Vision |
-| 6 | Synthesis | Produces 3 recommendations per section | Gemini |
+| # | Agent | What it does | APIs |
+|---|-------|-------------|------|
+| 0 | Page Intelligence | Extracts a product brief from your URL | Firecrawl + AI Gateway (Gemini Flash-Lite) |
+| 1 | Multi-Signal Discovery | Finds competitors via search + LLM knowledge | Tavily + AI Gateway (Gemini Flash) |
+| 2 | Competitor Validator | Scores and ranks the top 3 | AI Gateway (Gemini Flash-Lite) |
+| 3 | Scraper | Two-pass scrape of all competitor pages (JS SPA retry) | Firecrawl |
+| 4 | Section Classifier | Identifies and deduplicates page sections | AI Gateway (Gemini Flash-Lite) |
+| 5 | Vision Analyzer | Analyzes screenshots + markdown per section | AI Gateway (Gemini Flash, multimodal) |
+| 6 | Synthesis | Produces 3 recommendations per section + executive summary | AI Gateway (Gemini Flash) |
 
-Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result.
+All LLM calls go through **Vercel AI Gateway** with automatic fallback chains (Gemini 2.5 Flash → GPT-5.4-nano). Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result.
 
 ---
 
@@ -118,13 +119,13 @@ All keys are server-side only — never exposed to the client.
 
 ## Screenshots
 
-**Results view — section cards with competitive insights:**
+**Home — input form:**
 
-![Uxio results](./test-results-top.png)
+![Uxio hero](./screenshot-hero.png)
 
-**Progress panel — live agent pipeline:**
+**Analysis in progress — live agent pipeline:**
 
-![Uxio progress](./uxio-progress.png)
+![Uxio progress](./screenshot-progress.png)
 
 ---
 
@@ -187,7 +188,7 @@ The easiest way to deploy is with [Vercel](https://vercel.com):
 
 The API route requires Node.js runtime (not Edge) — Vercel handles this automatically based on the `runtime` export in the route file.
 
-> **Note:** Set `maxDuration` to at least 120s in your Vercel plan. The pipeline can take up to 2 minutes for complex sites.
+> **Note:** Set `maxDuration` to at least 300s in your Vercel plan. The route already exports `maxDuration = 300`; ensure your Vercel plan supports it (Pro plan required for >60s functions).
 
 ---
 
