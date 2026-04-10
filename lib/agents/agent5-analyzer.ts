@@ -193,7 +193,7 @@ async function analyzePageBatch(
 export async function runAnalyzer(
   ctx: PipelineContext,
   onActions?: (actions: string[]) => void
-): Promise<SectionAnalysis[]> {
+): Promise<{ analyses: SectionAnalysis[]; failedUrls: string[] }> {
   if (!ctx.pages?.length) {
     throw new AgentError("agent5", "pages is missing from pipeline context");
   }
@@ -222,6 +222,7 @@ export async function runAnalyzer(
 
   const settled = await Promise.allSettled(pageJobs);
 
+  const failedUrls: string[] = [];
   const analysisMap = new Map<SectionType, SectionAnalysis>();
 
   for (const [i, result] of settled.entries()) {
@@ -230,6 +231,7 @@ export async function runAnalyzer(
         `[agent5] Failed to analyze page ${ctx.pages[i].url}:`,
         result.reason instanceof Error ? result.reason.message : String(result.reason)
       );
+      failedUrls.push(ctx.pages[i].url);
       continue;
     }
 
@@ -276,5 +278,5 @@ export async function runAnalyzer(
     }
   }
 
-  return Array.from(analysisMap.values());
+  return { analyses: Array.from(analysisMap.values()), failedUrls };
 }
