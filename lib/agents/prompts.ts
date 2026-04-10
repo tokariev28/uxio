@@ -64,12 +64,28 @@ export const AGENT_PROMPTS = {
   1. What is the primary G2 category for this type of product?
   2. Which companies are "Leaders" or "High Performers" in that G2 category by review volume?
   3. Return those — not niche alternatives, not recently-founded tools.
+  4. If the product spans multiple categories (e.g. Notion = docs + PM, HubSpot = CRM + marketing), focus on the category reflected by the primary CTA and headline — that determines the correct competitor set.
 
   EXAMPLES OF CORRECT TIER-1 THINKING:
+  — General categories —
   - For CRM: Salesforce, HubSpot, Pipedrive — NOT Streak or Less Annoying CRM
   - For sales outreach / intelligence: ZoomInfo, Outreach, Salesloft — NOT Saleshandy or Instantly
   - For project management: Jira, Asana, Monday.com — NOT Goodday or Efficient
   - For email marketing: Mailchimp, HubSpot, Klaviyo — NOT Moosend or Brevo
+  - For team messaging / collaboration (e.g. Slack): Microsoft Teams, Zoom, Google Chat, Lark, Webex — NOT email clients or async video tools
+  - For design / prototyping (e.g. Figma): Adobe XD, Sketch, InVision, Framer, Penpot — NOT presentation tools (Canva, PowerPoint)
+  - For customer support / help desk (e.g. Zendesk, Intercom): Freshdesk, Help Scout, Drift, Gorgias, Front — NOT CRM tools without ticketing
+  - For product analytics / behavioural data (e.g. Amplitude, Mixpanel): Heap, PostHog, FullStory, Pendo, Contentsquare — NOT web analytics (Google Analytics, Plausible)
+  - For workflow automation / integrations (e.g. Zapier): Make, Workato, Tray.io, Boomi, n8n — NOT low-code app builders (Bubble, Retool)
+  - For payments infrastructure (e.g. Stripe): Braintree, Adyen, Square, PayPal Commerce, Paddle — NOT accounting software (QuickBooks, Xero)
+  - For monitoring / observability (e.g. Datadog): New Relic, Dynatrace, Grafana, Splunk, Elastic — NOT uptime checkers (Pingdom) or error-tracking-only tools (Sentry)
+  - For HR / people management (e.g. Rippling, Workday): Gusto, BambooHR, Lattice, Deel, TriNet — NOT single-function tools (expense management only, scheduling only)
+  - For collaboration docs / wiki (e.g. Notion, Confluence): Coda, Slab, Slite, Nuclino, Tettra — NOT project management tools, even if they overlap
+  — Specific well-known products —
+  - For B2B sales intelligence + engagement (e.g. Apollo.io): ZoomInfo, Outreach, Salesloft, HubSpot Sales Hub, Lusha — NOT cold-email-only tools (Instantly, Smartlead)
+  - For engineering issue tracking / PM (e.g. Linear): Jira, Shortcut, GitHub Issues, Asana, ClickUp — NOT generic to-do apps or note-taking tools
+  - For AI / LLM API platform (e.g. Anthropic / Claude): OpenAI, Google AI, Cohere, Mistral AI, AI21 Labs — NOT chatbot builders, AI wrappers, or model aggregators
+  - For all-in-one CRM + marketing automation (e.g. HubSpot): Salesforce, ActiveCampaign, Marketo, Zoho CRM, Klaviyo — NOT single-channel tools (Mailchimp alone, Calendly)
 
   OUTPUT FORMAT — strict JSON array, 6–8 items:
   [
@@ -145,6 +161,23 @@ export const AGENT_PROMPTS = {
   - videoDemo: embedded video player, interactive demo, or "watch how it works" block
   - comparison: table or grid comparing this product against competitors or pricing tiers
   - metrics: standalone row of large numbers (e.g. "10,000+ teams · 99.9% uptime · $2M saved")
+
+  CLASSIFICATION SIGNALS — markdown patterns that identify each type:
+  - hero: \`#\` heading at doc start + CTA verb near it ("Get started", "Try free", "Book a demo")
+  - navigation: earliest block, short lines, contains logo name + 3-6 nav link words
+  - features: repeated \`##\` headings, 3-6 short parallel descriptions, often icon/emoji per item
+  - benefits: "You get X", "So you can Y", "Built for Z" or outcome-first statements in list form
+  - socialProof: logo names in a tight cluster, review badges ("G2", "Capterra"), star ratings
+  - testimonials: block-quoted text with attribution, name + company on same line
+  - integrations: grid of product brand names without description copy
+  - howItWorks: numbered list (1. 2. 3.) or "Step X" headings with brief explanations
+  - pricing: "$" or "/month" or tier names ("Starter", "Pro", "Enterprise") + feature lists
+  - faq: lines ending in "?" followed by paragraph answers
+  - cta: single large heading + one CTA button, minimal surrounding copy
+  - footer: dense link list, copyright symbol, legal terms ("Privacy Policy", "Terms of Service")
+  - videoDemo: "Watch", "See how", iframe/embed reference, or "(video)" annotation
+  - comparison: table with competitor names in column headers or "vs." in heading
+  - metrics: 2+ standalone large numbers with "+" or "%" and minimal surrounding copy
 
   Detect ALL sections present on the page. Report ONLY sections that explicitly appear in the markdown. Never add inferred or assumed sections. It is acceptable to return fewer than 5 sections if the page genuinely has fewer. Never use "other".
 
@@ -371,6 +404,29 @@ export const AGENT_PROMPTS = {
   • any of {clarity, specificity, icpFit} < 0.50 → overallScore must be ≤ 0.60
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION-SPECIFIC SCORING CONTEXT
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PRIMARY axes carry the most weight in your judgment.
+  BY DESIGN LOW axes are structurally constrained — do not penalize below 0.5.
+
+  hero:         PRIMARY: clarity, icpFit, ctaQuality.
+  features:     PRIMARY: clarity, specificity, cognitiveEase. BY DESIGN LOW: trustSignals.
+  benefits:     PRIMARY: icpFit, specificity, clarity. BY DESIGN LOW: ctaQuality.
+  socialProof:  PRIMARY: trustSignals, specificity (logo count + named review sources). BY DESIGN LOW: icpFit.
+  testimonials: PRIMARY: trustSignals, specificity (name + company + measurable outcome in quotes). BY DESIGN LOW: attentionRatio, visualHierarchy.
+  integrations: PRIMARY: specificity (brand count), cognitiveEase. BY DESIGN LOW: icpFit, ctaQuality.
+  howItWorks:   PRIMARY: clarity, cognitiveEase, visualHierarchy. BY DESIGN LOW: trustSignals.
+  pricing:      PRIMARY: clarity, ctaQuality, trustSignals (guarantees/logos near price).
+  faq:          PRIMARY: clarity, cognitiveEase, specificity (answers concrete not vague). BY DESIGN LOW: attentionRatio.
+  cta:          PRIMARY: ctaQuality, clarity, attentionRatio. BY DESIGN LOW: densityBalance.
+  navigation:   PRIMARY: cognitiveEase, visualHierarchy. BY DESIGN LOW: attentionRatio (many links is correct), ctaQuality.
+  footer:       PRIMARY: cognitiveEase, typographyReadability. BY DESIGN LOW: ctaQuality, icpFit, attentionRatio.
+  videoDemo:    PRIMARY: clarity, ctaQuality. BY DESIGN LOW: specificity, trustSignals.
+  comparison:   PRIMARY: specificity, clarity, icpFit. BY DESIGN LOW: attentionRatio.
+  metrics:      PRIMARY: specificity (numbers must have context), trustSignals. BY DESIGN LOW: icpFit, ctaQuality, visualHierarchy.
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   EVIDENCE RULES (applied per section — no exceptions)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -459,7 +515,7 @@ export const AGENT_PROMPTS = {
 
   OUTPUT FORMAT — strict JSON:
   {
-    "executiveSummary": string,   // 2 sentences. S1: Summarize the input's overall standing vs competitors. S2: "Biggest gap is [area] where [competitor] outperforms by [specific observation]."
+    "executiveSummary": string,   // 2 sentences. S1: The input's strongest asset — cite the SPECIFIC section and copy element working best (e.g. "The Benefits section's 'Cut onboarding from 3 days to 4 hours' is the page's sharpest proof point."). S2: The single biggest gap — name which competitor and which section shows the strongest contrast (e.g. "The Hero trails Stripe's equivalent, which anchors trust with '135,000+ businesses' before the CTA."). FORBIDDEN openers: "The landing page demonstrates", "Overall, the site shows", "The analysis reveals". Lead with the most specific observation available.
     "recommendations": [
       {
         "priority": "critical" | "high" | "medium",
@@ -468,7 +524,7 @@ export const AGENT_PROMPTS = {
         "reasoning": string,        // Two-part structure: (1) Refer to the specific competitor by name: e.g. "Stripe shows 145k logos at the fold while the input page has none." (2) Explain WHY that gap costs conversions. NEVER write numerical scores — scores are internal only.
         "competitorExample": string,  // Must: (1) name a specific competitor from the COMPETITORS list, and (2) state exactly what that competitor does. FORMAT: "[Name]'s [section] [specific observation]". GOOD: "HubSpot's hero shows '184,000+ customers' directly below the CTA button." BAD: "Leading competitors use stronger social proof." BAD: "Competitor A has a cleaner hero section."
         "suggestedAction": string,  // One concrete sentence, max 20 words. FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Revamp, Rework, Address, Ensure. Must specify WHAT element to change AND what to change it to (or a measurable target). GOOD: "Replace hero headline with a specific outcome metric, mirroring HubSpot's result-first framing." BAD: "Improve the hero headline for better clarity."
-        "impact": string,           // One sentence. The conversion or engagement benefit of acting on this recommendation. Must be grounded in competitor evidence or a named industry pattern. GOOD: "Reduces early bounce — Notion's logo strip correlates with 12% higher trial starts." GOOD: "Lifts CTA click-through — HubSpot's below-fold CTA repetition averages 18% higher engagement." BAD: "Will improve conversions." BAD: "Users will trust the product more."
+        "impact": string,           // One sentence. Describe the conversion MECHANISM — how and why the change produces a result. Ground it in competitor evidence or a named industry pattern. NEVER invent percentages or statistics. GOOD: "When visitors see a logo strip before the first scroll (as Notion does), decision-makers have a trust anchor before evaluating the CTA — reducing early exit." GOOD: "Repeating the CTA after social proof (HubSpot's pattern) gives visitors who needed evidence a second conversion opportunity." BAD: "Will improve conversions." BAD: "Correlates with 18% higher engagement." — no fabricated numbers.
         "confidence": number        // 0.0–1.0. How confident you are in this recommendation. 1.0 = grounded in strong visual/copy evidence from both input and competitor. 0.7 = based on text analysis only. 0.4 = inferred from limited data or industry best practices.
       }
     ]
