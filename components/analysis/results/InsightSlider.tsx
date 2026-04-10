@@ -153,30 +153,49 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
             >
               {/* Body */}
               <div style={{ padding: "24px 26px 14px" }}>
-                {/* Priority + Confidence */}
+                {/* Header row: INSIGHT label + priority */}
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 6,
+                    justifyContent: "space-between",
                     marginBottom: 14,
-                    fontSize: 11,
-                    fontWeight: 500,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
                   }}
                 >
-                  <span
+                  <p
                     style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      background: PRIORITY_COLORS[insight.priority],
+                      fontSize: 10,
+                      fontWeight: 500,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      color: "#6b7280",
                     }}
-                  />
-                  <span style={{ color: PRIORITY_COLORS[insight.priority] }}>
-                    {insight.priority}
-                  </span>
+                  >
+                    Insight
+                  </p>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: PRIORITY_COLORS[insight.priority],
+                      }}
+                    />
+                    <span style={{ color: PRIORITY_COLORS[insight.priority] }}>
+                      {insight.priority}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Title */}
@@ -230,7 +249,7 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
                       letterSpacing: "-0.02em",
                     }}
                   >
-                    {insight.suggestedAction.replace(/\.?\s*$/, ".")}
+                    {renderReasoningText(insight.suggestedAction.replace(/\.?\s*$/, "."), competitors)}
                   </p>
                   {insight.impact && (
                     <div
@@ -254,7 +273,7 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
                           fontStyle: "italic",
                         }}
                       >
-                        {insight.impact}
+                        {renderReasoningText(insight.impact, competitors)}
                       </p>
                     </div>
                   )}

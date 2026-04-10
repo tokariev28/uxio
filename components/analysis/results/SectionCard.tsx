@@ -36,9 +36,9 @@ const PRIORITY_ORDER: Record<Priority, number> = {
 };
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  critical: "#dc2626",
-  high: "#d97706",
-  medium: "#16a34a",
+  critical: "#f43f5e",
+  high: "#f97316",
+  medium: "#10b981",
 };
 
 // ── Props ──────────────────────────────────────────────────────────────────
@@ -140,79 +140,71 @@ export function SectionCard({
       <div style={{ paddingTop: 8 }}>
         {/* Strength / weakness tags — horizontal two-column */}
         {(strengths.length > 0 || weaknesses.length > 0) && (
-          <div style={{ display: "flex", alignItems: "stretch", gap: 10, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "stretch", gap: 16, marginBottom: 28 }}>
             {/* Strengths column */}
             {strengths.length > 0 && (
-              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <p
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    color: "#15803d",
-                    marginBottom: 6,
-                  }}
-                >
-                  Strengths:
-                </p>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
-                  {strengths.map((s, i) => (
-                    <span
-                      key={i}
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+                {strengths.map((s, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      flex: 1,
+                      borderRadius: 12,
+                      background: "rgba(16,185,129,0.09)",
+                      color: "#059669",
+                      padding: 12,
+                    }}
+                  >
+                    <p
                       style={{
-                        flex: 1,
-                        fontSize: 14,
+                        fontSize: 10,
                         fontWeight: 500,
-                        lineHeight: 1.45,
-                        padding: "8px 12px",
-                        borderRadius: 8,
-                        background: "rgba(22,163,74,0.07)",
-                        color: "#15803d",
-                        border: "1px solid rgba(22,163,74,0.15)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        color: "#059669",
+                        marginBottom: 6,
                       }}
                     >
+                      Strengths:
+                    </p>
+                    <span style={{ fontSize: 14, fontWeight: 400, lineHeight: 1.45 }}>
                       {s}
                     </span>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             )}
             {/* Weaknesses column */}
             {weaknesses.length > 0 && (
-              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                <p
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    color: "#b91c1c",
-                    marginBottom: 6,
-                  }}
-                >
-                  Weaknesses:
-                </p>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
-                  {weaknesses.map((w, i) => (
-                    <span
-                      key={i}
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+                {weaknesses.map((w, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      flex: 1,
+                      borderRadius: 12,
+                      background: "rgba(244,63,94,0.09)",
+                      color: "#e11d48",
+                      padding: 12,
+                    }}
+                  >
+                    <p
                       style={{
-                        flex: 1,
-                        fontSize: 14,
+                        fontSize: 10,
                         fontWeight: 500,
-                        lineHeight: 1.45,
-                        padding: "8px 12px",
-                        borderRadius: 8,
-                        background: "rgba(220,38,38,0.07)",
-                        color: "#b91c1c",
-                        border: "1px solid rgba(220,38,38,0.15)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        color: "#e11d48",
+                        marginBottom: 6,
                       }}
                     >
+                      Weaknesses:
+                    </p>
+                    <span style={{ fontSize: 14, fontWeight: 400, lineHeight: 1.45 }}>
                       {w}
                     </span>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

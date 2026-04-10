@@ -6,7 +6,7 @@
 export function stripMarkdownLinks(text: string): string {
   return text
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // images: ![alt](url) → alt
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");  // links:  [text](url) → text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");   // links:  [text](url) → text, [](url) → ""
     // bare URLs intentionally kept — they are evidence for LLM analysis
 }
 

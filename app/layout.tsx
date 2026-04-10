@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     siteName: "Uxio",
     images: [
       {
-        url: "/og.png",
+        url: "https://uxio-wheat.vercel.app/og.png",
         width: 1200,
         height: 630,
         alt: "Uxio — See your landing page through your competitor's eyes",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     title: "Uxio — AI Competitive Landing Page Analyzer",
     description:
       "Get instant, evidence-based competitive design intelligence for your SaaS landing page.",
-    images: [{ url: "/og.png", alt: "Uxio — See your landing page through your competitor's eyes" }],
+    images: [{ url: "https://uxio-wheat.vercel.app/og.png", alt: "Uxio — See your landing page through your competitor's eyes" }],
   },
 };
 

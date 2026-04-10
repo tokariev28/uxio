@@ -180,7 +180,7 @@ uxio/
 │       ├── json-extract.ts        # Safe LLM JSON parsing
 │       ├── normalize-section-type.ts # Canonical SectionType normalization
 │       ├── scrape-quality.ts      # Markdown usability check
-│       ├── markdown-clean.ts      # stripMarkdownLinks() for token reduction
+│       ├── markdown-clean.ts      # stripMarkdownLinks() + stripInlineCode()
 │       ├── ssrf.ts                # isUnsafeUrl() — shared by both API routes
 │       └── quality-scorer.ts      # Analysis quality gate (5-signal score)
 └── .env.local.example
@@ -205,7 +205,7 @@ The easiest way to deploy is with [Vercel](https://vercel.com):
 
 1. Push your repo to GitHub
 2. Import the repo on [vercel.com/new](https://vercel.com/new)
-3. Add the three environment variables in the Vercel dashboard
+3. Add the four environment variables in the Vercel dashboard
 4. Deploy
 
 The API route requires Node.js runtime (not Edge) — Vercel handles this automatically based on the `runtime` export in the route file.
@@ -219,4 +219,4 @@ The API route requires Node.js runtime (not Edge) — Vercel handles this automa
 - **Rate limiting**: 2 requests per minute per IP (in-memory)
 - **SSRF protection**: HTTP and HTTPS; blocks private IP ranges (127.x, 10.x, 192.168.x, 172.16–31.x, 169.254.x) and non-standard ports
 - **CORS**: Origin header validated against host — cross-origin requests rejected
-- **Input validation**: URL must have a public TLD and use a standard port
+- **Input validation**: hostname must contain `.`; any HTTP response (including 4xx/5xx) is treated as reachable — only network failures are rejected

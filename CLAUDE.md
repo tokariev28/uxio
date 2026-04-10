@@ -19,7 +19,7 @@ Uxio is a Next.js 16 App Router app that analyzes a competitor's website via a 7
 
 ### Request Flow
 
-1. User submits a URL in `AnalysisForm.tsx`; `POST /api/validate-url` does a pre-flight reachability check (HEAD, fallback to partial GET, 5s timeout) before the main analysis starts
+1. User submits a URL in `AnalysisForm.tsx`; `POST /api/validate-url` does a pre-flight reachability check (HEAD with 5s timeout; if the server returns 405, retries with `GET Range: bytes=0-0` to avoid downloading the full body; hostname must contain `.`; any HTTP response — even 4xx/5xx — counts as reachable) before the main analysis starts
 2. `POST /api/analyze` (route.ts) validates URL, enforces rate limits, opens an SSE stream, and runs `runPipeline()`
 3. Each agent sends `progress` events as it completes
 4. Final results arrive as a `complete` event
@@ -44,6 +44,8 @@ Each agent receives `PipelineContext` (accumulates results), returns a typed res
 All Gemini system prompts live in `lib/agents/prompts.ts` (key: `AGENT_PROMPTS`). Agent 1 uses `AGENT_PROMPTS.competitorDiscovery` for its LLM discovery leg; results are merged into the candidate map with `source: "llm-knowledge"` and `mentions: 2` base weight (entries confirmed by both Tavily and LLM get +2 boost).
 
 **Agent 3 two-pass scraping**: `scrapePageWithRetry()` first scrapes without delay; if `isUsableMarkdown()` returns false (< 300 chars or JS-error signals), it retries with `waitFor: 8000ms` to allow client-side hydration. Returns whichever pass had more content.
+
+**Agent 5 active prompt**: uses `AGENT_PROMPTS.sectionAnalyzerBatch` — batches all sections in a single LLM call. The `AGENT_PROMPTS.visionAnalyzer` key in `prompts.ts` is legacy and kept for reference only; it is not in the active code path.
 
 ### AI Gateway (`/lib/ai/gateway.ts`)
 
@@ -79,7 +81,7 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 - **`scrape-quality.ts`** — `isUsableMarkdown(md)` returns `false` if content is < 300 chars or contains JS-not-rendered signals. Used by Agent 0 (fail fast) and Agent 3 (trigger two-pass retry).
 - **`ssrf.ts`** — `isUnsafeUrl(raw)` returns an error string or `null`. Allows HTTP and HTTPS, blocks private IPs (127.x, 10.x, 192.168.x, 172.16–31.x, 169.254.x), blocks non-standard ports (only 80/443 or no port). Shared by both API routes — do not duplicate this logic inline.
 - **`quality-scorer.ts`** — `scoreAnalysisQuality(result)` returns a `QualityReport` with `overallQuality` (0–100) from 5 weighted signals: evidence grounding (30%), score variance (25%), specificity rate (20%), competitor presence (15%), field completeness (10%). Attached to the `complete` SSE event; only logged in non-production environments.
-- **`markdown-clean.ts`** — `stripMarkdownLinks(md)` used by Agent 5 to reduce token count before sending section content to the LLM.
+- **`markdown-clean.ts`** — two utilities: `stripMarkdownLinks(md)` converts `[text](url)` → `text` while **intentionally keeping bare URLs** (they count as LLM evidence); used by Agent 5 before prompt calls. `stripInlineCode(md)` removes backtick spans from AI-generated display text (UI rendering only, not pre-prompt).
 
 ### API Security (`/app/api/analyze/route.ts`)
 
@@ -93,7 +95,7 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 - `components/analysis/` — the three main panels (form, progress, results) plus `InspirationGallery` (auto-scrolling 3D card gallery of example sites shown on the home/form view)
 - `components/analysis/results/` — sub-components for the results view:
   - `SummaryCard` — arc gauge SVG (`ArcGauge`) showing overall score (0–100) with colour thresholds (≥85 green, ≥70 cyan, ≥50 orange, <50 red) + executive summary block below
-  - `SectionCard` — per-section card with strengths/weaknesses tags and `InsightSlider`
+  - `SectionCard` — per-section card with strengths/weaknesses tags and `InsightSlider`; shows max **1 strength and 1 weakness** per section (Agent 5 may return up to 3 of each — the top signal is intentionally selected)
   - `InsightSlider` — horizontal slider of insight cards per section; renders competitor names as inline `<a>` links with Google favicon images via `renderReasoningText()`; supports keyboard navigation (ArrowLeft/ArrowRight)
   - `SectionNavSidebar` — sticky desktop scrollspy sidebar with `MiniArc` arc score per item; mobile uses pill nav. Active section tracked via `IntersectionObserver`. Sections are ordered by `scrollFraction` (Agent 4 output) to match actual page scroll order
   - `ExportPDFButton` — lazy-loads `@react-pdf/renderer` (~750 KB) on demand, generates and downloads PDF
@@ -111,6 +113,7 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 - `app/sitemap.ts` — Next.js `MetadataRoute.Sitemap` handler (single root URL, weekly change frequency)
 - `app/api/indexnow/route.ts` — GET endpoint that submits the site URL to the IndexNow API (`api.indexnow.org`). Key: `d4f3e2c1b0a9f8e7d6c5b4a3f2e1d0c9`, verification file at `public/d4f3e2c1b0a9f8e7d6c5b4a3f2e1d0c9.txt`
 - `metadataBase` in `app/layout.tsx` resolves using `VERCEL_PROJECT_PRODUCTION_URL` → `VERCEL_URL` → hardcoded fallback
+- `public/llms.txt` and `public/llms-full.txt` — LLM crawler discovery files
 
 ## Environment Variables
 
@@ -124,6 +127,10 @@ AI_GATEWAY_URL=           # Vercel AI Gateway base URL (set in Vercel dashboard 
 ```
 
 All keys are server-side only — never exposed to the client.
+
+## Developer Tooling
+
+- `.mcp.json` — registers the shadcn MCP server (`npx shadcn@latest mcp`) for component CLI integration via Claude Code
 
 ## Key Constraints
 

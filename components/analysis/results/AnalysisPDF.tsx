@@ -31,9 +31,9 @@ const SECTION_LABELS: Record<SectionType, string> = {
 };
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  critical: "#dc2626",
-  high: "#d97706",
-  medium: "#16a34a",
+  critical: "#f43f5e",
+  high: "#f97316",
+  medium: "#10b981",
 };
 
 const PRIORITY_ORDER: Record<Priority, number> = {
@@ -513,17 +513,17 @@ export function AnalysisPDF({ result, logoUrl }: Props) {
                   <View style={s.swRow}>
                     {strengths.length > 0 && (
                       <View style={s.swCol}>
-                        <Text style={[s.swColLabel, { color: "#15803d" }]}>Strengths</Text>
-                        <View style={[s.swTag, { backgroundColor: "#f0fbf5", borderColor: "#d1f5e0" }]}>
-                          <Text style={[s.swTagText, { color: "#15803d" }]}>{strengths[0]}</Text>
+                        <Text style={[s.swColLabel, { color: "#059669" }]}>Strengths</Text>
+                        <View style={[s.swTag, { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0" }]}>
+                          <Text style={[s.swTagText, { color: "#059669" }]}>{strengths[0]}</Text>
                         </View>
                       </View>
                     )}
                     {weaknesses.length > 0 && (
                       <View style={s.swCol}>
-                        <Text style={[s.swColLabel, { color: "#b91c1c" }]}>Weaknesses</Text>
-                        <View style={[s.swTag, { backgroundColor: "#fef5f5", borderColor: "#fdd8d8" }]}>
-                          <Text style={[s.swTagText, { color: "#b91c1c" }]}>{weaknesses[0]}</Text>
+                        <Text style={[s.swColLabel, { color: "#e11d48" }]}>Weaknesses</Text>
+                        <View style={[s.swTag, { backgroundColor: "#fff1f2", borderColor: "#fecdd3" }]}>
+                          <Text style={[s.swTagText, { color: "#e11d48" }]}>{weaknesses[0]}</Text>
                         </View>
                       </View>
                     )}
