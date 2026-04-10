@@ -12,14 +12,14 @@ function getColor(score: number): string {
   return "#f43f5e";
 }
 
-function computeScore(result: AnalysisResult): number {
+function computeScore(result: AnalysisResult): number | null {
   if (result.overallScores?.input != null) {
     return Math.round(result.overallScores.input * 100);
   }
   const inputFindings = result.sections.flatMap((s) =>
     s.findings.filter((f) => f.site === "input")
   );
-  if (inputFindings.length === 0) return 0;
+  if (inputFindings.length === 0) return null;
   return Math.round(
     (inputFindings.reduce((sum, f) => sum + f.score, 0) / inputFindings.length) * 100
   );
@@ -108,7 +108,35 @@ export function SummaryCard({ result }: SummaryCardProps) {
     >
       {/* ── Section A: Gauge ─────────────────────────────────────────── */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <ArcGauge score={score} />
+        {score !== null ? (
+          <ArcGauge score={score} />
+        ) : (
+          <div
+            style={{
+              height: 130,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 500,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color: "#9ca3af",
+              }}
+            >
+              Score unavailable
+            </span>
+            <span style={{ fontSize: 12, color: "#c4c4c4" }}>
+              Input page could not be analyzed
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── Section B: Executive Summary ─────────────────────────────── */}

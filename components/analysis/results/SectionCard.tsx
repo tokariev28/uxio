@@ -139,6 +139,20 @@ export function SectionCard({
       {/* ── Content ──────────────────────────────────────────────────── */}
       <div style={{ paddingTop: 8 }}>
         {/* Strength / weakness tags — horizontal two-column */}
+        {inputFinding === undefined && section.findings.length > 0 && (
+          <div
+            style={{
+              fontSize: 12,
+              color: "#9ca3af",
+              background: "#f9fafb",
+              borderRadius: 8,
+              padding: "8px 12px",
+              marginBottom: 28,
+            }}
+          >
+            Input page data unavailable for this section
+          </div>
+        )}
         {(strengths.length > 0 || weaknesses.length > 0) && (
           <div style={{ display: "flex", alignItems: "stretch", gap: 16, marginBottom: 28 }}>
             {/* Strengths column */}
