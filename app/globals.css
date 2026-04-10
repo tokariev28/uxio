@@ -261,6 +261,7 @@
 /* ─── Hero Section ──────────────────────────────────────────────────────── */
 .hero-wrapper {
   position: relative;
+  height: 100dvh;
   background-color: #080c18;
   background-image: linear-gradient(
     in oklch to bottom,
@@ -298,7 +299,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 3rem 1.5rem 5rem;
+  padding: 3rem 1.5rem 2rem;
   gap: 1.5rem;
 }
 
@@ -334,6 +335,7 @@
 
 /* ─── Hero Form ─────────────────────────────────────────────────────────── */
 .hero-form-area {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -342,6 +344,9 @@
 }
 
 .hero-url-error {
+  position: absolute;
+  top: 100%;
+  left: 0;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -418,8 +423,8 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  margin-top: 44px;
-  padding-bottom: 48px;
+  margin-top: 40px;
+  padding-bottom: 0;
 }
 
 .insight-card {
@@ -441,20 +446,21 @@
 .insight-card-center {
   width: 340px;
   z-index: 2;
+  opacity: 0.85;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .insight-card-left {
   width: 380px;
   transform: translateX(8px) scale(0.78);
-  opacity: 0.5;
+  opacity: 0.6;
   filter: blur(1px);
 }
 
 .insight-card-right {
   width: 380px;
   transform: translateX(-8px) scale(0.78);
-  opacity: 0.5;
+  opacity: 0.6;
   filter: blur(1px);
 }
 

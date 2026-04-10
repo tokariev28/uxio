@@ -71,12 +71,19 @@ export interface PageSections {
 // ── Section Analysis (Agent 5 output) ──────────────────────────
 
 export interface SectionScores {
+  // Communication (×1.5 weight in overallScore)
   clarity: number;
   specificity: number;
   icpFit: number;
-  visualHierarchy: number;
-  conversionReadiness: number;
+  // Conversion Architecture (×1.2 weight)
+  attentionRatio: number;
+  ctaQuality: number;
   trustSignals: number;
+  // Visual Quality (×1.0 weight)
+  visualHierarchy: number;
+  cognitiveEase: number;
+  typographyReadability: number;
+  densityBalance: number;
 }
 
 export interface SectionFinding {

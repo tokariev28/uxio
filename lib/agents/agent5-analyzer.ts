@@ -19,9 +19,13 @@ interface BatchSectionResult {
     clarity: number;
     specificity: number;
     icpFit: number;
-    visualHierarchy: number;
-    conversionReadiness: number;
+    attentionRatio: number;
+    ctaQuality: number;
     trustSignals: number;
+    visualHierarchy: number;
+    cognitiveEase: number;
+    typographyReadability: number;
+    densityBalance: number;
   };
   overallScore: number;
   confidence?: number;

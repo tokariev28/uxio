@@ -38,6 +38,7 @@ async function tavilySearch(
       query,
       search_depth: "basic",
       max_results: 10,
+      days: 365,
     }),
   });
 
@@ -65,15 +66,16 @@ export async function runDiscovery(
 
   const cvpKeyword = brief.cvpKeyword;
   const icpKeyword = brief.icpKeyword;
+  const currentYear = new Date().getFullYear();
 
   const queries: Array<{ label: string; query: string }> = [
     {
       label: "alternatives",
-      query: `${brief.company} alternatives SaaS ${brief.industry}`,
+      query: `${brief.company} alternatives SaaS ${brief.industry} ${currentYear}`,
     },
     {
       label: "feature",
-      query: `best ${cvpKeyword} software for ${icpKeyword}`,
+      query: `best ${cvpKeyword} software for ${icpKeyword} ${currentYear}`,
     },
     {
       label: "g2",
@@ -85,7 +87,7 @@ export async function runDiscovery(
     },
     {
       label: "category",
-      query: `${brief.industry} software alternatives ${new Date().getFullYear()}`,
+      query: `${brief.industry} software alternatives ${currentYear}`,
     },
   ];
 

@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle, Clock } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ProgressPanel } from "./ProgressPanel";
 import { ResultsPanel } from "./ResultsPanel";
@@ -43,6 +43,22 @@ const INSIGHT_CARDS = [
     impact: "Improves qualified visitor resonance and reduces bounce from wrong-fit traffic.",
   },
 ] as const;
+
+const heroContainerVariants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.15, delayChildren: 0.05 },
+  },
+};
+
+const heroItemVariants = {
+  hidden: { opacity: 0, y: 32 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
+  },
+};
 
 type AppState = "idle" | "running" | "done" | "error";
 
@@ -89,6 +105,8 @@ export function AnalysisForm() {
   const [urlError, setUrlError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  const prefersReducedMotion = useReducedMotion();
 
   const { isGranted, showBanner, showConfirmation, requestPermission, dismissBanner } =
     useNotification({
@@ -236,18 +254,25 @@ export function AnalysisForm() {
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.35, ease: [0.76, 0, 0.24, 1] }}
         >
-          <div className="hero-content">
-            <Link href="/">
-              <Image src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" />
-            </Link>
-            <h1 className="hero-heading">
+          <motion.div
+            className="hero-content"
+            variants={heroContainerVariants}
+            initial={prefersReducedMotion ? "visible" : "hidden"}
+            animate="visible"
+          >
+            <motion.div variants={heroItemVariants}>
+              <Link href="/">
+                <Image src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" />
+              </Link>
+            </motion.div>
+            <motion.h1 className="hero-heading" variants={heroItemVariants}>
               See your landing page<br />
               <em>through your competitor&apos;s eyes.</em>
-            </h1>
-            <p className="hero-subtitle">
+            </motion.h1>
+            <motion.p className="hero-subtitle" variants={heroItemVariants}>
               Uxio benchmarks your landing page against your actual competitors&nbsp;—<br />and shows you the exact gaps, ranked by impact
-            </p>
-            <div className="hero-form-area">
+            </motion.p>
+            <motion.div className="hero-form-area" variants={heroItemVariants}>
               <form onSubmit={handleSubmit} className="hero-form-wrapper">
                 <input
                   type="text"
@@ -270,8 +295,8 @@ export function AnalysisForm() {
                   {urlError}
                 </p>
               )}
-            </div>
-            <div className="insight-cards-row">
+            </motion.div>
+            <motion.div className="insight-cards-row" variants={heroItemVariants}>
               {INSIGHT_CARDS.map((card) => (
                 <div
                   key={card.id}
@@ -297,8 +322,8 @@ export function AnalysisForm() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </motion.section>
       ) : (
         <motion.div

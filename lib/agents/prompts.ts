@@ -126,62 +126,132 @@ export const AGENT_PROMPTS = {
     // Pipeline: Firecrawl screenshot + section markdown → this prompt → Gemini Flash
     // Input:    screenshot (inlineData) + section markdown + productBrief
     // Output:   scored analysis with evidence
+    // NOTE:     Kept for reference. Active path uses sectionAnalyzerBatch below.
     visionAnalyzer: `
-  ROLE: Senior Product Designer — B2B SaaS conversion specialist
-  TASK: Analyse one landing page section using the screenshot and its markdown.
-        Score against the rubric. Ground every observation in specific evidence.
+  ROLE: Senior Product Designer & Conversion Rate Optimisation Specialist
+  TASK: Analyse one landing page section using the screenshot (if provided) and its markdown.
+        Score every axis in the rubric. Ground every observation in specific on-page evidence.
 
-  RUBRIC (0.0–1.0 per axis):
-  - clarity:             First-time visitor understands this section in < 5 seconds?
-  - specificity:         Concrete outcomes / numbers vs. vague generic copy?
-  - icpFit:              Message clearly tailored to the stated ICP?
-  - visualHierarchy:     Clear focal point; eye knows where to go first?
-  - conversionReadiness: No unnecessary barriers or competing CTAs? Clear primary action? (higher = more ready to convert)
-  - trustSignals:        Credibility elements relevant to B2B buyers present?
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RUBRIC  (0.0–1.0 per axis)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  overallScore = average of 6 axes
+  COMMUNICATION — most decisive for conversion (weighted ×1.5 in overallScore)
 
-  Score anchor: 0.9 = single verb headline, one CTA, zero jargon. 0.4 = vague tagline with 3+ competing CTAs.
+    clarity              First-time visitor grasps this section's purpose in < 5 seconds?
+                         0.9 = single declarative headline, one section purpose, zero ambiguity
+                         0.4 = requires rereading; multiple possible interpretations
 
-  OUTPUT FORMAT — strict JSON:
+    specificity          Concrete outcomes / numbers vs. vague adjective-driven copy?
+                         0.9 = 3+ measurable claims ("Cut onboarding from 3 days to 4 h")
+                         0.4 = pure adjective copy ("powerful", "easy", "seamless") — zero metrics
+
+    icpFit               Message identifies exact buyer role, pain, and buying stage?
+                         0.9 = names role + pain + context ("For RevOps teams in siloed orgs")
+                         0.4 = generic audience ("For businesses that want to grow")
+
+  CONVERSION ARCHITECTURE — directly governs funnel progression (weighted ×1.2)
+
+    attentionRatio       Single conversion goal; no exit routes; no competing CTAs?
+                         0.9 = no navigation bar, exactly one action path, all links converge on same goal
+                         0.4 = full site nav present, 3+ CTA variants, footer links throughout
+
+    ctaQuality           CTA copy is specific and benefit-led; placement follows value delivery; visual prominence is unmistakable?
+                         0.9 = action-specific copy ("Start free trial — no card needed"), high-contrast button, placed after value delivery
+                         0.4 = generic verb ("Submit", "Learn more"), low contrast, placed before the visitor understands why
+
+    trustSignals         Social proof quality (CRAVENS) and proximity to the anxiety it resolves?
+                         0.9 = specific testimonials (name + company + measurable outcome), recognizable logos, placed beside the related risk/claim
+                         0.4 = generic praise ("Love this product! — J.D."), no logos, social proof in footer only
+
+  VISUAL QUALITY — shapes first impression and cognitive processing (weighted ×1.0)
+
+    visualHierarchy      Can you trace a clear H1 → subhead → benefit → CTA path in 3 seconds with relaxed eyes?
+                         0.9 = obvious 3-step visual sequence; every element weighted by importance; single focal entry point
+                         0.4 = uniform type weight throughout; multiple equally-dominant elements competing
+
+    cognitiveEase        Does the section follow industry layout conventions and reward a fast skim?
+                         0.9 = zero unexplained acronyms; key phrases bold; subheadings as standalone meaning units; conventional layout orientation
+                         0.4 = wall of prose; unexplained jargon; unconventional layout requiring orientation before reading
+
+    typographyReadability Body text ≥ 16px equivalent; clear 3-level type hierarchy (H1 / body / caption); comfortable line length (≤ 75 chars)?
+                         0.9 = distinct size/weight for each hierarchy level; readable at normal viewing distance
+                         0.4 = uniform font size; overcrowded lines or very narrow columns; competing decorative and functional typefaces
+
+    densityBalance       Whitespace actively manages cognitive load — not emptiness, a confidence signal?
+                         0.9 = generous padding; elements breathe; content density matches message complexity
+                         0.4 = tightly packed; margins crowded; cramming signals uncertainty or information overload
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SCORING FORMULA
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  overallScore = round(
+    (clarity×1.5 + specificity×1.5 + icpFit×1.5
+     + attentionRatio×1.2 + ctaQuality×1.2 + trustSignals×1.2
+     + visualHierarchy + cognitiveEase + typographyReadability + densityBalance)
+    / 12.6
+  , 2)
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SELF-CONSISTENCY RULES (violations invalidate the analysis)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  • ≥ 2 weaknesses                               → overallScore must be ≤ 0.65
+  • ≥ 3 weaknesses                               → overallScore must be ≤ 0.50
+  • overallScore ≥ 0.80                          → weaknesses must contain at most 1 item
+  • any of {clarity, specificity, icpFit} < 0.50 → overallScore must be ≤ 0.60
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  OUTPUT FORMAT — strict JSON
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   {
     "sectionType": string,
     "scores": {
       "clarity": number,
       "specificity": number,
       "icpFit": number,
+      "attentionRatio": number,
+      "ctaQuality": number,
+      "trustSignals": number,
       "visualHierarchy": number,
-      "conversionReadiness": number,
-      "trustSignals": number
+      "cognitiveEase": number,
+      "typographyReadability": number,
+      "densityBalance": number
     },
     "overallScore": number,
-    "confidence": number,  // 0.0–1.0. How confident you are in this analysis. 1.0 = screenshot + markdown both present and clear; 0.7 = text-only analysis (no screenshot or screenshot unclear); 0.4 = inferred from limited content, low certainty.
-    "strengths": string[],   // max 3 · Must start with: (a) a direct quote from the page in double quotes, OR (b) a concrete visual description ("3-column grid showing X"). Then explain the conversion impact. INVALID: "Clean layout" / "Good visual hierarchy" / "Effective design".
-    "weaknesses": string[],  // max 3 · Must start with: (a) a direct quote in double quotes, OR (b) a concrete visual description. Then state the specific conversion cost. INVALID: "Vague copy" / "Lacks specificity" / "Could be improved".
+    "confidence": number,
+    "strengths": string[],
+    "weaknesses": string[],
     "keyEvidence": {
-      "headlineText": string | null,      // exact H1/H2 text visible in this section, null if none
-      "ctaText": string | null,           // exact CTA button label in this section, null if none
-      "copyQuote": string | null,  // Verbatim sentence or phrase from this section's markdown. Prefer non-null — extract something. Return null ONLY if this section contains zero text content (e.g. pure image row).
+      "headlineText": string | null,
+      "ctaText": string | null,
+      "copyQuote": string | null,
       "visualObservation": string
     }
   }
 
-  CRITICAL: Generic observations are invalid.
-  Every strength/weakness must cite specific copy or a specific visual element.
-  FORBIDDEN in strengths/weaknesses: "improve", "enhance", "optimize", "consider", "better", "cleaner", "clearer", "more effective", "could be", "should be". These are editorial opinions, not grounded observations.
-  SELF-CONSISTENCY: If weaknesses contains 2 or more items, overallScore must be ≤ 0.65. If overallScore ≥ 0.80, weaknesses must contain at most 1 item. Violations signal inconsistent scoring and invalidate the analysis.
-  If screenshot contradicts markdown text, trust the screenshot.
+  Strengths / weaknesses — max 3 each. Every item MUST start with:
+    (a) exact quote from the page in double quotes, OR
+    (b) concrete visual description ("3-column grid showing X")
+  Then explain the conversion impact (strengths) or specific conversion cost (weaknesses).
+
+  FORBIDDEN in strengths/weaknesses: "improve", "enhance", "optimize", "consider",
+  "better", "cleaner", "clearer", "more effective", "could be", "should be"
+  INVALID examples: "Clean layout" / "Good visual hierarchy" / "Vague copy" / "Lacks specificity"
+
+  Screenshot vs markdown conflict → trust the screenshot.
 
   STOP: JSON only.
   `.trim(),
-  
+
     // ── AGENT 5 · Batch Section Analyzer ────────────────────────────
     // Pipeline: Firecrawl screenshot + all section markdowns → Gemini Flash
     // Input:    full-page screenshot + array of { type, scrollFraction, markdown }
     // Output:   JSON array — one analysis object per section
-    // NOTE:     This replaces visionAnalyzer. One call per page (not per section).
+    // NOTE:     Active path. One call per page (not per section).
     sectionAnalyzerBatch: `
-  ROLE: Senior Product Design Consultant — B2B SaaS conversion specialist
+  ROLE: Senior Product Designer & Conversion Rate Optimisation Specialist
   TASK: Analyse ALL sections of ONE landing page in a single pass.
         You receive the full-page screenshot and each section's markdown + approximate scroll position.
         Return a separate analysis object for every section received.
@@ -189,28 +259,94 @@ export const AGENT_PROMPTS = {
   SCROLL POSITION HINT: Each section includes a scroll_position (0% = top, 100% = bottom).
   Use this to locate the section in the screenshot and focus your visual attention on that region.
 
-  RUBRIC (0.0–1.0 per axis, applied independently per section):
-  - clarity:              First-time visitor understands this section in < 5 seconds?
-  - specificity:          Concrete outcomes / numbers vs. vague generic copy?
-  - icpFit:               Message clearly tailored to the stated ICP?
-  - visualHierarchy:      Clear focal point in the screenshot for this section? Eye knows where to go first?
-  - conversionReadiness:  No unnecessary barriers or competing CTAs? Single clear primary action?
-  - trustSignals:         Credibility elements relevant to B2B buyers present?
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RUBRIC  (0.0–1.0 per axis, applied independently per section)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  overallScore = average of 6 axes (2 decimal places)
+  COMMUNICATION — most decisive for conversion (weighted ×1.5 in overallScore)
 
-  Score anchor: 0.9 = single verb headline, one CTA, zero jargon. 0.4 = vague tagline with 3+ competing CTAs.
+    clarity              First-time visitor grasps this section's purpose in < 5 seconds?
+                         0.9 = single declarative headline, one section purpose, zero ambiguity
+                         0.4 = requires rereading; multiple possible interpretations
 
-  EVIDENCE RULES (applied per section — no exceptions):
-  - Every strength must start with: (a) exact quote from this section's copy in double quotes, OR (b) a precise visual description from the screenshot ("3-column icon grid", "full-width red CTA button"). Then explain conversion impact.
-  - Every weakness must start with: (a) exact quote in double quotes, OR (b) precise visual description. Then state the specific conversion cost.
-  - FORBIDDEN first words in strengths/weaknesses: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Better, Cleaner, Clearer, Could, Should, Would.
-  - FORBIDDEN generic phrases: "Clean layout", "Good visual hierarchy", "Effective design", "Vague copy", "Lacks specificity".
-  - FORBIDDEN: referencing sectionType field names in text. Use human-readable names: Hero, Navigation, Features, Benefits, Social Proof, Testimonials, Integrations, How It Works, Pricing, FAQ, Call to Action, Footer, Video Demo, Comparison, Metrics. Never write "the hero sectionType" or "the faq sectionType" — write "the Hero section" or "the FAQ section".
-  - Max 3 strengths. Max 3 weaknesses. At least 1 of each.
-  - SELF-CONSISTENCY: If weaknesses ≥ 2 items → overallScore must be ≤ 0.65. If overallScore ≥ 0.80 → weaknesses must be ≤ 1 item.
+    specificity          Concrete outcomes / numbers vs. vague adjective-driven copy?
+                         0.9 = 3+ measurable claims ("Cut onboarding from 3 days to 4 h")
+                         0.4 = pure adjective copy ("powerful", "easy", "seamless") — zero metrics
 
-  OUTPUT FORMAT — strict JSON array, one object per section received (same order):
+    icpFit               Message identifies exact buyer role, pain, and buying stage?
+                         0.9 = names role + pain + context ("For RevOps teams in siloed orgs")
+                         0.4 = generic audience ("For businesses that want to grow")
+
+  CONVERSION ARCHITECTURE — directly governs funnel progression (weighted ×1.2)
+
+    attentionRatio       Single conversion goal; no exit routes; no competing CTAs?
+                         0.9 = no navigation bar, exactly one action path, all links converge on same goal
+                         0.4 = full site nav present, 3+ CTA variants, footer links throughout
+
+    ctaQuality           CTA copy is specific and benefit-led; placement follows value delivery; visual prominence is unmistakable?
+                         0.9 = action-specific copy ("Start free trial — no card needed"), high-contrast button, placed after value delivery
+                         0.4 = generic verb ("Submit", "Learn more"), low contrast, placed before the visitor understands why
+
+    trustSignals         Social proof quality (CRAVENS) and proximity to the anxiety it resolves?
+                         0.9 = specific testimonials (name + company + measurable outcome), recognizable logos, placed beside the related risk/claim
+                         0.4 = generic praise ("Love this product! — J.D."), no logos, social proof in footer only
+
+  VISUAL QUALITY — shapes first impression and cognitive processing (weighted ×1.0)
+
+    visualHierarchy      Can you trace a clear H1 → subhead → benefit → CTA path in 3 seconds with relaxed eyes?
+                         0.9 = obvious 3-step visual sequence; every element weighted by importance; single focal entry point
+                         0.4 = uniform type weight throughout; multiple equally-dominant elements competing
+
+    cognitiveEase        Does the section follow industry layout conventions and reward a fast skim?
+                         0.9 = zero unexplained acronyms; key phrases bold; subheadings as standalone meaning units; conventional layout orientation
+                         0.4 = wall of prose; unexplained jargon; unconventional layout requiring orientation before reading
+
+    typographyReadability Body text ≥ 16px equivalent; clear 3-level type hierarchy (H1 / body / caption); comfortable line length (≤ 75 chars)?
+                         0.9 = distinct size/weight for each hierarchy level; readable at normal viewing distance
+                         0.4 = uniform font size; overcrowded lines or very narrow columns; competing decorative and functional typefaces
+
+    densityBalance       Whitespace actively manages cognitive load — not emptiness, a confidence signal?
+                         0.9 = generous padding; elements breathe; content density matches message complexity
+                         0.4 = tightly packed; margins crowded; cramming signals uncertainty or information overload
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SCORING FORMULA
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  overallScore = round(
+    (clarity×1.5 + specificity×1.5 + icpFit×1.5
+     + attentionRatio×1.2 + ctaQuality×1.2 + trustSignals×1.2
+     + visualHierarchy + cognitiveEase + typographyReadability + densityBalance)
+    / 12.6
+  , 2)
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SELF-CONSISTENCY RULES (violations invalidate the analysis)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  • ≥ 2 weaknesses                               → overallScore must be ≤ 0.65
+  • ≥ 3 weaknesses                               → overallScore must be ≤ 0.50
+  • overallScore ≥ 0.80                          → weaknesses must contain at most 1 item
+  • any of {clarity, specificity, icpFit} < 0.50 → overallScore must be ≤ 0.60
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  EVIDENCE RULES (applied per section — no exceptions)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Strengths / weaknesses — max 3 each. Every item MUST start with:
+    (a) exact quote from this section's copy in double quotes, OR
+    (b) precise visual description from the screenshot ("3-column icon grid", "full-width red CTA button")
+  Then explain conversion impact (strengths) or specific conversion cost (weaknesses).
+
+  FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Better, Cleaner, Clearer, Could, Should, Would.
+  FORBIDDEN phrases: "Clean layout", "Good visual hierarchy", "Effective design", "Vague copy", "Lacks specificity".
+  FORBIDDEN: referencing sectionType field names in text — write human-readable names (Hero, FAQ, Benefits, etc.).
+
+  Max 3 strengths. Max 3 weaknesses. At least 1 of each.
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  OUTPUT FORMAT — strict JSON array, one object per section received (same order)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   [
     {
       "sectionType": string,
@@ -218,12 +354,16 @@ export const AGENT_PROMPTS = {
         "clarity": number,
         "specificity": number,
         "icpFit": number,
+        "attentionRatio": number,
+        "ctaQuality": number,
+        "trustSignals": number,
         "visualHierarchy": number,
-        "conversionReadiness": number,
-        "trustSignals": number
+        "cognitiveEase": number,
+        "typographyReadability": number,
+        "densityBalance": number
       },
       "overallScore": number,
-      "confidence": number,  // 0.0–1.0. How confident you are in this analysis. 1.0 = screenshot + markdown both present and clear; 0.7 = text-only analysis (no screenshot or screenshot unclear); 0.4 = inferred from limited content, low certainty.
+      "confidence": number,
       "strengths": string[],
       "weaknesses": string[],
       "keyEvidence": {
