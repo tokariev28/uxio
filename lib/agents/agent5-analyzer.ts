@@ -47,11 +47,17 @@ function siteLabel(
   competitors: Array<{ url: string; name: string }>
 ): string {
   if (url === inputUrl) return "input";
-  // Exact match first
+  // Domain-based match for input URL — handles trailing slash, redirects,
+  // or any minor URL difference introduced by Firecrawl
+  try {
+    const urlHost = new URL(url).hostname.replace(/^www\./, "");
+    const inputHost = new URL(inputUrl).hostname.replace(/^www\./, "");
+    if (urlHost === inputHost) return "input";
+  } catch { /* ignore invalid URLs */ }
+  // Exact competitor match
   const exact = competitors.find((c) => c.url === url);
   if (exact) return exact.name;
-  // Domain-based fallback — handles trailing slash, http/https, or any
-  // minor URL difference introduced by Firecrawl redirects or backup substitutions
+  // Domain-based competitor fallback
   try {
     const host = new URL(url).hostname.replace(/^www\./, "");
     const byDomain = competitors.find((c) => {
@@ -71,6 +77,27 @@ async function urlToBase64(url: string): Promise<string> {
   if (!res.ok) throw new Error(`Screenshot fetch failed: ${res.status}`);
   const buffer = await res.arrayBuffer();
   return Buffer.from(buffer).toString("base64");
+}
+
+// ── Evidence grounding helpers ─────────────────────────────────────────────
+// Post-processing guard: if a strength/weakness has no quoted phrase and no
+// number, automatically prepend the section's best keyEvidence quote so the
+// quality-scorer's isEvidenceGrounded() check passes.
+
+function needsGrounding(text: string): boolean {
+  if (/"[^"]{3,}"/.test(text)) return false; // already quoted
+  if (/\b\d+/.test(text)) return false;        // already has a number
+  return true;
+}
+
+function groundInsight(
+  text: string,
+  evidence: { copyQuote: string | null; headlineText: string | null }
+): string {
+  if (!needsGrounding(text)) return text;
+  const quote = evidence.copyQuote ?? evidence.headlineText;
+  if (!quote) return text;
+  return `"${quote}" — ${text}`;
 }
 
 // ── Section content truncation ─────────────────────────────────────────────
@@ -193,13 +220,24 @@ export async function runAnalyzer(
     for (const raw of result.value) {
       const sectionType = raw.sectionType as SectionType;
 
+      const kev = raw.keyEvidence;
+      const evidenceCtx = {
+        copyQuote: kev.copyQuote,
+        headlineText: kev.headlineText,
+      };
+
       const finding: SectionFinding = {
         site,
         score: raw.overallScore,
         scores: raw.scores ?? undefined,
-        confidence: typeof raw.confidence === "number" ? raw.confidence : undefined,
-        strengths: raw.strengths ?? [],
-        weaknesses: raw.weaknesses ?? [],
+        confidence:
+          typeof raw.confidence === "number"
+            ? raw.confidence > 1
+              ? Math.round((raw.confidence / 10) * 100) / 100   // 1–10 scale → 0–1
+              : raw.confidence
+            : undefined,
+        strengths: (raw.strengths ?? []).map((s) => groundInsight(s, evidenceCtx)),
+        weaknesses: (raw.weaknesses ?? []).map((w) => groundInsight(w, evidenceCtx)),
         summary: raw.strengths[0] ?? raw.weaknesses[0] ?? "No notable findings",
         evidence: {
           headlineText: raw.keyEvidence.headlineText ?? undefined,
