@@ -20,7 +20,8 @@ export function ExportPDFButton({ result }: ExportPDFButtonProps) {
         import("./AnalysisPDF"),
       ]);
 
-      const blob = await pdf(<AnalysisPDF result={result} />).toBlob();
+      const logoUrl = window.location.origin + "/logo.svg";
+      const blob = await pdf(<AnalysisPDF result={result} logoUrl={logoUrl} />).toBlob();
       const url = URL.createObjectURL(blob);
 
       const a = document.createElement("a");
