@@ -20,7 +20,7 @@ export const AGENT_PROMPTS = {
   - coreValueProp: infer the primary outcome promised if not explicitly stated.
   - keyFeatures: verbatim or close paraphrase from the page, max 6.
   - pricingVisible / hasFreeTrialOrFreemium: true/false based on page content.
-  - primaryCTAText: The single most conversion-oriented action on the page — the button that starts a trial, opens the product, signs up, or contacts sales. Exact label from page. Return null if none found. EXCLUDE: "Read more", "Learn more", "Continue reading", "Read the story", "Watch demo", "See how it works" — these are content navigation links, not conversion actions.
+  - primaryCTAText: The single most conversion-oriented action on the page — the button that starts a trial, opens the product, signs up, or contacts sales. Exact label from page. Return null if none found. EXCLUDE (always): "Read more", "Learn more", "Continue reading", "Read the story" — these are content navigation links. EXCLUDE (only if a trial/signup CTA also exists): "Watch demo", "See how it works" — prefer the conversion action when both are present, but use "Watch demo" as the CTA if it is the only above-fold action.
   - Never fabricate specific facts (pricing numbers, company names, feature names).
 
   OUTPUT FORMAT — strict JSON, no prose:
@@ -102,7 +102,7 @@ export const AGENT_PROMPTS = {
   - If fewer than 5 score ≥ 0.75, take the top available regardless.
   - DIVERSITY: At most 2 selected competitors may share the same primary sub-category. Prefer breadth of coverage over clustering similar tools.
   - EXCLUDE: Any candidate whose domain is a review aggregator, comparison site, or media outlet (e.g. g2.com, capterra.com, techcrunch.com, alternativeto.net). These are not product competitors.
-  - EXCLUDE INFRASTRUCTURE: Do not select generic cloud infrastructure providers (AWS, Azure, Google Cloud Platform, DigitalOcean, Heroku) as competitors for companies that sell AI models, AI APIs, or AI research services. Infrastructure platforms are deployment venues, not product competitors. An acceptable exception: if the cloud provider has a clearly separate, standalone AI model product competing for the same ICP (e.g. a dedicated LLM API product with its own pricing page and brand separate from the cloud platform).
+  - EXCLUDE INFRASTRUCTURE: Do not select generic cloud infrastructure providers (AWS, Azure, Google Cloud Platform, DigitalOcean, Heroku) as competitors for companies that sell AI models, AI APIs, or AI research services. Infrastructure platforms are deployment venues, not product competitors. This includes managed AI services that are sub-products of a cloud provider under the same billing and brand umbrella — Vertex AI (GCP), Amazon Bedrock (AWS), and Azure OpenAI Service all count as infrastructure and must be excluded. An acceptable exception: a standalone AI product with its own independent brand, pricing page, and direct signup flow that is not co-billed under the parent cloud platform (e.g. OpenAI, Mistral, Cohere).
   - Top 3 = primary competitors shown to user. Positions 4–5 = backup competitors used if a primary fails.
   - TIER RULE: When two candidates have similar matchScore (within 0.10), strongly prefer the one with higher market presence (more mentions, widely recognized brand). B2B buyers benchmark against market leaders — a well-known competitor with 0.75 matchScore is more analytically valuable than a niche tool with 0.85 matchScore.
 
@@ -386,7 +386,7 @@ export const AGENT_PROMPTS = {
   Max 3 strengths. Max 3 weaknesses. At least 1 of each.
 
   EVIDENCE FORMAT EXAMPLES:
-    GOOD strength: "Make it fast" headline signals speed but gives no measurable outcome — visitors cannot evaluate the claim without a benchmark.
+    GOOD weakness: "Make it fast" headline signals speed but gives no measurable outcome — visitors cannot evaluate the claim without a benchmark.
     GOOD weakness: "3-column icon grid" at 40% scroll spreads attention across 9 feature tiles with no visual cue indicating which matters most.
     BAD: "Clean visual hierarchy" — no quote, no number, not grounded.
     BAD: "Lacks social proof" — must name the missing element with a quote or cite a competitor: Asana shows "184,000+ teams" directly beside its primary CTA.
