@@ -5,7 +5,7 @@ import type { PipelineContext, Recommendation, Priority, SectionType, OverallSco
 import { AgentError } from "@/lib/agents/errors";
 
 const VALID_PRIORITIES = new Set<Priority>(["critical", "high", "medium"]);
-const VALID_SECTION_TYPES = new Set<SectionType>(["hero", "navigation", "features", "benefits", "socialProof", "testimonials", "integrations", "howItWorks", "pricing", "faq", "cta", "footer"]);
+const VALID_SECTION_TYPES = new Set<SectionType>(["hero", "navigation", "features", "benefits", "socialProof", "testimonials", "integrations", "howItWorks", "pricing", "faq", "cta", "footer", "videoDemo", "comparison", "metrics"]);
 
 // ── Compute overallScores from Agent5 data (not LLM-generated) ─────────────
 function computeOverallScores(ctx: PipelineContext): OverallScores | undefined {
@@ -110,7 +110,14 @@ export async function runSynthesis(
   );
 
   // ── Step 6: Map to Recommendation[] ───────────────────────────
-  const recommendations = raw.recommendations.map((item, i) => {
+  const rawRecs = raw.recommendations;
+  console.log(`[agent6] LLM returned ${rawRecs.length} raw recommendations`);
+  if (rawRecs.length > 0) {
+    const sampleSections = rawRecs.slice(0, 3).map((r) => (r as Record<string, unknown>).section);
+    console.log(`[agent6] First 3 section values from LLM:`, sampleSections);
+  }
+
+  const recommendations = rawRecs.map((item, i) => {
     const r = item as Record<string, unknown>;
 
     if (!VALID_PRIORITIES.has(r.priority as Priority)) {
@@ -120,10 +127,11 @@ export async function runSynthesis(
       );
     }
     if (!VALID_SECTION_TYPES.has(r.section as SectionType)) {
-      throw new AgentError(
-        "agent6",
-        `recommendations[${i}] has invalid or missing section: "${r.section}"`
+      console.warn(
+        `[agent6] DROPPED recommendations[${i}]: section="${r.section}" not in whitelist ` +
+        `(priority="${r.priority}", title="${r.title}")`
       );
+      return null;
     }
     for (const field of ["title", "reasoning", "competitorExample", "suggestedAction"] as const) {
       if (typeof r[field] !== "string" || !(r[field] as string).trim()) {
@@ -145,7 +153,14 @@ export async function runSynthesis(
       confidence:
         typeof r.confidence === "number" ? r.confidence : undefined,
     };
-  });
+  }).filter((r): r is NonNullable<typeof r> => r !== null);
+
+  if (rawRecs.length > 0 && recommendations.length === 0) {
+    console.error(
+      `[agent6] All ${rawRecs.length} recommendations were filtered out. ` +
+      `Raw section values: ${rawRecs.map((r) => (r as Record<string, unknown>).section).join(", ")}`
+    );
+  }
 
   // Validate per-section counts — warn but don't throw for minor deviations
   if (expectedSections.size > 0) {
