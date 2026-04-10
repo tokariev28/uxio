@@ -47,6 +47,17 @@ export function scoreAnalysisQuality(result: AnalysisResult): QualityReport {
     (s) => s.findings
   );
 
+  // ── Input coverage check ──────────────────────────────────────────
+  // If the input page produced zero findings, the scrape likely returned
+  // thin content (JS SPA not rendered). Surface this before any other signal.
+  const inputFindingsCount = allFindings.filter((f) => f.site === "input").length;
+  if (inputFindingsCount === 0) {
+    warnings.push(
+      "Input page was not analyzed — the page may require JavaScript rendering. " +
+      "All recommendations are inferred from the product brief only. Re-run for full accuracy."
+    );
+  }
+
   // ── Signal 1: Evidence Grounding Rate (weight 30%) ────────────────
   const allInsights: string[] = allFindings.flatMap((f) => [
     ...f.strengths,

@@ -19,7 +19,7 @@ Uxio is a Next.js 16 App Router app that analyzes a competitor's website via a 7
 
 ### Request Flow
 
-1. User submits a URL in `AnalysisForm.tsx`
+1. User submits a URL in `AnalysisForm.tsx`; `POST /api/validate-url` does a pre-flight reachability check (HEAD, fallback to partial GET, 5s timeout) before the main analysis starts
 2. `POST /api/analyze` (route.ts) validates URL, enforces rate limits, opens an SSE stream, and runs `runPipeline()`
 3. Each agent sends `progress` events as it completes
 4. Final results arrive as a `complete` event
@@ -32,16 +32,18 @@ Sequential orchestration in `orchestrator.ts`:
 | Agent | File | Purpose | External API |
 |-------|------|---------|--------------|
 | 0 | `agent0.ts` | Page Intelligence — extract product brief | Firecrawl + Gemini |
-| 1 | `agent1-discovery.ts` | Multi-Signal Discovery — find competitors | Tavily Search |
+| 1 | `agent1-discovery.ts` | Multi-Signal Discovery — Tavily search + LLM knowledge discovery in parallel | Tavily Search + Gemini |
 | 2 | `agent2-validator.ts` | Competitor Validator — score & rank top 3 | Gemini |
-| 3 | `agent3-scraper.ts` | Scraper — scrape competitor URLs in parallel | Firecrawl |
-| 4 | `agent4-classifier.ts` | Section Classifier — identify page sections, compute `scrollFraction` | Gemini |
+| 3 | `agent3-scraper.ts` | Scraper — two-pass scrape (JS SPA retry) of all URLs in parallel | Firecrawl |
+| 4 | `agent4-classifier.ts` | Section Classifier — identify page sections, deduplicate by type, compute `scrollFraction` | Gemini |
 | 5 | `agent5-analyzer.ts` | Vision Analyzer — analyze screenshots + markdown | Gemini Vision (multimodal) |
 | 6 | `agent6-synthesis.ts` | Synthesis — produce 3 recommendations per section | Gemini |
 
 Each agent receives `PipelineContext` (accumulates results), returns a typed result, and throws `AgentError` (from `lib/agents/errors.ts`) on failure.
 
-All Gemini system prompts live in `lib/agents/prompts.ts` (key: `AGENT_PROMPTS`).
+All Gemini system prompts live in `lib/agents/prompts.ts` (key: `AGENT_PROMPTS`). Agent 1 uses `AGENT_PROMPTS.competitorDiscovery` for its LLM discovery leg; results are merged into the candidate map with `source: "llm-knowledge"` and `mentions: 2` base weight (entries confirmed by both Tavily and LLM get +2 boost).
+
+**Agent 3 two-pass scraping**: `scrapePageWithRetry()` first scrapes without delay; if `isUsableMarkdown()` returns false (< 300 chars or JS-error signals), it retries with `waitFor: 8000ms` to allow client-side hydration. Returns whichever pass had more content.
 
 ### AI Gateway (`/lib/ai/gateway.ts`)
 
@@ -49,7 +51,7 @@ All LLM calls go through Vercel AI Gateway with automatic fallback chains:
 - `CHAINS.flash` — Gemini 2.5 Flash → GPT-5.4-nano fallback
 - `CHAINS.flashLite` — Gemini 2.5 Flash-Lite → GPT-5.4-nano fallback
 
-Two functions: `aiGenerate()` (text-only) and `aiGenerateMultimodal()` (text + image, used by Agent 5).
+Two functions: `aiGenerate()` (text-only) and `aiGenerateMultimodal()` (text + image, used by Agent 5). Both wrap calls in `withRetry()` — up to 2 retries on transient errors (429, 503, timeout) with 1s/2s delays. The orchestrator also wraps each agent step in `withStepRetry()` (1 retry, 2s delay) for step-level resilience.
 
 ### SSE Streaming (`/lib/sse.ts`)
 
@@ -59,13 +61,21 @@ Two functions: `aiGenerate()` (text-only) and `aiGenerateMultimodal()` (text + i
 
 All pipeline types are defined here. TypeScript strict mode — no `any`. Key types:
 
-- **Pipeline data**: `ProductBrief`, `CompetitorCandidate`, `Competitor`, `PageData`, `ClassifiedSection` (has `scrollFraction: number` = startChar/totalLength for UI scroll ordering), `PageSections`, `SectionFinding` (has `scores: SectionScores` with 6 sub-scores, `strengths/weaknesses: string[]`, `summary`, `evidence`, `confidence`), `SectionAnalysis`, `Recommendation` (has `priority: Priority`, `reasoning`, `suggestedAction`, `impact?`, `confidence?`), `Priority = "critical" | "high" | "medium"`, `OverallScores`, `AnalysisResult` (has `executiveSummary?`, `overallScores?`, `pageSections?`), `PipelineContext`
+- **Pipeline data**: `ProductBrief`, `CompetitorCandidate` (has `source: string` — Tavily query label or `"llm-knowledge"`), `Competitor`, `PageData`, `ClassifiedSection` (has `scrollFraction: number` = startChar/totalLength for UI scroll ordering), `PageSections`, `SectionFinding` (has `scores: SectionScores` with 6 sub-scores, `strengths/weaknesses: string[]`, `summary`, `evidence`, `confidence`), `SectionAnalysis`, `Recommendation` (has `priority: Priority`, `reasoning`, `suggestedAction`, `impact?`, `confidence?`), `Priority = "critical" | "high" | "medium"`, `OverallScores`, `AnalysisResult` (has `executiveSummary?`, `overallScores?`, `pageSections?`), `PipelineContext`
 - **SSE events**: `SSEProgressEvent`, `SSECompleteEvent` (carries `quality: QualityReport`), `SSEErrorEvent` — union type `SSEEvent`
 - **Stage tracking**: `AgentStage` (7 string literals), `StageStatus`, `StageState`
 
+### LLM Response Parsing (`/lib/utils/json-extract.ts`)
+
+`extractJSON(text)` strips LLM preamble/postamble and returns the first JSON object or array by scanning brackets. All agents use this — never call `JSON.parse()` on raw LLM output directly.
+
+### Scrape Quality (`/lib/utils/scrape-quality.ts`)
+
+`isUsableMarkdown(md)` returns `false` if content is < 300 chars or contains JS-not-rendered signals ("enable javascript", "javascript is required", "loading…"). Used by Agent 0 (fail fast) and Agent 3 (trigger two-pass retry).
+
 ### Quality Scorer (`/lib/utils/quality-scorer.ts`)
 
-`scoreAnalysisQuality(result)` returns a `QualityReport` with `overallQuality` (0–100) computed from 5 weighted signals: evidence grounding (30%), score variance (25%), specificity rate (20%), competitor presence (15%), field completeness (10%). The API attaches this to the `complete` SSE event. Quality report is only logged in non-production environments.
+`scoreAnalysisQuality(result)` returns a `QualityReport` with `overallQuality` (0–100) computed from 5 weighted signals: evidence grounding (30%), score variance (25%), specificity rate (20%), competitor presence (15%), field completeness (10%). The API attaches this to the `complete` SSE event. Quality report is only logged in non-production environments. Also emits a warning when the input page contributed zero findings (likely JS SPA not rendered).
 
 ### API Security (`/app/api/analyze/route.ts`)
 
@@ -75,7 +85,8 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 
 ### UI
 
-- `components/analysis/` — the three main panels (form, progress, results)
+- `components/layout/header.tsx` — top nav header
+- `components/analysis/` — the three main panels (form, progress, results) plus `InspirationGallery` (auto-scrolling 3D card gallery of example sites shown on the home/form view)
 - `components/analysis/results/` — sub-components for the results view:
   - `SummaryCard` — executive summary + overall score at the top of results
   - `SectionCard` — per-section card with strengths/weaknesses tags and `InsightSlider`
@@ -87,6 +98,7 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 - `components/ui/` — shadcn/ui primitives (button, input, card, badge, separator, skeleton)
 - `lib/hooks/useNotification.ts` — browser Notification API hook; fires when analysis completes while the tab is hidden; also manages tab title during run/completion
 - Tailwind CSS v4 (PostCSS), Geist fonts, `framer-motion` for enter animations, `"use client"` on all interactive components
+- `@vercel/analytics` and `@vercel/speed-insights` are wired in `app/layout.tsx`
 
 ## Environment Variables
 
