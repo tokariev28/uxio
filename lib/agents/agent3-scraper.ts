@@ -1,6 +1,7 @@
 import FirecrawlApp from "@mendable/firecrawl-js";
 import type { PipelineContext, PageData, Competitor } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
+import { isUsableMarkdown } from "@/lib/utils/scrape-quality";
 
 // ── Resolve a signed GCS URL to a stable base64 data URI ─────────────────
 // Firecrawl returns a signed GCS URL (~30–60 min TTL). We resolve it
@@ -18,10 +19,12 @@ async function resolveScreenshot(url: string): Promise<string | undefined> {
 
 async function scrapePage(
   firecrawl: FirecrawlApp,
-  url: string
+  url: string,
+  waitFor?: number
 ): Promise<PageData> {
   const scraped = await firecrawl.scrape(url, {
     formats: ["markdown", "screenshot"],
+    ...(waitFor ? { waitFor } : {}),
   });
 
   const rawScreenshot = scraped.screenshot;
@@ -43,6 +46,24 @@ async function scrapePage(
     markdown: scraped.markdown ?? "",
     screenshotBase64,
   };
+}
+
+// ── Two-pass scrape for JS-heavy SPAs (used for input URL only) ───────────
+// Pass 1: fast, no wait. Pass 2: only if markdown is thin/empty — add 8 s
+// waitFor so the browser has time for client-side JS hydration.
+async function scrapePageWithRetry(
+  firecrawl: FirecrawlApp,
+  url: string
+): Promise<PageData> {
+  const first = await scrapePage(firecrawl, url);
+  if (isUsableMarkdown(first.markdown)) return first;
+
+  console.warn(
+    `[agent3] ${url}: thin content (${first.markdown.length} chars) — retrying with waitFor: 8000ms`
+  );
+  const second = await scrapePage(firecrawl, url, 8000);
+  // If the retry also fails, return whichever had more content
+  return second.markdown.length >= first.markdown.length ? second : first;
 }
 
 export async function runScraper(
@@ -69,10 +90,10 @@ export async function runScraper(
   });
   onActions?.(hostnames);
 
-  // ── Always scrape input page ──────────────────────────────────────
+  // ── Always scrape input page (two-pass for JS SPAs) ─────────────
   let inputPage: PageData;
   try {
-    inputPage = await scrapePage(firecrawl, inputUrl);
+    inputPage = await scrapePageWithRetry(firecrawl, inputUrl);
   } catch (err) {
     throw new AgentError(
       "agent3",
@@ -90,7 +111,7 @@ export async function runScraper(
     let successCompetitor: Competitor = competitor;
 
     try {
-      page = await scrapePage(firecrawl, competitor.url);
+      page = await scrapePageWithRetry(firecrawl, competitor.url);
     } catch (primaryErr) {
       console.warn(
         `[agent3] Primary competitor failed (${competitor.url}):`,
@@ -101,7 +122,7 @@ export async function runScraper(
       while (fallbackQueue.length > 0) {
         const backup = fallbackQueue.shift()!;
         try {
-          page = await scrapePage(firecrawl, backup.url);
+          page = await scrapePageWithRetry(firecrawl, backup.url);
           successCompetitor = backup;
           console.log(`[agent3] Substituted ${competitor.url} → ${backup.url}`);
           break;

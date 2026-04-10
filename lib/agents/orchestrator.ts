@@ -30,7 +30,7 @@ async function withStepRetry(
       return await fn();
     } catch (err) {
       if (attempt === maxRetries) throw err;
-      await new Promise((r) => setTimeout(r, 2000));
+      // Agent steps are long-running (10–60 s each); immediate retry is fine.
     }
   }
 }
@@ -93,7 +93,39 @@ export async function runPipeline(
       run: async (ctx) => {
         const onActions = (actions: string[]) =>
           writer.send({ type: "progress", stage: "analysis", status: "running", message: "Analyzing design patterns…", actions });
-        ctx.sectionAnalyses = await runAnalyzer(ctx, onActions);
+        const { analyses, failedUrls } = await runAnalyzer(ctx, onActions);
+        ctx.sectionAnalyses = analyses;
+
+        if (failedUrls.length > 0) {
+          const hostnames = failedUrls.map((u) => {
+            try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
+          });
+          writer.send({
+            type: "progress",
+            stage: "analysis",
+            status: "running",
+            message: `Could not analyze ${hostnames.join(", ")} — excluded from comparison. Results may be incomplete.`,
+          });
+        }
+
+        // ── Input coverage gate ──────────────────────────────────────
+        // If the input page produced no findings, the scrape likely returned
+        // thin/empty content (JS SPA not rendered). Surface a clear warning
+        // so recommendations context is transparent to the user.
+        const inputAnalyzed = (ctx.sectionAnalyses ?? [])
+          .flatMap((sa) => sa.findings)
+          .some((f) => f.site === "input");
+
+        if (!inputAnalyzed) {
+          writer.send({
+            type: "progress",
+            stage: "analysis",
+            status: "running",
+            message:
+              "Input page sections could not be analyzed — page may use client-side rendering. " +
+              "Recommendations will be based on product brief and competitor data only.",
+          });
+        }
       },
     },
     {

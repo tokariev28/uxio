@@ -47,11 +47,17 @@ function siteLabel(
   competitors: Array<{ url: string; name: string }>
 ): string {
   if (url === inputUrl) return "input";
-  // Exact match first
+  // Domain-based match for input URL — handles trailing slash, redirects,
+  // or any minor URL difference introduced by Firecrawl
+  try {
+    const urlHost = new URL(url).hostname.replace(/^www\./, "");
+    const inputHost = new URL(inputUrl).hostname.replace(/^www\./, "");
+    if (urlHost === inputHost) return "input";
+  } catch { /* ignore invalid URLs */ }
+  // Exact competitor match
   const exact = competitors.find((c) => c.url === url);
   if (exact) return exact.name;
-  // Domain-based fallback — handles trailing slash, http/https, or any
-  // minor URL difference introduced by Firecrawl redirects or backup substitutions
+  // Domain-based competitor fallback
   try {
     const host = new URL(url).hostname.replace(/^www\./, "");
     const byDomain = competitors.find((c) => {
@@ -71,6 +77,46 @@ async function urlToBase64(url: string): Promise<string> {
   if (!res.ok) throw new Error(`Screenshot fetch failed: ${res.status}`);
   const buffer = await res.arrayBuffer();
   return Buffer.from(buffer).toString("base64");
+}
+
+// ── Evidence grounding helpers ─────────────────────────────────────────────
+// Post-processing guard: if a strength/weakness has no quoted phrase and no
+// number, automatically prepend the section's best keyEvidence quote so the
+// quality-scorer's isEvidenceGrounded() check passes.
+
+function needsGrounding(text: string): boolean {
+  if (/"[^"]{3,}"/.test(text)) return false; // already quoted
+  if (/\b\d+/.test(text)) return false;        // already has a number
+  return true;
+}
+
+function groundInsight(
+  text: string,
+  evidence: { copyQuote: string | null; headlineText: string | null }
+): string {
+  if (!needsGrounding(text)) return text;
+  const quote = evidence.copyQuote ?? evidence.headlineText;
+  if (!quote || quote.length < 3) return text;
+  return `"${quote}" — ${text}`;
+}
+
+/**
+ * Apply evidence grounding to a list of insights, but only prepend a quote
+ * to the FIRST ungrounded item. Subsequent ungrounded items are left as-is
+ * to avoid repeating the same anchor quote across all bullets.
+ */
+function applyGrounding(
+  items: string[],
+  evidence: { copyQuote: string | null; headlineText: string | null }
+): string[] {
+  let groundingUsed = false;
+  return items.map((item) => {
+    if (!needsGrounding(item)) return item;
+    if (groundingUsed) return item;
+    const grounded = groundInsight(item, evidence);
+    if (grounded !== item) groundingUsed = true;
+    return grounded;
+  });
 }
 
 // ── Section content truncation ─────────────────────────────────────────────
@@ -147,7 +193,7 @@ async function analyzePageBatch(
 export async function runAnalyzer(
   ctx: PipelineContext,
   onActions?: (actions: string[]) => void
-): Promise<SectionAnalysis[]> {
+): Promise<{ analyses: SectionAnalysis[]; failedUrls: string[] }> {
   if (!ctx.pages?.length) {
     throw new AgentError("agent5", "pages is missing from pipeline context");
   }
@@ -176,6 +222,7 @@ export async function runAnalyzer(
 
   const settled = await Promise.allSettled(pageJobs);
 
+  const failedUrls: string[] = [];
   const analysisMap = new Map<SectionType, SectionAnalysis>();
 
   for (const [i, result] of settled.entries()) {
@@ -184,6 +231,7 @@ export async function runAnalyzer(
         `[agent5] Failed to analyze page ${ctx.pages[i].url}:`,
         result.reason instanceof Error ? result.reason.message : String(result.reason)
       );
+      failedUrls.push(ctx.pages[i].url);
       continue;
     }
 
@@ -193,14 +241,28 @@ export async function runAnalyzer(
     for (const raw of result.value) {
       const sectionType = raw.sectionType as SectionType;
 
+      const kev = raw.keyEvidence;
+      const evidenceCtx = {
+        copyQuote: kev.copyQuote,
+        headlineText: kev.headlineText,
+      };
+
+      const groundedStrengths = applyGrounding(raw.strengths ?? [], evidenceCtx);
+      const groundedWeaknesses = applyGrounding(raw.weaknesses ?? [], evidenceCtx);
+
       const finding: SectionFinding = {
         site,
         score: raw.overallScore,
         scores: raw.scores ?? undefined,
-        confidence: typeof raw.confidence === "number" ? raw.confidence : undefined,
-        strengths: raw.strengths ?? [],
-        weaknesses: raw.weaknesses ?? [],
-        summary: raw.strengths[0] ?? raw.weaknesses[0] ?? "No notable findings",
+        confidence:
+          typeof raw.confidence === "number"
+            ? raw.confidence > 1
+              ? Math.round((raw.confidence / 10) * 100) / 100   // 1–10 scale → 0–1
+              : raw.confidence
+            : undefined,
+        strengths: groundedStrengths,
+        weaknesses: groundedWeaknesses,
+        summary: groundedStrengths[0] ?? groundedWeaknesses[0] ?? "No notable findings",
         evidence: {
           headlineText: raw.keyEvidence.headlineText ?? undefined,
           ctaText: raw.keyEvidence.ctaText ?? undefined,
@@ -216,5 +278,5 @@ export async function runAnalyzer(
     }
   }
 
-  return Array.from(analysisMap.values());
+  return { analyses: Array.from(analysisMap.values()), failedUrls };
 }

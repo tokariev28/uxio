@@ -51,6 +51,7 @@ async function classifyPage(
     throw new AgentError("agent4", `Response missing "sections" array for ${url}`);
   }
 
+  const seen = new Set<SectionType>();
   const sections: ClassifiedSection[] = raw.sections
     .filter((item) => {
       const s = item as Record<string, unknown>;
@@ -65,6 +66,12 @@ async function classifyPage(
         markdownSlice: markdown.slice(start, end),
         scrollFraction: markdown.length > 0 ? start / markdown.length : 0,
       };
+    })
+    // Deduplicate by type — keep first occurrence (earliest in page)
+    .filter((s) => {
+      if (seen.has(s.type)) return false;
+      seen.add(s.type);
+      return true;
     });
 
   return { url, sections };

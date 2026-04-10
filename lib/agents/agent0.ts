@@ -4,6 +4,7 @@ import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
 import { extractJSON } from "@/lib/utils/json-extract";
 import type { ProductBrief } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
+import { isUsableMarkdown } from "@/lib/utils/scrape-quality";
 
 export async function runAgent0(
   url: string,
@@ -23,10 +24,10 @@ export async function runAgent0(
 
   const scraped = await firecrawl.scrape(url, { formats: ["markdown"] });
 
-  if (!scraped.markdown) {
+  if (!isUsableMarkdown(scraped.markdown ?? "")) {
     throw new AgentError(
       "agent0",
-      `Firecrawl returned no markdown for ${url}`
+      `Firecrawl returned unusable markdown for ${url} (${(scraped.markdown ?? "").length} chars). Page may require JavaScript rendering.`
     );
   }
 
