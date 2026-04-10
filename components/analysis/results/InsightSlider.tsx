@@ -89,6 +89,7 @@ const variants = {
 export function InsightSlider({ insights, competitors = [] }: InsightSliderProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
+  const [hoveredBtn, setHoveredBtn] = useState<"prev" | "next" | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Clamp for display — avoids setState-in-effect anti-pattern
@@ -315,14 +316,14 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
               onClick={goPrev}
               disabled={safeIndex === 0}
               aria-label="Previous insight"
-              onMouseEnter={(e) => { if (safeIndex !== 0) (e.currentTarget as HTMLButtonElement).style.background = "#e5e7eb"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f3f4f6"; }}
+              onMouseEnter={() => setHoveredBtn("prev")}
+              onMouseLeave={() => setHoveredBtn(null)}
               style={{
                 width: 28,
                 height: 28,
                 borderRadius: 8,
                 border: "none",
-                background: "#f3f4f6",
+                background: hoveredBtn === "prev" && safeIndex !== 0 ? "#e5e7eb" : "#f3f4f6",
                 cursor: safeIndex === 0 ? "default" : "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -337,14 +338,14 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
               onClick={goNext}
               disabled={safeIndex === insights.length - 1}
               aria-label="Next insight"
-              onMouseEnter={(e) => { if (safeIndex !== insights.length - 1) (e.currentTarget as HTMLButtonElement).style.background = "#e5e7eb"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#f3f4f6"; }}
+              onMouseEnter={() => setHoveredBtn("next")}
+              onMouseLeave={() => setHoveredBtn(null)}
               style={{
                 width: 28,
                 height: 28,
                 borderRadius: 8,
                 border: "none",
-                background: "#f3f4f6",
+                background: hoveredBtn === "next" && safeIndex !== insights.length - 1 ? "#e5e7eb" : "#f3f4f6",
                 cursor: safeIndex === insights.length - 1 ? "default" : "pointer",
                 display: "flex",
                 alignItems: "center",

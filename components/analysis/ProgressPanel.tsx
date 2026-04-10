@@ -116,7 +116,7 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
                       <span className="text-sm text-foreground">
                         {STAGE_LABELS[stage]}<AnimatedDots />
                       </span>
-                      {actions && actions.length > 0 && (
+                      {actions && actions.length > 0 ? (
                         <div className="border-l-2 border-border/40 pl-2.5 flex flex-wrap gap-1.5">
                           {actions.map((action) => (
                             <span
@@ -127,7 +127,7 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
                             </span>
                           ))}
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 )}

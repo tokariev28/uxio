@@ -16,9 +16,12 @@ export function useNotification({
   const [permission, setPermission] = useState<NotificationPermission | null>(
     () => (isSupported ? Notification.permission : null)
   );
-  const [bannerDismissed, setBannerDismissed] = useState(
-    () => isSupported && sessionStorage.getItem(SESSION_KEY) === "1"
-  );
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  useEffect(() => {
+    // Reading from sessionStorage (external system) is a legitimate use of setState-in-effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isSupported) setBannerDismissed(sessionStorage.getItem(SESSION_KEY) === "1");
+  }, []);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const isTabVisible = useRef(true);
   const originalTitle = useRef("");

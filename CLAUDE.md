@@ -47,9 +47,11 @@ All Gemini system prompts live in `lib/agents/prompts.ts` (key: `AGENT_PROMPTS`)
 
 ### AI Gateway (`/lib/ai/gateway.ts`)
 
-All LLM calls go through Vercel AI Gateway with automatic fallback chains:
+All LLM calls go through Vercel AI Gateway with automatic fallback chains. Model slugs are defined in the `MODELS` constant; `CHAINS` wires them with fallbacks:
 - `CHAINS.flash` — Gemini 2.5 Flash → GPT-5.4-nano fallback
 - `CHAINS.flashLite` — Gemini 2.5 Flash-Lite → GPT-5.4-nano fallback
+
+To add or change a model, update `MODELS` in `gateway.ts` — no agent files need to change.
 
 Two functions: `aiGenerate()` (text-only) and `aiGenerateMultimodal()` (text + image, used by Agent 5). Both wrap calls in `withRetry()` — up to 2 retries on transient errors (429, 503, timeout) with 1s/2s delays. The orchestrator also wraps each agent step in `withStepRetry()` (1 retry, 2s delay) for step-level resilience.
 
@@ -64,6 +66,11 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 - **Pipeline data**: `ProductBrief`, `CompetitorCandidate` (has `source: string` — Tavily query label or `"llm-knowledge"`), `Competitor`, `PageData`, `ClassifiedSection` (has `scrollFraction: number` = startChar/totalLength for UI scroll ordering), `PageSections`, `SectionFinding` (has `scores: SectionScores` with 10 sub-scores across 3 groups — Communication: clarity/specificity/icpFit; Conversion: attentionRatio/ctaQuality/trustSignals; Visual: visualHierarchy/cognitiveEase/typographyReadability/densityBalance — plus `strengths/weaknesses: string[]`, `summary`, `evidence`, `confidence`), `SectionAnalysis`, `Recommendation` (has `priority: Priority`, `reasoning`, `suggestedAction`, `impact?`, `confidence?`), `Priority = "critical" | "high" | "medium"`, `OverallScores`, `AnalysisResult` (has `executiveSummary?`, `overallScores?`, `pageSections?`), `PipelineContext`
 - **SSE events**: `SSEProgressEvent`, `SSECompleteEvent` (carries `quality: QualityReport`), `SSEErrorEvent` — union type `SSEEvent`
 - **Stage tracking**: `AgentStage` (7 string literals), `StageStatus`, `StageState`
+
+### Top-level Utilities (`/lib/utils.ts`)
+
+- **`cn(...inputs)`** — Tailwind class merge via `clsx` + `tailwind-merge`. Use this everywhere instead of string concatenation for conditional classes.
+- **`toSentenceCase(str)`** — Lowercases all words except the first and preserves ALL-CAPS acronyms (CTA, UI, API). Used when displaying LLM-generated labels in the UI.
 
 ### Shared Utilities (`/lib/utils/`)
 
@@ -85,27 +92,35 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 - `components/layout/header.tsx` — top nav header
 - `components/analysis/` — the three main panels (form, progress, results) plus `InspirationGallery` (auto-scrolling 3D card gallery of example sites shown on the home/form view)
 - `components/analysis/results/` — sub-components for the results view:
-  - `SummaryCard` — executive summary + overall score at the top of results
+  - `SummaryCard` — arc gauge SVG (`ArcGauge`) showing overall score (0–100) with colour thresholds (≥85 green, ≥70 cyan, ≥50 orange, <50 red) + executive summary block below
   - `SectionCard` — per-section card with strengths/weaknesses tags and `InsightSlider`
-  - `InsightSlider` — horizontal slider of insight cards per section
-  - `SectionNavSidebar` — sticky desktop scrollspy sidebar; mobile uses pill nav. Active section tracked via `IntersectionObserver`. Sections are ordered by `scrollFraction` (Agent 4 output) to match actual page scroll order
+  - `InsightSlider` — horizontal slider of insight cards per section; renders competitor names as inline `<a>` links with Google favicon images via `renderReasoningText()`; supports keyboard navigation (ArrowLeft/ArrowRight)
+  - `SectionNavSidebar` — sticky desktop scrollspy sidebar with `MiniArc` arc score per item; mobile uses pill nav. Active section tracked via `IntersectionObserver`. Sections are ordered by `scrollFraction` (Agent 4 output) to match actual page scroll order
   - `ExportPDFButton` — lazy-loads `@react-pdf/renderer` (~750 KB) on demand, generates and downloads PDF
   - `AnalysisPDF` — `@react-pdf/renderer` document component; mirrors the results UI structure
   - `CompetitorTabSwitcher`, `RecommendationCard`, `ScoreBadge`, `SectionInsightCard`, `SkeletonSectionCard`
 - `components/ui/` — shadcn/ui primitives (button, input, card, badge, separator, skeleton)
-- `lib/hooks/useNotification.ts` — browser Notification API hook; fires when analysis completes while the tab is hidden; also manages tab title during run/completion
+- `lib/hooks/useNotification.ts` — browser Notification API hook; fires when analysis completes while the tab is hidden; also manages tab title (`"Analyzing… • Uxio"` while running, `"✓ Analysis ready • Uxio"` on complete, then restores after 3s)
 - `AnalysisForm.tsx` caches completed results in `localStorage` (key: `uxio:cache:<url>`, TTL: 2 hours). On submit, a cache hit skips the pipeline entirely and shows results instantly.
-- Tailwind CSS v4 (PostCSS), Geist fonts, `framer-motion` for enter animations, `"use client"` on all interactive components
-- `@vercel/analytics` and `@vercel/speed-insights` are wired in `app/layout.tsx`
+- Tailwind CSS v4 (PostCSS), Geist fonts + Instrument Serif italic (`--font-instrument-serif`), `framer-motion` for enter animations, `"use client"` on all interactive components
+- `@vercel/analytics` and `@vercel/speed-insights` are wired in `app/layout.tsx`; JSON-LD `SoftwareApplication` structured data is also injected in `<head>` at layout level
+
+### SEO
+
+- `app/robots.ts` — Next.js `MetadataRoute.Robots` handler (allows all, points to sitemap)
+- `app/sitemap.ts` — Next.js `MetadataRoute.Sitemap` handler (single root URL, weekly change frequency)
+- `app/api/indexnow/route.ts` — GET endpoint that submits the site URL to the IndexNow API (`api.indexnow.org`). Key: `d4f3e2c1b0a9f8e7d6c5b4a3f2e1d0c9`, verification file at `public/d4f3e2c1b0a9f8e7d6c5b4a3f2e1d0c9.txt`
+- `metadataBase` in `app/layout.tsx` resolves using `VERCEL_PROJECT_PRODUCTION_URL` → `VERCEL_URL` → hardcoded fallback
 
 ## Environment Variables
 
 Copy `.env.local.example` to `.env.local`:
 
 ```
-FIRECRAWL_API_KEY=   # Firecrawl web scraping
-TAVILY_API_KEY=      # Tavily search
-GEMINI_API_KEY=      # Google Gemini 2.5 Flash / Flash-Lite
+FIRECRAWL_API_KEY=        # Firecrawl web scraping
+TAVILY_API_KEY=           # Tavily search
+GEMINI_API_KEY=           # Google Gemini 2.5 Flash / Flash-Lite
+AI_GATEWAY_URL=           # Vercel AI Gateway base URL (set in Vercel dashboard for prod)
 ```
 
 All keys are server-side only — never exposed to the client.
@@ -121,4 +136,7 @@ All keys are server-side only — never exposed to the client.
 - All agent prompts enforce evidence-based output: generic verbs are forbidden, every insight must cite specific copy or visual elements
 - `SectionFinding` and `Recommendation` carry a `confidence` field (0–1) indicating how certain the agent is in each finding
 - `@react-pdf/renderer` is a client-side dependency (~750 KB); `AnalysisPDF.tsx` has a `"use client"` directive and must only ever be accessed via `import("./AnalysisPDF")` — never import it statically from any file
-- `SECTION_LABELS` mapping (`SectionType` → display string) is duplicated in `SectionCard.tsx`, `AnalysisPDF.tsx`, and `ResultsPanel.tsx` by design (each has slightly different rendering context)
+- `SECTION_LABELS` mapping (`SectionType` → display string) is duplicated in `SectionCard.tsx`, `AnalysisPDF.tsx`, and `ResultsPanel.tsx` by design (each has slightly different rendering context). `AnalysisPDF.tsx` carries the most complete list (15 types: hero, navigation, features, benefits, socialProof, testimonials, integrations, howItWorks, pricing, faq, cta, footer, videoDemo, comparison, metrics) — treat it as the source of truth for valid `SectionType` values
+- Client-only APIs (`sessionStorage`, `Notification`, `window`) are guarded with a module-level `isSupported = typeof window !== "undefined" && ...` constant. State that reads from these APIs must initialize to a safe default (e.g. `false`) and sync in `useEffect` — never read them inside a `useState` lazy initializer, as that causes SSR/hydration mismatch. `eslint-config-next` enforces `react-hooks/set-state-in-effect`; if you must call `setState` synchronously in an effect to sync external state, add `// eslint-disable-next-line react-hooks/set-state-in-effect` with a comment explaining why.
+- `package.json` has an `"overrides": { "axios": "^1.15.0" }` entry to keep the transitive axios dependency (used by `@mendable/firecrawl-js`) patched against the NO_PROXY SSRF vulnerability — do not remove it.
+- `next.config.ts` has `images.remotePatterns` allowing only `www.google.com/s2/favicons`. Any new external `<Image>` source (e.g. competitor logos) must be added here or Next.js will throw at build time.

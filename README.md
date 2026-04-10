@@ -14,13 +14,13 @@ Paste any SaaS URL → Uxio benchmarks it against your top competitors and deliv
 2. **Discovers top 3 direct competitors** via web search + LLM knowledge
 3. **Scrapes competitor landing pages** — full screenshots + markdown content
 4. **Classifies page sections** (hero, pricing, social proof, features, CTA, footer…)
-5. **Analyzes each section** for strengths, weaknesses, and scores across 6 dimensions
+5. **Analyzes each section** for strengths, weaknesses, and scores across 10 axes across 3 groups (Communication, Conversion, Visual)
 6. **Generates prioritized recommendations** — critical, high, and medium priority — each citing specific evidence from competitor pages
 7. **Caches results** for 2 hours — revisiting the same URL shows results instantly without re-running the pipeline
 8. **Exports a PDF** of the full analysis with one click
 9. **Notifies you** via browser notification when analysis finishes while the tab is in the background
 
-Results stream in real time via Server-Sent Events (SSE). The full analysis takes ~60–120 seconds.
+Results stream in real time via Server-Sent Events (SSE). The full analysis takes ~2–4 minutes.
 
 ---
 
@@ -31,14 +31,30 @@ A 7-agent sequential pipeline runs entirely on the server:
 | # | Agent | What it does | APIs |
 |---|-------|-------------|------|
 | 0 | Page Intelligence | Extracts a product brief from your URL | Firecrawl + AI Gateway (Gemini Flash-Lite) |
-| 1 | Multi-Signal Discovery | Finds competitors via search + LLM knowledge | Tavily + AI Gateway (Gemini Flash) |
+| 1 | Multi-Signal Discovery | Finds competitors via search + LLM knowledge | Tavily + AI Gateway (Gemini Flash-Lite) |
 | 2 | Competitor Validator | Scores and ranks the top 3 | AI Gateway (Gemini Flash-Lite) |
 | 3 | Scraper | Two-pass scrape of all competitor pages (JS SPA retry) | Firecrawl |
 | 4 | Section Classifier | Identifies and deduplicates page sections | AI Gateway (Gemini Flash-Lite) |
 | 5 | Vision Analyzer | Analyzes screenshots + markdown per section | AI Gateway (Gemini Flash, multimodal) |
 | 6 | Synthesis | Produces 3 recommendations per section + executive summary | AI Gateway (Gemini Flash) |
 
-All LLM calls go through **Vercel AI Gateway** with automatic fallback chains (Gemini 2.5 Flash → GPT-5.4-nano). Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result.
+All LLM calls go through **Vercel AI Gateway** with automatic fallback chains (Gemini 2.5 Flash → GPT-5.4-nano). Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result along with a quality validation report.
+
+---
+
+## Scoring Rubric
+
+Every section is scored across **10 axes in 3 groups**, weighted by their impact on SaaS conversion:
+
+| Group | Weight | Axes |
+|-------|--------|------|
+| **Communication** | 1.5× | Clarity, Specificity, ICP Fit |
+| **Conversion** | 1.2× | Attention Ratio, CTA Quality, Trust Signals |
+| **Visual** | 1.0× | Visual Hierarchy, Cognitive Ease, Typography Readability, Density Balance |
+
+Every insight must reference specific copy or a named visual element — generic observations are rejected at the prompt level.
+
+A **quality gate** scores each completed analysis across 5 signals: evidence grounding (30%), score variance (25%), specificity rate (20%), competitor presence (15%), and field completeness (10%). This report is attached to the `complete` SSE event and logged in non-production environments.
 
 ---
 
@@ -74,6 +90,7 @@ Open `.env.local` and fill in your API keys:
 FIRECRAWL_API_KEY=your_firecrawl_api_key_here
 TAVILY_API_KEY=your_tavily_api_key_here
 GEMINI_API_KEY=your_gemini_api_key_here
+AI_GATEWAY_URL=your_vercel_ai_gateway_url_here
 ```
 
 ### 4. Run the dev server
@@ -93,6 +110,7 @@ Open [http://localhost:3000](http://localhost:3000) and paste a SaaS landing pag
 | `FIRECRAWL_API_KEY` | Yes | [firecrawl.dev](https://www.firecrawl.dev) |
 | `TAVILY_API_KEY` | Yes | [tavily.com](https://tavily.com) |
 | `GEMINI_API_KEY` | Yes | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| `AI_GATEWAY_URL` | Yes (prod) | Vercel AI Gateway base URL — set in the Vercel dashboard; use `vercel env pull .env.local` to pull it locally |
 
 All keys are server-side only — never exposed to the client.
 
@@ -152,15 +170,19 @@ uxio/
 │   ├── agents/
 │   │   ├── orchestrator.ts        # Pipeline runner
 │   │   ├── agent0.ts … agent6-synthesis.ts
-│   │   ├── prompts.ts             # All Gemini system prompts
+│   │   ├── prompts.ts             # All Gemini system prompts + AGENT_PROMPTS
 │   │   └── errors.ts
-│   ├── ai/gateway.ts              # Vercel AI Gateway + fallback chains
+│   ├── ai/gateway.ts              # Vercel AI Gateway + MODELS + CHAINS fallback
 │   ├── sse.ts                     # SSE stream helper
 │   ├── types/analysis.ts          # All TypeScript types
+│   ├── utils.ts                   # cn() class merge + toSentenceCase() helpers
 │   └── utils/
 │       ├── json-extract.ts        # Safe LLM JSON parsing
+│       ├── normalize-section-type.ts # Canonical SectionType normalization
 │       ├── scrape-quality.ts      # Markdown usability check
-│       └── quality-scorer.ts      # Analysis quality scoring
+│       ├── markdown-clean.ts      # stripMarkdownLinks() for token reduction
+│       ├── ssrf.ts                # isUnsafeUrl() — shared by both API routes
+│       └── quality-scorer.ts      # Analysis quality gate (5-signal score)
 └── .env.local.example
 ```
 
@@ -195,6 +217,6 @@ The API route requires Node.js runtime (not Edge) — Vercel handles this automa
 ## API Security
 
 - **Rate limiting**: 2 requests per minute per IP (in-memory)
-- **SSRF protection**: HTTPS-only; blocks private IP ranges (127.x, 10.x, 192.168.x, 172.16–31.x, 169.254.x)
+- **SSRF protection**: HTTP and HTTPS; blocks private IP ranges (127.x, 10.x, 192.168.x, 172.16–31.x, 169.254.x) and non-standard ports
 - **CORS**: Origin header validated against host — cross-origin requests rejected
 - **Input validation**: URL must have a public TLD and use a standard port

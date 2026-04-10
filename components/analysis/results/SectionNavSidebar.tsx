@@ -7,10 +7,10 @@ export interface NavItem {
 }
 
 function getArcColor(score: number): string {
-  if (score >= 85) return "#16a34a";
-  if (score >= 70) return "#ca8a04";
-  if (score >= 50) return "#d97706";
-  return "#dc2626";
+  if (score >= 85) return "#10b981";
+  if (score >= 70) return "#06b6d4";
+  if (score >= 50) return "#f97316";
+  return "#f43f5e";
 }
 
 function MiniArc({ score }: { score: number }) {

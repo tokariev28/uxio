@@ -24,6 +24,7 @@ For this phase we focus on a narrow but complete MVP:
   - Clicks “Analyze”.
   - Sees real-time progress while the pipeline runs.
   - Gets a concise, structured result view.
+  - Downloads PDF report (PDF export is implemented via `@react-pdf/renderer`.)
 
 The backend implements a 7-agent pipeline end-to-end:
 
@@ -45,7 +46,7 @@ Model routing constants → `AGENT_MODELS` in the same file.
 - Comments, @mentions, or any collaboration features.
 - Authentication, user accounts, organizations, or billing.
 - History and re-analyze tracking.
-- Exports to Figma, Slack, or other third-party tools. (PDF export is implemented via `@react-pdf/renderer`.)
+- Exports to Figma, Slack, or other third-party tools.
 - Mobile layout analysis (viewport emulation).
 - Any persistent database beyond what may be required later.
 
