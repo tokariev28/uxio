@@ -96,8 +96,27 @@ function groundInsight(
 ): string {
   if (!needsGrounding(text)) return text;
   const quote = evidence.copyQuote ?? evidence.headlineText;
-  if (!quote) return text;
+  if (!quote || quote.length < 3) return text;
   return `"${quote}" — ${text}`;
+}
+
+/**
+ * Apply evidence grounding to a list of insights, but only prepend a quote
+ * to the FIRST ungrounded item. Subsequent ungrounded items are left as-is
+ * to avoid repeating the same anchor quote across all bullets.
+ */
+function applyGrounding(
+  items: string[],
+  evidence: { copyQuote: string | null; headlineText: string | null }
+): string[] {
+  let groundingUsed = false;
+  return items.map((item) => {
+    if (!needsGrounding(item)) return item;
+    if (groundingUsed) return item;
+    const grounded = groundInsight(item, evidence);
+    if (grounded !== item) groundingUsed = true;
+    return grounded;
+  });
 }
 
 // ── Section content truncation ─────────────────────────────────────────────
@@ -226,6 +245,9 @@ export async function runAnalyzer(
         headlineText: kev.headlineText,
       };
 
+      const groundedStrengths = applyGrounding(raw.strengths ?? [], evidenceCtx);
+      const groundedWeaknesses = applyGrounding(raw.weaknesses ?? [], evidenceCtx);
+
       const finding: SectionFinding = {
         site,
         score: raw.overallScore,
@@ -236,9 +258,9 @@ export async function runAnalyzer(
               ? Math.round((raw.confidence / 10) * 100) / 100   // 1–10 scale → 0–1
               : raw.confidence
             : undefined,
-        strengths: (raw.strengths ?? []).map((s) => groundInsight(s, evidenceCtx)),
-        weaknesses: (raw.weaknesses ?? []).map((w) => groundInsight(w, evidenceCtx)),
-        summary: raw.strengths[0] ?? raw.weaknesses[0] ?? "No notable findings",
+        strengths: groundedStrengths,
+        weaknesses: groundedWeaknesses,
+        summary: groundedStrengths[0] ?? groundedWeaknesses[0] ?? "No notable findings",
         evidence: {
           headlineText: raw.keyEvidence.headlineText ?? undefined,
           ctaText: raw.keyEvidence.ctaText ?? undefined,
