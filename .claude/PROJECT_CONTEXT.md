@@ -25,14 +25,12 @@ For this phase we focus on a narrow but complete MVP:
   - Sees real-time progress while the pipeline runs.
   - Gets a concise, structured result view.
 
-- The backend implements the 6-agent pipeline end-to-end:
-
 The backend implements a 7-agent pipeline end-to-end:
 
 | # | Name | Tools | Gemini? | Model |
 |---|------|-------|---------|-------|
 | 0 | Page Intelligence | Firecrawl → Gemini | ✅ | Flash-Lite |
-| 1 | Multi-Signal Discovery | Tavily Search API only | ❌ | — |
+| 1 | Multi-Signal Discovery | Tavily Search + Gemini (parallel) | ✅ | Flash-Lite |
 | 2 | Competitor Validator | Gemini | ✅ | Flash-Lite |
 | 3 | Scraper | Firecrawl parallel (4 URLs) | ❌ | — |
 | 4 | Section Classifier | Gemini | ✅ | Flash-Lite |
@@ -47,7 +45,7 @@ Model routing constants → `AGENT_MODELS` in the same file.
 - Comments, @mentions, or any collaboration features.
 - Authentication, user accounts, organizations, or billing.
 - History and re-analyze tracking.
-- Exports (PDF, Figma, Slack, etc.).
+- Exports to Figma, Slack, or other third-party tools. (PDF export is implemented via `@react-pdf/renderer`.)
 - Mobile layout analysis (viewport emulation).
 - Any persistent database beyond what may be required later.
 
@@ -60,7 +58,7 @@ The goal is a working demo that proves the end-to-end pipeline and UX in one foc
 The following decisions are fixed for this MVP:
 
 - **Frontend**
-  - Next.js 15 App Router + TypeScript.
+  - Next.js 16 App Router + TypeScript.
   - Tailwind CSS + shadcn/ui for UI primitives.
   - Single-page layout (no complex routing).
 
@@ -70,13 +68,15 @@ The following decisions are fixed for this MVP:
 - No separate backend service; frontend and backend live in the same Next.js repo and deploy together to Vercel.
 
 - **AI & External APIs**
-  - **Gemini 2.5 Flash / Flash-Lite** for language and vision tasks.
+  - **Vercel AI Gateway** (`lib/ai/gateway.ts`) routes all LLM calls with automatic fallback chains: Gemini 2.5 Flash → GPT-5.4-nano and Gemini 2.5 Flash-Lite → GPT-5.4-nano.
+  - **Gemini 2.5 Flash** for vision and synthesis tasks (Agents 5, 6); **Gemini 2.5 Flash-Lite** for text-only tasks (Agents 0, 1, 2, 4).
   - **Tavily Search API** for competitor discovery.
   - **Firecrawl** for full-page screenshot + markdown scraping.
 
 - **State & Storage**
   - No persistent database for MVP.
   - All intermediate data (scraped pages, analysis outputs) live only in memory during a single request/response cycle.
+  - Client-side: analysis results are cached in `localStorage` for 2 hours, keyed by URL, to avoid re-running the pipeline for the same URL (`AnalysisForm.tsx`).
 
 - **Security**
   - All API keys stored only in server-side environment variables (e.g. Vercel env vars).

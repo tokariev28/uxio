@@ -97,6 +97,7 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
   - `CompetitorTabSwitcher`, `RecommendationCard`, `ScoreBadge`, `SectionInsightCard`, `SkeletonSectionCard`
 - `components/ui/` — shadcn/ui primitives (button, input, card, badge, separator, skeleton)
 - `lib/hooks/useNotification.ts` — browser Notification API hook; fires when analysis completes while the tab is hidden; also manages tab title during run/completion
+- `AnalysisForm.tsx` caches completed results in `localStorage` (key: `uxio:cache:<url>`, TTL: 2 hours). On submit, a cache hit skips the pipeline entirely and shows results instantly.
 - Tailwind CSS v4 (PostCSS), Geist fonts, `framer-motion` for enter animations, `"use client"` on all interactive components
 - `@vercel/analytics` and `@vercel/speed-insights` are wired in `app/layout.tsx`
 
@@ -115,7 +116,7 @@ All keys are server-side only — never exposed to the client.
 ## Key Constraints
 
 - API route runs Node.js runtime (not Edge) — Firecrawl and Gemini SDKs require it
-- No persistence layer — all data lives in memory for the duration of one request
+- No server-side persistence — all pipeline data lives in memory for the duration of one request
 - Agents run sequentially; Agent 3 and Agent 5 process pages in parallel internally
 - Screenshots are used by Agent 5 for analysis but stripped from SSE payload before sending to client
 - shadcn components use `base-nova` style, neutral base color, lucide icons
