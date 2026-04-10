@@ -23,13 +23,10 @@ const SECTION_LABELS: Record<SectionType, string> = {
   faq: "FAQ",
   cta: "Call to Action",
   footer: "Footer",
+  videoDemo: "Video Demo",
+  comparison: "Comparison",
+  metrics: "Metrics",
 };
-
-const SECTION_ORDER: SectionType[] = [
-  "hero", "navigation", "features", "benefits",
-  "socialProof", "testimonials", "integrations",
-  "howItWorks", "pricing", "faq", "cta", "footer",
-];
 
 const PRIORITY_COLORS: Record<Priority, string> = {
   critical: "#dc2626",
@@ -381,13 +378,14 @@ export function AnalysisPDF({ result, logoUrl }: Props) {
   const siteUrl = result.pages[0]?.url ?? "";
   const host = getHostname(siteUrl);
 
+  const inputPageSections = result.pageSections?.find((ps) => ps.url === siteUrl);
+  const scrollOrder = new Map<SectionType, number>(
+    inputPageSections?.sections.map((s) => [s.type, s.scrollFraction]) ?? []
+  );
+
   const sortedSections = [...result.sections]
     .filter((sec) => sec.findings.some((f) => f.site === "input"))
-    .sort((a, b) => {
-      const ai = SECTION_ORDER.indexOf(a.sectionType);
-      const bi = SECTION_ORDER.indexOf(b.sectionType);
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-    });
+    .sort((a, b) => (scrollOrder.get(a.sectionType) ?? 1) - (scrollOrder.get(b.sectionType) ?? 1));
 
   return (
     <Document

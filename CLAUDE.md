@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev     # Start dev server
+npm run dev     # Start dev server (forces webpack bundler)
 npm run build   # Production build
 npm run lint    # ESLint check
 npm start       # Production server
@@ -35,7 +35,7 @@ Sequential orchestration in `orchestrator.ts`:
 | 1 | `agent1-discovery.ts` | Multi-Signal Discovery — find competitors | Tavily Search |
 | 2 | `agent2-validator.ts` | Competitor Validator — score & rank top 3 | Gemini |
 | 3 | `agent3-scraper.ts` | Scraper — scrape competitor URLs in parallel | Firecrawl |
-| 4 | `agent4-classifier.ts` | Section Classifier — identify page sections | Gemini |
+| 4 | `agent4-classifier.ts` | Section Classifier — identify page sections, compute `scrollFraction` | Gemini |
 | 5 | `agent5-analyzer.ts` | Vision Analyzer — analyze screenshots + markdown | Gemini Vision (multimodal) |
 | 6 | `agent6-synthesis.ts` | Synthesis — produce 3 recommendations per section | Gemini |
 
@@ -59,7 +59,7 @@ Two functions: `aiGenerate()` (text-only) and `aiGenerateMultimodal()` (text + i
 
 All pipeline types are defined here. TypeScript strict mode — no `any`. Key types:
 
-- **Pipeline data**: `ProductBrief`, `CompetitorCandidate`, `Competitor`, `PageData`, `ClassifiedSection`, `PageSections`, `SectionFinding` (has `scores: SectionScores` with 6 sub-scores + `confidence`), `SectionAnalysis`, `Recommendation` (has `confidence`), `OverallScores`, `AnalysisResult`, `PipelineContext`
+- **Pipeline data**: `ProductBrief`, `CompetitorCandidate`, `Competitor`, `PageData`, `ClassifiedSection` (has `scrollFraction: number` = startChar/totalLength for UI scroll ordering), `PageSections`, `SectionFinding` (has `scores: SectionScores` with 6 sub-scores, `strengths/weaknesses: string[]`, `summary`, `evidence`, `confidence`), `SectionAnalysis`, `Recommendation` (has `priority: Priority`, `reasoning`, `suggestedAction`, `impact?`, `confidence?`), `Priority = "critical" | "high" | "medium"`, `OverallScores`, `AnalysisResult` (has `executiveSummary?`, `overallScores?`, `pageSections?`), `PipelineContext`
 - **SSE events**: `SSEProgressEvent`, `SSECompleteEvent` (carries `quality: QualityReport`), `SSEErrorEvent` — union type `SSEEvent`
 - **Stage tracking**: `AgentStage` (7 string literals), `StageStatus`, `StageState`
 
@@ -76,10 +76,17 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 ### UI
 
 - `components/analysis/` — the three main panels (form, progress, results)
-- `components/analysis/results/` — sub-components for the results view: `SectionCard`, `SectionNavSidebar` (sticky scrollspy nav), `SectionInsightCard`, `CompetitorTabSwitcher`, `RecommendationCard`, `ScoreBadge`, `InsightSlider`, `SkeletonSectionCard`
+- `components/analysis/results/` — sub-components for the results view:
+  - `SummaryCard` — executive summary + overall score at the top of results
+  - `SectionCard` — per-section card with strengths/weaknesses tags and `InsightSlider`
+  - `InsightSlider` — horizontal slider of insight cards per section
+  - `SectionNavSidebar` — sticky desktop scrollspy sidebar; mobile uses pill nav. Active section tracked via `IntersectionObserver`. Sections are ordered by `scrollFraction` (Agent 4 output) to match actual page scroll order
+  - `ExportPDFButton` — lazy-loads `@react-pdf/renderer` (~750 KB) on demand, generates and downloads PDF
+  - `AnalysisPDF` — `@react-pdf/renderer` document component; mirrors the results UI structure
+  - `CompetitorTabSwitcher`, `RecommendationCard`, `ScoreBadge`, `SectionInsightCard`, `SkeletonSectionCard`
 - `components/ui/` — shadcn/ui primitives (button, input, card, badge, separator, skeleton)
 - `lib/hooks/useNotification.ts` — browser Notification API hook; fires when analysis completes while the tab is hidden; also manages tab title during run/completion
-- Tailwind CSS v4 (PostCSS), Geist fonts, `"use client"` on all interactive components
+- Tailwind CSS v4 (PostCSS), Geist fonts, `framer-motion` for enter animations, `"use client"` on all interactive components
 
 ## Environment Variables
 
@@ -102,3 +109,5 @@ All keys are server-side only — never exposed to the client.
 - shadcn components use `base-nova` style, neutral base color, lucide icons
 - All agent prompts enforce evidence-based output: generic verbs are forbidden, every insight must cite specific copy or visual elements
 - `SectionFinding` and `Recommendation` carry a `confidence` field (0–1) indicating how certain the agent is in each finding
+- `@react-pdf/renderer` is a client-side dependency (~750 KB); always lazy-import it (`import("@react-pdf/renderer")`) — never import statically to avoid bloating the initial bundle
+- `SECTION_LABELS` mapping (`SectionType` → display string) is duplicated in `SectionCard.tsx`, `AnalysisPDF.tsx`, and `ResultsPanel.tsx` by design (each has slightly different rendering context)

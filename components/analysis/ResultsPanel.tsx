@@ -28,13 +28,10 @@ const SECTION_LABELS: Record<SectionType, string> = {
   faq: "FAQ",
   cta: "Call to Action",
   footer: "Footer",
+  videoDemo: "Video Demo",
+  comparison: "Comparison",
+  metrics: "Metrics",
 };
-
-const SECTION_ORDER: SectionType[] = [
-  "hero", "navigation", "features", "benefits",
-  "socialProof", "testimonials", "integrations",
-  "howItWorks", "pricing", "faq", "cta", "footer",
-];
 
 interface ResultsPanelProps {
   result: AnalysisResult;
@@ -46,22 +43,20 @@ export function ResultsPanel({ result, onReset }: ResultsPanelProps) {
 
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // ── Sort sections in canonical page order ──────────────────────────────────
-  const sortedSections = [...result.sections].sort(
-    (a, b) => {
-      const ai = SECTION_ORDER.indexOf(a.sectionType);
-      const bi = SECTION_ORDER.indexOf(b.sectionType);
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-    }
-  );
-
-  // Filter to only sections found on the input site.
-  // Match by URL rather than index so the filter is robust to scraping order changes.
+  // ── Sort sections in actual page scroll order ──────────────────────────────
+  // Use scrollFraction from Agent 4's classified sections so the results reflect
+  // the real structure of the site, not a hardcoded canonical order.
   const inputUrl = result.pages[0]?.url;
   const inputPageSections = result.pageSections?.find((ps) => ps.url === inputUrl);
-  const inputSectionTypes = new Set(
-    inputPageSections?.sections.map((s) => s.type) ?? []
+  const scrollOrder = new Map<SectionType, number>(
+    inputPageSections?.sections.map((s) => [s.type, s.scrollFraction]) ?? []
   );
+  const inputSectionTypes = new Set(scrollOrder.keys());
+
+  const sortedSections = [...result.sections].sort(
+    (a, b) => (scrollOrder.get(a.sectionType) ?? 1) - (scrollOrder.get(b.sectionType) ?? 1)
+  );
+
   const visibleSections =
     inputSectionTypes.size > 0
       ? sortedSections.filter((s) => inputSectionTypes.has(s.sectionType))

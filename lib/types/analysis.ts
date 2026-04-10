@@ -52,7 +52,10 @@ export type SectionType =
   | "pricing"
   | "faq"
   | "cta"
-  | "footer";
+  | "footer"
+  | "videoDemo"
+  | "comparison"
+  | "metrics";
 
 export interface ClassifiedSection {
   type: SectionType;

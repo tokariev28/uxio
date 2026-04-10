@@ -22,6 +22,9 @@ const VALID_SECTION_TYPES = new Set<SectionType>([
   "faq",
   "cta",
   "footer",
+  "videoDemo",
+  "comparison",
+  "metrics",
 ]);
 
 async function classifyPage(

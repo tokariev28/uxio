@@ -17,7 +17,22 @@ import { runSynthesis } from "./agent6-synthesis";
 interface AgentStep {
   stage: AgentStage;
   label: string;
+  maxRetries?: number;
   run: (ctx: PipelineContext) => Promise<void>;
+}
+
+async function withStepRetry(
+  fn: () => Promise<void>,
+  maxRetries = 1
+): Promise<void> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === maxRetries) throw err;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
 }
 
 export async function runPipeline(
@@ -102,7 +117,7 @@ export async function runPipeline(
         message: `${step.label}…`,
       });
 
-      await step.run(ctx);
+      await withStepRetry(() => step.run(ctx), step.maxRetries ?? 1);
 
       writer.send({
         type: "progress",

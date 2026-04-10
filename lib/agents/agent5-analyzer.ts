@@ -69,27 +69,12 @@ async function urlToBase64(url: string): Promise<string> {
   return Buffer.from(buffer).toString("base64");
 }
 
-// ── Section limits — Gemini context window protection ─────────────────────
-// Large pages (10-12 sections) risk hitting token limits when combined with
-// a full-page screenshot. We keep the 8 most design-relevant sections and
-// truncate long markdown slices.
-const MAX_SECTIONS = 8;
+// ── Section content truncation ─────────────────────────────────────────────
+// All sections detected by Agent 4 are analyzed — no sections are dropped.
+// Agent 4's VALID_SECTION_TYPES filter already prevents hallucinated types.
+// Each section's markdown is truncated to stay within reasonable token bounds;
+// 12 sections × 2500 chars ≈ 7,500 tokens, well within Gemini 2.5 Flash's 1M limit.
 const MAX_MARKDOWN_CHARS = 2500;
-
-const SECTION_PRIORITY: Record<string, number> = {
-  hero: 0,
-  features: 1,
-  pricing: 2,
-  howItWorks: 3,
-  benefits: 4,
-  socialProof: 5,
-  testimonials: 6,
-  cta: 7,
-  faq: 8,
-  integrations: 9,
-  navigation: 10,
-  footer: 11,
-};
 
 // ── Batch analysis: ONE call per page ─────────────────────────────────────
 // Sends the full-page screenshot ONCE + all section markdowns.
@@ -125,13 +110,9 @@ async function analyzePageBatch(
   }
 
   // ── Build structured sections input with scroll position hints ─────
-  // Priority-sort + truncate to stay within Gemini's context window.
+  // All sections in natural page order (scroll position 0% → 100%).
   const limitedSections = [...pageSections.sections]
-    .sort(
-      (a, b) =>
-        (SECTION_PRIORITY[a.type] ?? 5) - (SECTION_PRIORITY[b.type] ?? 5)
-    )
-    .slice(0, MAX_SECTIONS)
+    .sort((a, b) => a.scrollFraction - b.scrollFraction)
     .map((s) => ({
       ...s,
       markdownSlice: s.markdownSlice.slice(0, MAX_MARKDOWN_CHARS),

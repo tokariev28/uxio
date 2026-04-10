@@ -24,6 +24,9 @@ const SECTION_LABELS: Record<SectionType, string> = {
   faq: "FAQ",
   cta: "Call to Action",
   footer: "Footer",
+  videoDemo: "Video Demo",
+  comparison: "Comparison",
+  metrics: "Metrics",
 };
 
 const PRIORITY_ORDER: Record<Priority, number> = {

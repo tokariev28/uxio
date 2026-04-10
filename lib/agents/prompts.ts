@@ -101,6 +101,9 @@ export const AGENT_PROMPTS = {
   - faq: accordion or Q&A format content
   - cta: standalone section with a single large call-to-action button
   - footer: site links, legal text, final navigation
+  - videoDemo: embedded video player, interactive demo, or "watch how it works" block
+  - comparison: table or grid comparing this product against competitors or pricing tiers
+  - metrics: standalone row of large numbers (e.g. "10,000+ teams · 99.9% uptime · $2M saved")
 
   Detect ALL sections present on the page. Report ONLY sections that explicitly appear in the markdown. Never add inferred or assumed sections. It is acceptable to return fewer than 5 sections if the page genuinely has fewer. Never use "other".
 
@@ -203,7 +206,7 @@ export const AGENT_PROMPTS = {
   - Every weakness must start with: (a) exact quote in double quotes, OR (b) precise visual description. Then state the specific conversion cost.
   - FORBIDDEN first words in strengths/weaknesses: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Better, Cleaner, Clearer, Could, Should, Would.
   - FORBIDDEN generic phrases: "Clean layout", "Good visual hierarchy", "Effective design", "Vague copy", "Lacks specificity".
-  - FORBIDDEN: referencing sectionType field names in text. Use human-readable names: Hero, Navigation, Features, Benefits, Social Proof, Testimonials, Integrations, How It Works, Pricing, FAQ, Call to Action, Footer. Never write "the hero sectionType" or "the faq sectionType" — write "the Hero section" or "the FAQ section".
+  - FORBIDDEN: referencing sectionType field names in text. Use human-readable names: Hero, Navigation, Features, Benefits, Social Proof, Testimonials, Integrations, How It Works, Pricing, FAQ, Call to Action, Footer, Video Demo, Comparison, Metrics. Never write "the hero sectionType" or "the faq sectionType" — write "the Hero section" or "the FAQ section".
   - Max 3 strengths. Max 3 weaknesses. At least 1 of each.
   - SELF-CONSISTENCY: If weaknesses ≥ 2 items → overallScore must be ≤ 0.65. If overallScore ≥ 0.80 → weaknesses must be ≤ 1 item.
 
