@@ -1,24 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { AnalysisResult, SectionFinding, SectionType } from "@/lib/types/analysis";
-
-// ── Constants ──────────────────────────────────────────────────────────────
-
-const SECTION_LABELS: Record<SectionType, string> = {
-  hero: "Hero",
-  navigation: "Navigation",
-  features: "Features",
-  benefits: "Benefits",
-  socialProof: "Social Proof",
-  testimonials: "Testimonials",
-  integrations: "Integrations",
-  howItWorks: "How It Works",
-  pricing: "Pricing",
-  faq: "FAQ",
-  cta: "Call to Action",
-  footer: "Footer",
-};
+import type { AnalysisResult } from "@/lib/types/analysis";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -100,35 +83,6 @@ function ArcGauge({ score }: { score: number }) {
   );
 }
 
-function MiniArc({ score100 }: { score100: number }) {
-  const cx = 14, cy = 14, r = 10, sw = 3;
-  const angle = (Math.PI * score100) / 100;
-  const fillEndX = cx - r * Math.cos(angle);
-  const fillEndY = cy - r * Math.sin(angle);
-  const color = getColor(score100);
-
-  return (
-    <svg viewBox="0 0 28 18" width={28} height={18}>
-      <path
-        d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-        fill="none"
-        stroke="#ebebeb"
-        strokeWidth={sw}
-        strokeLinecap="round"
-      />
-      {score100 > 0 && (
-        <path
-          d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${fillEndX.toFixed(2)} ${fillEndY.toFixed(2)}`}
-          fill="none"
-          stroke={color}
-          strokeWidth={sw}
-          strokeLinecap="round"
-        />
-      )}
-    </svg>
-  );
-}
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 interface SummaryCardProps {
@@ -137,18 +91,6 @@ interface SummaryCardProps {
 
 export function SummaryCard({ result }: SummaryCardProps) {
   const score = computeScore(result);
-
-  const weakestSections = result.sections
-    .map((s) => ({
-      sectionType: s.sectionType,
-      finding: s.findings.find((f) => f.site === "input"),
-    }))
-    .filter(
-      (x): x is { sectionType: SectionType; finding: SectionFinding } =>
-        x.finding !== undefined
-    )
-    .sort((a, b) => a.finding.score - b.finding.score)
-    .slice(0, 4);
 
   return (
     <motion.div
@@ -160,7 +102,7 @@ export function SummaryCard({ result }: SummaryCardProps) {
         borderRadius: 16,
         background: "#ffffff",
         boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-        padding: "28px 32px 24px",
+        padding: "28px 32px 32px",
         marginBottom: 8,
       }}
     >
@@ -169,88 +111,41 @@ export function SummaryCard({ result }: SummaryCardProps) {
         <ArcGauge score={score} />
       </div>
 
-      {/* ── Divider ──────────────────────────────────────────────────── */}
-      {weakestSections.length > 0 && (
-        <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)", margin: "20px 0 16px" }} />
-      )}
-
-      {/* ── Section B: Weakest sections ───────────────────────────────── */}
-      {weakestSections.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {weakestSections.map(({ sectionType, finding }, idx) => {
-            const s100 = Math.round(finding.score * 100);
-            const summary = finding.weaknesses[0] ?? finding.summary;
-            const label = SECTION_LABELS[sectionType] ?? sectionType;
-
-            return (
-              <div key={sectionType}>
-                {idx > 0 && (
-                  <div style={{ borderTop: "1px solid rgba(0,0,0,0.05)", margin: "0" }} />
-                )}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "10px 0",
-                  }}
-                >
-                {/* Score + mini gauge */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    flexShrink: 0,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "#374151",
-                      minWidth: 24,
-                      textAlign: "right",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {s100}
-                  </span>
-                  <MiniArc score100={s100} />
-                </div>
-
-                {/* Section name */}
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "#111",
-                    whiteSpace: "nowrap",
-                    minWidth: 80,
-                  }}
-                >
-                  {label}
-                </span>
-
-                {/* Weakness summary */}
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "#6b7280",
-                    flex: 1,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {summary}
-                </span>
-
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* ── Section B: Executive Summary ─────────────────────────────── */}
+      {result.executiveSummary && (
+        <>
+          <div style={{ margin: "8px 0 16px" }} />
+          <div
+            style={{
+              background: "#f7f7f8",
+              borderRadius: 12,
+              padding: "14px 16px",
+            }}
+          >
+            <p
+              style={{
+                fontSize: 10,
+                fontWeight: 500,
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                color: "#6b7280",
+                marginBottom: 6,
+              }}
+            >
+              AI Summary
+            </p>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#374151",
+                lineHeight: 1.6,
+                margin: 0,
+              }}
+            >
+              {result.executiveSummary}
+            </p>
+          </div>
+        </>
       )}
     </motion.div>
   );

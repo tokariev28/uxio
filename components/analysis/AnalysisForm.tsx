@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { ProgressPanel } from "./ProgressPanel";
 import { ResultsPanel } from "./ResultsPanel";
 import { InspirationGallery } from "./InspirationGallery";
+import { useNotification } from "@/lib/hooks/useNotification";
 import type {
   AgentStage,
   AnalysisResult,
@@ -19,30 +20,60 @@ import type {
 const INSIGHT_CARDS = [
   {
     id: "left",
-    tag: "Trust",
-    title: "Social Proof Positioning",
-    body: "Trust signals below the fold increase bounce. Moving logos up-funnel helps significantly.",
-    impact: "↑ High conversion impact",
+    priority: "high",
+    title: "Social proof below the fold",
+    body: "Apollo places logos only at the bottom. Users don't scroll — trust never builds.",
+    action: "Move G2 badges and customer logos directly into the hero section.",
   },
   {
     id: "center",
-    tag: "CTA",
-    title: "CTA Hierarchy",
-    body: "Two equal CTAs compete for attention. Single dominant action lifts clicks 20–35%.",
-    impact: "↑ +20–35% click-through",
+    priority: "critical",
+    title: "Two competing primary CTAs",
+    body: "Apollo's hero shows 'Get started' and 'Watch demo' at equal visual weight — attention is split.",
+    action: "Make 'Get started free' the sole primary CTA. Demote 'Watch demo' to a text link.",
   },
   {
     id: "right",
-    tag: "Hero",
-    title: "Value Proposition Clarity",
-    body: "Hero answers 'what' but not 'who for'. Persona context lifts qualified conversions.",
-    impact: "↑ Medium-high impact",
+    priority: "medium",
+    title: "Value prop skips the 'who for'",
+    body: "Apollo's headline answers what the tool does, but not which team it's for.",
+    action: "Add 'for B2B revenue teams' directly in the subheadline for persona clarity.",
   },
 ] as const;
 
 type AppState = "idle" | "running" | "done" | "error";
 
 const isRateLimitError = (msg: string) => /429|rate.?limit/i.test(msg);
+
+// ── localStorage cache helpers ─────────────────────────────────────────────
+const CACHE_PREFIX = "uxio:cache:";
+const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+function getCachedResult(url: string): AnalysisResult | null {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + url);
+    if (!raw) return null;
+    const { data, expiresAt } = JSON.parse(raw) as { data: AnalysisResult; expiresAt: number };
+    if (Date.now() > expiresAt) {
+      localStorage.removeItem(CACHE_PREFIX + url);
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedResult(url: string, result: AnalysisResult): void {
+  try {
+    localStorage.setItem(
+      CACHE_PREFIX + url,
+      JSON.stringify({ data: result, expiresAt: Date.now() + CACHE_TTL_MS })
+    );
+  } catch {
+    // localStorage full or unavailable — ignore
+  }
+}
 
 export function AnalysisForm() {
   const [url, setUrl] = useState("");
@@ -55,6 +86,12 @@ export function AnalysisForm() {
   const [urlError, setUrlError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  const { isGranted, showBanner, showConfirmation, requestPermission, dismissBanner } =
+    useNotification({
+      isRunning: appState === "running",
+      isComplete: appState === "done",
+    });
 
   function normalizeUrl(raw: string): string {
     const s = raw.trim();
@@ -99,6 +136,15 @@ export function AnalysisForm() {
       // Network failure reaching our own API — skip validation and proceed
     } finally {
       setValidating(false);
+    }
+
+    // Cache hit — show results immediately, skip full analysis
+    const cached = getCachedResult(trimmed);
+    if (cached) {
+      setResult(cached);
+      setErrorMsg(null);
+      setAppState("done");
+      return;
     }
 
     setStages({});
@@ -161,6 +207,7 @@ export function AnalysisForm() {
               },
             }));
           } else if (event.type === "complete") {
+            setCachedResult(trimmed, event.data);
             setResult(event.data);
             setAppState("done");
           } else if (event.type === "error") {
@@ -183,8 +230,8 @@ export function AnalysisForm() {
         <motion.section
           key="hero"
           className="hero-wrapper"
-          exit={{ y: "-100%", opacity: 0 }}
-          transition={{ duration: 0.7, ease: [0.76, 0, 0.24, 1] }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.35, ease: [0.76, 0, 0.24, 1] }}
         >
           <div className="hero-content">
             <Link href="/">
@@ -192,7 +239,7 @@ export function AnalysisForm() {
             </Link>
             <h1 className="hero-heading">
               See your landing page<br />
-              <em>through your competitor's eyes.</em>
+              <em>through your competitor&apos;s eyes.</em>
             </h1>
             <p className="hero-subtitle">
               Uxio benchmarks your landing page against your actual competitors&nbsp;—<br />and shows you the exact gaps, ranked by impact
@@ -232,10 +279,18 @@ export function AnalysisForm() {
                     card.id === "right" && "insight-card-right",
                   )}
                 >
-                  <span className="insight-card-tag">{card.tag}</span>
-                  <p className="insight-card-title">{card.title}</p>
-                  <p className="insight-card-body">{card.body}</p>
-                  <p className="insight-card-impact">{card.impact}</p>
+                  <div className="insight-card-body-wrap">
+                    <div className={cn("insight-card-priority", `insight-card-priority--${card.priority}`)}>
+                      <span className="insight-card-priority-dot" />
+                      {card.priority}
+                    </div>
+                    <p className="insight-card-title">{card.title}</p>
+                    <p className="insight-card-body">{card.body}</p>
+                  </div>
+                  <div className="insight-card-recommendation">
+                    <p className="insight-card-recommendation-label">Recommendation</p>
+                    <p className="insight-card-recommendation-text">{card.action}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -250,7 +305,8 @@ export function AnalysisForm() {
           )}
           initial={{ y: 40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          exit={{ y: -24, opacity: 0 }}
+          transition={{ duration: 0.5, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
         >
           {appState === "error" && (
             <form onSubmit={handleSubmit} className="hero-form-wrapper">
@@ -271,7 +327,18 @@ export function AnalysisForm() {
             </form>
           )}
 
-          {appState === "running" && <ProgressPanel stages={stages} />}
+          {appState === "running" && (
+            <ProgressPanel
+              stages={stages}
+              notification={{
+                isGranted,
+                showBanner,
+                showConfirmation,
+                onEnable: requestPermission,
+                onDismiss: dismissBanner,
+              }}
+            />
+          )}
 
           {appState === "error" && errorMsg && (
             isRateLimitError(errorMsg) ? (
@@ -280,8 +347,7 @@ export function AnalysisForm() {
                 <div>
                   <p className="font-medium">Almost there — rate limit reached</p>
                   <p className="mt-0.5 text-yellow-700">
-                    The AI provider is temporarily overloaded. The analysis retried automatically.
-                    If this persists, wait a moment and try again.
+                    The AI provider is temporarily overloaded. Please wait a moment and try again.
                   </p>
                 </div>
               </div>
@@ -299,7 +365,15 @@ export function AnalysisForm() {
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               className="w-full"
             >
-              <ResultsPanel result={result} />
+              <ResultsPanel
+                result={result}
+                onReset={() => {
+                  setAppState("idle");
+                  setResult(null);
+                  setStages({});
+                  setErrorMsg(null);
+                }}
+              />
             </motion.div>
           )}
         </motion.div>

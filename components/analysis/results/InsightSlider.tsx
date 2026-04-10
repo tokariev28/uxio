@@ -176,18 +176,6 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
                   <span style={{ color: PRIORITY_COLORS[insight.priority] }}>
                     {insight.priority}
                   </span>
-                  {typeof insight.confidence === "number" && (
-                    <>
-                      <span style={{ color: "#d1d5db" }}>·</span>
-                      <span
-                        style={{
-                          color: insight.confidence >= 0.7 ? "#16a34a" : insight.confidence >= 0.4 ? "#d97706" : "#dc2626",
-                        }}
-                      >
-                        {insight.confidence >= 0.7 ? "High confidence" : insight.confidence >= 0.4 ? "Medium confidence" : "Low confidence"}
-                      </span>
-                    </>
-                  )}
                 </div>
 
                 {/* Title */}
@@ -214,7 +202,7 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
               {insight.suggestedAction && (
                 <div
                   style={{
-                    margin: "14px 26px 24px",
+                    margin: "6px 26px 0",
                     background: "#f7f7f8",
                     borderRadius: 12,
                     padding: "16px 18px",
@@ -241,9 +229,40 @@ export function InsightSlider({ insights, competitors = [] }: InsightSliderProps
                       letterSpacing: "-0.02em",
                     }}
                   >
-                    {insight.suggestedAction}
+                    {insight.suggestedAction.replace(/\.?\s*$/, ".")}
                   </p>
                 </div>
+              )}
+
+              {/* Impact block */}
+              {insight.impact && (
+                <div
+                  style={{
+                    margin: "8px 26px 24px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 14, color: "#9ca3af", flexShrink: 0, marginTop: 1 }}>
+                    ↳
+                  </span>
+                  <p
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 400,
+                      color: "#6b7280",
+                      lineHeight: 1.7,
+                      margin: 0,
+                      fontStyle: "italic",
+                    }}
+                  >
+                    {insight.impact}
+                  </p>
+                </div>
+              )}
+              {!insight.impact && insight.suggestedAction && (
+                <div style={{ marginBottom: 24 }} />
               )}
             </div>
           </motion.div>

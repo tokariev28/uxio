@@ -126,5 +126,7 @@ export function useNotification({
     };
   }, []);
 
-  return { showBanner, showConfirmation, requestPermission, dismissBanner };
+  const isGranted = permission === "granted";
+
+  return { isGranted, showBanner, showConfirmation, requestPermission, dismissBanner };
 }

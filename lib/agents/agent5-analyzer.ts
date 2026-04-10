@@ -69,6 +69,28 @@ async function urlToBase64(url: string): Promise<string> {
   return Buffer.from(buffer).toString("base64");
 }
 
+// ── Section limits — Gemini context window protection ─────────────────────
+// Large pages (10-12 sections) risk hitting token limits when combined with
+// a full-page screenshot. We keep the 8 most design-relevant sections and
+// truncate long markdown slices.
+const MAX_SECTIONS = 8;
+const MAX_MARKDOWN_CHARS = 2500;
+
+const SECTION_PRIORITY: Record<string, number> = {
+  hero: 0,
+  features: 1,
+  pricing: 2,
+  howItWorks: 3,
+  benefits: 4,
+  socialProof: 5,
+  testimonials: 6,
+  cta: 7,
+  faq: 8,
+  integrations: 9,
+  navigation: 10,
+  footer: 11,
+};
+
 // ── Batch analysis: ONE call per page ─────────────────────────────────────
 // Sends the full-page screenshot ONCE + all section markdowns.
 // Returns an array of section analyses for that page.
@@ -103,7 +125,19 @@ async function analyzePageBatch(
   }
 
   // ── Build structured sections input with scroll position hints ─────
-  const sectionsInput = pageSections.sections
+  // Priority-sort + truncate to stay within Gemini's context window.
+  const limitedSections = [...pageSections.sections]
+    .sort(
+      (a, b) =>
+        (SECTION_PRIORITY[a.type] ?? 5) - (SECTION_PRIORITY[b.type] ?? 5)
+    )
+    .slice(0, MAX_SECTIONS)
+    .map((s) => ({
+      ...s,
+      markdownSlice: s.markdownSlice.slice(0, MAX_MARKDOWN_CHARS),
+    }));
+
+  const sectionsInput = limitedSections
     .map(
       (s, i) =>
         `SECTION ${i + 1}:\nTYPE: ${s.type}\nSCROLL_POSITION: ${(s.scrollFraction * 100).toFixed(0)}% from top\nMARKDOWN:\n${s.markdownSlice}`

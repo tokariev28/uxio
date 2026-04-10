@@ -11,6 +11,34 @@ const MODELS = {
   // grok:         "xai/grok-3-mini",
 } as const;
 
+// ── Retry helper ───────────────────────────────────────────────────────────────
+// Retries only on transient failures (rate limit, service unavailable, timeout).
+// Max 2 retries with 1 s → 2 s delays (total worst-case overhead: 3 s).
+function isTransientError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+  return (
+    msg.includes("429") ||
+    msg.includes("503") ||
+    msg.includes("rate") ||
+    msg.includes("timeout") ||
+    msg.includes("overloaded") ||
+    msg.includes("service unavailable")
+  );
+}
+
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === maxRetries || !isTransientError(err)) throw err;
+      await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+  // unreachable, but satisfies TypeScript
+  throw new Error("withRetry: exhausted");
+}
+
 // ── Fallback chains ────────────────────────────────────────────────────────────
 // First entry = primary, rest = fallbacks tried in order on 503/429/timeout.
 // To extend: add a model slug to the fallbacks array — no agent files change.
@@ -26,15 +54,17 @@ export async function aiGenerate(
   chain: Chain,
   params: { system: string; prompt: string; json?: boolean }
 ): Promise<string> {
-  const { text } = await generateText({
-    model: gateway(chain.primary),
-    system: params.system,
-    prompt: params.prompt,
-    providerOptions: {
-      gateway: { models: chain.fallbacks },
-      ...(params.json && { google: { generationConfig: { responseMimeType: 'application/json' } } }),
-    },
-  });
+  const { text } = await withRetry(() =>
+    generateText({
+      model: gateway(chain.primary),
+      system: params.system,
+      prompt: params.prompt,
+      providerOptions: {
+        gateway: { models: chain.fallbacks },
+        ...(params.json && { google: { generationConfig: { responseMimeType: 'application/json' } } }),
+      },
+    })
+  );
   return text;
 }
 
@@ -56,14 +86,16 @@ export async function aiGenerateMultimodal(
     });
   }
 
-  const { text } = await generateText({
-    model: gateway(chain.primary),
-    system: params.system,
-    messages: [{ role: "user", content }],
-    providerOptions: {
-      gateway: { models: chain.fallbacks },
-      ...(params.json && { google: { generationConfig: { responseMimeType: 'application/json' } } }),
-    },
-  });
+  const { text } = await withRetry(() =>
+    generateText({
+      model: gateway(chain.primary),
+      system: params.system,
+      messages: [{ role: "user", content }],
+      providerOptions: {
+        gateway: { models: chain.fallbacks },
+        ...(params.json && { google: { generationConfig: { responseMimeType: 'application/json' } } }),
+      },
+    })
+  );
   return text;
 }

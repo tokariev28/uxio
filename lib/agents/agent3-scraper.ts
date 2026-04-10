@@ -2,6 +2,20 @@ import FirecrawlApp from "@mendable/firecrawl-js";
 import type { PipelineContext, PageData, Competitor } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 
+// ── Resolve a signed GCS URL to a stable base64 data URI ─────────────────
+// Firecrawl returns a signed GCS URL (~30–60 min TTL). We resolve it
+// immediately so Agent5 never faces an expired URL later in the pipeline.
+async function resolveScreenshot(url: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return undefined;
+    const buffer = await res.arrayBuffer();
+    return `data:image/png;base64,${Buffer.from(buffer).toString("base64")}`;
+  } catch {
+    return undefined;
+  }
+}
+
 async function scrapePage(
   firecrawl: FirecrawlApp,
   url: string
@@ -10,12 +24,24 @@ async function scrapePage(
     formats: ["markdown", "screenshot"],
   });
 
+  const rawScreenshot = scraped.screenshot;
+  let screenshotBase64: string | undefined;
+
+  if (rawScreenshot) {
+    if (rawScreenshot.startsWith("http")) {
+      // Signed GCS URL — resolve to base64 now while it's fresh
+      screenshotBase64 = await resolveScreenshot(rawScreenshot);
+      // If fetch failed, fall back to the URL — Agent5 will attempt a retry
+      if (!screenshotBase64) screenshotBase64 = rawScreenshot;
+    } else {
+      screenshotBase64 = rawScreenshot;
+    }
+  }
+
   return {
     url,
     markdown: scraped.markdown ?? "",
-    // Firecrawl returns a signed GCS URL here, not actual base64 —
-    // agent5 resolves this to base64 before passing to Gemini
-    screenshotBase64: scraped.screenshot ?? undefined,
+    screenshotBase64,
   };
 }
 

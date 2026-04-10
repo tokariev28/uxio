@@ -7,10 +7,12 @@ import { cn } from "@/lib/utils";
 import { SectionCard } from "./results/SectionCard";
 import { SectionNavSidebar, type NavItem } from "./results/SectionNavSidebar";
 import { SummaryCard } from "./results/SummaryCard";
+import { ExportPDFButton } from "./results/ExportPDFButton";
 import type {
   AnalysisResult,
   SectionType,
 } from "@/lib/types/analysis";
+import { motion } from "framer-motion";
 
 
 const SECTION_LABELS: Record<SectionType, string> = {
@@ -36,9 +38,10 @@ const SECTION_ORDER: SectionType[] = [
 
 interface ResultsPanelProps {
   result: AnalysisResult;
+  onReset?: () => void;
 }
 
-export function ResultsPanel({ result }: ResultsPanelProps) {
+export function ResultsPanel({ result, onReset }: ResultsPanelProps) {
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
 
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -52,10 +55,12 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
     }
   );
 
-  // Filter to only sections found on the input site (pageSections[0] = input page).
-  // This prevents competitor-only sections from appearing in the nav.
+  // Filter to only sections found on the input site.
+  // Match by URL rather than index so the filter is robust to scraping order changes.
+  const inputUrl = result.pages[0]?.url;
+  const inputPageSections = result.pageSections?.find((ps) => ps.url === inputUrl);
   const inputSectionTypes = new Set(
-    result.pageSections?.[0]?.sections.map((s) => s.type) ?? []
+    inputPageSections?.sections.map((s) => s.type) ?? []
   );
   const visibleSections =
     inputSectionTypes.size > 0
@@ -63,10 +68,15 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
       : sortedSections; // graceful fallback if pageSections unavailable
 
   // ── Sidebar nav items ─────────────────────────────────────────────────────
-  const navItems: NavItem[] = visibleSections.map((section, i) => ({
-    sectionIndex: i,
-    label: SECTION_LABELS[section.sectionType] ?? section.sectionType,
-  }));
+  const navItems: NavItem[] = visibleSections.map((section, i) => {
+    const inputFinding = section.findings.find((f) => f.site === "input");
+    const score = inputFinding != null ? Math.round(inputFinding.score * 100) : undefined;
+    return {
+      sectionIndex: i,
+      label: SECTION_LABELS[section.sectionType] ?? section.sectionType,
+      score,
+    };
+  });
 
   // ── IntersectionObserver — active section tracking ────────────────────────
   useEffect(() => {
@@ -97,32 +107,68 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
   return (
     <div className="w-full">
       {/* ── Header zone ─────────────────────────────────────────────────── */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2.5">
-          {result.pages[0]?.url && (
-            <Image
-              src={`https://www.google.com/s2/favicons?domain=${new URL(result.pages[0].url).hostname}&sz=32`}
-              alt=""
-              width={20}
-              height={20}
-              unoptimized
-              className="rounded-sm shrink-0"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-            />
-          )}
-          <h1
-            className="text-2xl font-bold tracking-tight text-foreground"
-            style={{ fontFamily: "var(--font-primary)" }}
+      <motion.div
+        className="flex flex-col mb-10"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      >
+        {/* Uxio logo — click to return home, centered */}
+        <div className="flex justify-center mb-6">
+          <button
+            onClick={onReset}
+            aria-label="Back to home"
+            className="opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+            style={{ background: "none", border: "none", padding: 0 }}
           >
-            {result.productBrief.company}
-          </h1>
+            <Image
+              src="/logo.svg"
+              alt="Uxio"
+              width={96}
+              height={50}
+              style={{ filter: "brightness(0)" }}
+            />
+          </button>
         </div>
-        {result.pages[0]?.url && (
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {result.pages[0].url}
-          </p>
-        )}
-      </div>
+
+        {/* Site info row: left = favicon + name + URL, right = export button */}
+        <div className="flex items-center justify-between gap-4 w-full">
+          <div className="flex items-start gap-3 min-w-0">
+            {result.pages[0]?.url && (
+              <Image
+                src={`https://www.google.com/s2/favicons?domain=${new URL(result.pages[0].url).hostname}&sz=32`}
+                alt=""
+                width={24}
+                height={24}
+                unoptimized
+                className="rounded-sm shrink-0 mt-0.5"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            )}
+            <div className="min-w-0">
+              <h1
+                className="text-xl font-bold tracking-tight text-foreground leading-tight"
+                style={{ fontFamily: "var(--font-primary)" }}
+              >
+                {result.productBrief.company}
+              </h1>
+              {result.pages[0]?.url && (
+                <a
+                  href={result.pages[0].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-muted-foreground hover:text-foreground truncate block transition-colors"
+                >
+                  {result.pages[0].url}
+                </a>
+              )}
+            </div>
+          </div>
+          <ExportPDFButton result={result} />
+        </div>
+
+        <div className="mt-6 w-full border-t border-border/40" />
+      </motion.div>
 
       {/* ── Mobile pill nav ──────────────────────────────────────────────── */}
       <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
