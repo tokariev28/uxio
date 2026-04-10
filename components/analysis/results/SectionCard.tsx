@@ -140,10 +140,10 @@ export function SectionCard({
       <div style={{ paddingTop: 8 }}>
         {/* Strength / weakness tags — horizontal two-column */}
         {(strengths.length > 0 || weaknesses.length > 0) && (
-          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "stretch", gap: 10, marginBottom: 16 }}>
             {/* Strengths column */}
             {strengths.length > 0 && (
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                 <p
                   style={{
                     fontSize: 10,
@@ -156,12 +156,12 @@ export function SectionCard({
                 >
                   Strengths:
                 </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
                   {strengths.map((s, i) => (
                     <span
                       key={i}
                       style={{
-                        display: "block",
+                        flex: 1,
                         fontSize: 14,
                         fontWeight: 500,
                         lineHeight: 1.45,
@@ -180,7 +180,7 @@ export function SectionCard({
             )}
             {/* Weaknesses column */}
             {weaknesses.length > 0 && (
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                 <p
                   style={{
                     fontSize: 10,
@@ -193,12 +193,12 @@ export function SectionCard({
                 >
                   Weaknesses:
                 </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
                   {weaknesses.map((w, i) => (
                     <span
                       key={i}
                       style={{
-                        display: "block",
+                        flex: 1,
                         fontSize: 14,
                         fontWeight: 500,
                         lineHeight: 1.45,

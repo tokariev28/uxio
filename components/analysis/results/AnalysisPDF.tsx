@@ -387,13 +387,28 @@ export function AnalysisPDF({ result, logoUrl }: Props) {
     .filter((sec) => sec.findings.some((f) => f.site === "input"))
     .sort((a, b) => (scrollOrder.get(a.sectionType) ?? 1) - (scrollOrder.get(b.sectionType) ?? 1));
 
+  // Compute a single-page height so react-pdf never inserts page breaks.
+  // Estimates are conservative (tall) — PDF viewers scroll to content end naturally.
+  const totalInsights = sortedSections.reduce(
+    (sum, sec) =>
+      sum + Math.min(result.recommendations.filter((r) => r.section === sec.sectionType).length, 5),
+    0
+  );
+  const pageHeight = Math.round(
+    (400 +
+      (result.executiveSummary ? 120 : 0) +
+      sortedSections.length * 200 +
+      totalInsights * 175) *
+      1.15 // 15 % buffer for variable text lengths
+  );
+
   return (
     <Document
       title={`${result.productBrief.company} — Uxio Analysis`}
       author="Uxio"
       creator="Uxio"
     >
-      <Page size="A4" style={s.page}>
+      <Page size={[595.28, pageHeight]} style={s.page}>
 
         {/* ── Header ─────────────────────────────────────────────── */}
         <View style={s.header}>

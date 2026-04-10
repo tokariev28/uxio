@@ -1,5 +1,6 @@
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerateMultimodal, CHAINS } from "@/lib/ai/gateway";
+import { stripMarkdownLinks } from "@/lib/utils/markdown-clean";
 import type {
   PipelineContext,
   SectionAnalysis,
@@ -165,7 +166,7 @@ async function analyzePageBatch(
     .sort((a, b) => a.scrollFraction - b.scrollFraction)
     .map((s) => ({
       ...s,
-      markdownSlice: s.markdownSlice.slice(0, MAX_MARKDOWN_CHARS),
+      markdownSlice: stripMarkdownLinks(s.markdownSlice).slice(0, MAX_MARKDOWN_CHARS),
     }));
 
   const sectionsInput = limitedSections

@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { AlertCircle, Clock } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ProgressPanel } from "./ProgressPanel";
@@ -62,7 +62,20 @@ const heroItemVariants = {
 
 type AppState = "idle" | "running" | "done" | "error";
 
-const isRateLimitError = (msg: string) => /429|rate.?limit/i.test(msg);
+function getFriendlyError(msg: string | null): string {
+  if (!msg) return "Something went wrong. Please try again.";
+  if (/too many requests|rate.?limit/i.test(msg))
+    return "You've made too many requests in a short time. Please wait a minute and try again.";
+  if (/API key|FIRECRAWL|TAVILY|GEMINI/i.test(msg))
+    return "The analysis service isn't fully configured. If you're the site owner, please check environment variables in your Vercel dashboard.";
+  if (/Server error 5/.test(msg))
+    return "Something went wrong on our end. Please try again in a moment.";
+  if (/Only HTTPS|private|internal|non-standard port/i.test(msg))
+    return "This URL can't be analyzed. Make sure it's a public website with a standard address.";
+  if (/unreachable|couldn't reach/i.test(msg))
+    return "We couldn't reach this website. Double-check the URL and try again.";
+  return "Something went wrong while analyzing the page. Please try again.";
+}
 
 // ── localStorage cache helpers ─────────────────────────────────────────────
 const CACHE_PREFIX = "uxio:cache:";
@@ -117,7 +130,8 @@ export function AnalysisForm() {
   function normalizeUrl(raw: string): string {
     const s = raw.trim();
     if (!s) return s;
-    if (/^https?:\/\//i.test(s)) return s;
+    if (/^https:\/\//i.test(s)) return s;
+    if (/^http:\/\//i.test(s)) return "https://" + s.slice(7);
     if (s.startsWith("//")) return "https:" + s;
     return "https://" + s;
   }
@@ -337,25 +351,6 @@ export function AnalysisForm() {
           exit={{ y: -24, opacity: 0 }}
           transition={{ duration: 0.5, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
         >
-          {appState === "error" && (
-            <form onSubmit={handleSubmit} className="hero-form-wrapper">
-              <input
-                type="text"
-                className="hero-input"
-                placeholder="https://your-saas.com"
-                value={url}
-                onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
-              />
-              <button
-                type="submit"
-                disabled={validating}
-                className="hero-submit"
-              >
-                {validating ? "Checking…" : "Analyze"}
-              </button>
-            </form>
-          )}
-
           {appState === "running" && (
             <ProgressPanel
               stages={stages}
@@ -369,22 +364,18 @@ export function AnalysisForm() {
             />
           )}
 
-          {appState === "error" && errorMsg && (
-            isRateLimitError(errorMsg) ? (
-              <div className="rounded-md bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800 flex items-start gap-2">
-                <Clock className="size-4 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium">Almost there — rate limit reached</p>
-                  <p className="mt-0.5 text-yellow-700">
-                    The AI provider is temporarily overloaded. Please wait a moment and try again.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
-                {errorMsg}
-              </div>
-            )
+          {appState === "error" && (
+            <div className="flex flex-col items-center gap-6 text-center max-w-sm mx-auto py-8">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {getFriendlyError(errorMsg)}
+              </p>
+              <button
+                onClick={() => { setAppState("idle"); setErrorMsg(null); }}
+                className="bg-black text-white text-sm font-medium px-6 py-2.5 rounded-md hover:bg-black/80 transition-colors"
+              >
+                Go back to Home
+              </button>
+            </div>
           )}
 
           {appState === "done" && result && (
@@ -409,13 +400,22 @@ export function AnalysisForm() {
       )}
     </AnimatePresence>
 
-    {appState === "running" && (
-      <div className="fixed bottom-0 left-0 right-0 z-10 pointer-events-none">
-        <div className="pointer-events-auto">
-          <InspirationGallery />
-        </div>
-      </div>
-    )}
+    <AnimatePresence>
+      {appState === "running" && (
+        <motion.div
+          key="gallery"
+          className="fixed bottom-0 left-0 right-0 z-10 pointer-events-none"
+          initial={{ y: 48, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 48, opacity: 0 }}
+          transition={{ duration: 0.55, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div className="pointer-events-auto">
+            <InspirationGallery />
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
     </>
   );
 }
