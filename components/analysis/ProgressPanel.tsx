@@ -182,9 +182,10 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
                     padding: 0,
                     cursor: "pointer",
                     fontSize: "inherit",
-                    color: "rgba(0,0,0,0.6)",
+                    color: "#4a60a0",
                     textDecoration: "underline",
                     textDecorationStyle: "dotted",
+                    textDecorationColor: "#4a60a0",
                     textUnderlineOffset: 3,
                   }}
                 >

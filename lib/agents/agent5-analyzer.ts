@@ -1,6 +1,7 @@
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerateMultimodal, CHAINS } from "@/lib/ai/gateway";
 import { stripMarkdownLinks } from "@/lib/utils/markdown-clean";
+import { normalizeSectionType } from "@/lib/utils/normalize-section-type";
 import type {
   PipelineContext,
   SectionAnalysis,
@@ -240,7 +241,7 @@ export async function runAnalyzer(
     const site = siteLabel(page.url, ctx.inputUrl, competitors);
 
     for (const raw of result.value) {
-      const sectionType = raw.sectionType as SectionType;
+      const sectionType = normalizeSectionType(raw.sectionType) as SectionType;
 
       const kev = raw.keyEvidence;
       const evidenceCtx = {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isUnsafeUrl } from "@/lib/utils/ssrf";
 
 export async function POST(req: NextRequest) {
   let url: string;
@@ -20,6 +21,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ valid: false, reason: "invalid" });
     }
   } catch {
+    return NextResponse.json({ valid: false, reason: "invalid" });
+  }
+
+  // SSRF guard — block private IPs, non-standard ports, non-HTTP(S) schemes
+  if (isUnsafeUrl(url)) {
     return NextResponse.json({ valid: false, reason: "invalid" });
   }
 

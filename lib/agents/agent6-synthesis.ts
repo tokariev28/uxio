@@ -1,26 +1,13 @@
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
 import { extractJSON } from "@/lib/utils/json-extract";
+import { normalizeSectionType } from "@/lib/utils/normalize-section-type";
 import type { PipelineContext, Recommendation, Priority, SectionType, OverallScores } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 
 const VALID_PRIORITIES = new Set<Priority>(["critical", "high", "medium"]);
 const VALID_SECTION_TYPES = new Set<SectionType>(["hero", "navigation", "features", "benefits", "socialProof", "testimonials", "integrations", "howItWorks", "pricing", "faq", "cta", "footer", "videoDemo", "comparison", "metrics"]);
 
-/**
- * Normalise LLM-returned section strings to match VALID_SECTION_TYPES.
- * Handles: capitalisation ("Hero" → "hero"), trailing " section" suffix,
- * and spaces in camelCase ("Social Proof" → "socialProof" won't work,
- * but "SocialProof" → "socialProof" will via first-char lowercasing).
- */
-function normalizeSectionType(raw: unknown): string {
-  if (typeof raw !== "string") return String(raw ?? "");
-  const trimmed = raw.trim().replace(/\s+section$/i, "").replace(/\s+/g, "");
-  // All-caps input (e.g. "FAQ", "CTA", "HERO") → full lowercase
-  if (trimmed === trimmed.toUpperCase() && trimmed.length > 0) return trimmed.toLowerCase();
-  // Mixed/title case → just lowercase the first character (preserves camelCase like "socialProof")
-  return trimmed.replace(/^[A-Z]/, (c) => c.toLowerCase());
-}
 
 // ── Compute overallScores from Agent5 data (not LLM-generated) ─────────────
 function computeOverallScores(ctx: PipelineContext): OverallScores | undefined {

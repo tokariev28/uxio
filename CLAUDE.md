@@ -35,7 +35,7 @@ Sequential orchestration in `orchestrator.ts`:
 | 1 | `agent1-discovery.ts` | Multi-Signal Discovery — Tavily search + LLM knowledge discovery in parallel | Tavily Search + Gemini |
 | 2 | `agent2-validator.ts` | Competitor Validator — score & rank top 3 | Gemini |
 | 3 | `agent3-scraper.ts` | Scraper — two-pass scrape (JS SPA retry) of all URLs in parallel | Firecrawl |
-| 4 | `agent4-classifier.ts` | Section Classifier — identify page sections, deduplicate by type, compute `scrollFraction` | Gemini |
+| 4 | `agent4-classifier.ts` | Section Classifier — identify page sections, normalize section types, deduplicate by type, compute `scrollFraction` | Gemini |
 | 5 | `agent5-analyzer.ts` | Vision Analyzer — analyze screenshots + markdown | Gemini Vision (multimodal) |
 | 6 | `agent6-synthesis.ts` | Synthesis — produce 3 recommendations per section | Gemini |
 
@@ -61,26 +61,23 @@ Two functions: `aiGenerate()` (text-only) and `aiGenerateMultimodal()` (text + i
 
 All pipeline types are defined here. TypeScript strict mode — no `any`. Key types:
 
-- **Pipeline data**: `ProductBrief`, `CompetitorCandidate` (has `source: string` — Tavily query label or `"llm-knowledge"`), `Competitor`, `PageData`, `ClassifiedSection` (has `scrollFraction: number` = startChar/totalLength for UI scroll ordering), `PageSections`, `SectionFinding` (has `scores: SectionScores` with 6 sub-scores, `strengths/weaknesses: string[]`, `summary`, `evidence`, `confidence`), `SectionAnalysis`, `Recommendation` (has `priority: Priority`, `reasoning`, `suggestedAction`, `impact?`, `confidence?`), `Priority = "critical" | "high" | "medium"`, `OverallScores`, `AnalysisResult` (has `executiveSummary?`, `overallScores?`, `pageSections?`), `PipelineContext`
+- **Pipeline data**: `ProductBrief`, `CompetitorCandidate` (has `source: string` — Tavily query label or `"llm-knowledge"`), `Competitor`, `PageData`, `ClassifiedSection` (has `scrollFraction: number` = startChar/totalLength for UI scroll ordering), `PageSections`, `SectionFinding` (has `scores: SectionScores` with 10 sub-scores across 3 groups — Communication: clarity/specificity/icpFit; Conversion: attentionRatio/ctaQuality/trustSignals; Visual: visualHierarchy/cognitiveEase/typographyReadability/densityBalance — plus `strengths/weaknesses: string[]`, `summary`, `evidence`, `confidence`), `SectionAnalysis`, `Recommendation` (has `priority: Priority`, `reasoning`, `suggestedAction`, `impact?`, `confidence?`), `Priority = "critical" | "high" | "medium"`, `OverallScores`, `AnalysisResult` (has `executiveSummary?`, `overallScores?`, `pageSections?`), `PipelineContext`
 - **SSE events**: `SSEProgressEvent`, `SSECompleteEvent` (carries `quality: QualityReport`), `SSEErrorEvent` — union type `SSEEvent`
 - **Stage tracking**: `AgentStage` (7 string literals), `StageStatus`, `StageState`
 
-### LLM Response Parsing (`/lib/utils/json-extract.ts`)
+### Shared Utilities (`/lib/utils/`)
 
-`extractJSON(text)` strips LLM preamble/postamble and returns the first JSON object or array by scanning brackets. All agents use this — never call `JSON.parse()` on raw LLM output directly.
-
-### Scrape Quality (`/lib/utils/scrape-quality.ts`)
-
-`isUsableMarkdown(md)` returns `false` if content is < 300 chars or contains JS-not-rendered signals ("enable javascript", "javascript is required", "loading…"). Used by Agent 0 (fail fast) and Agent 3 (trigger two-pass retry).
-
-### Quality Scorer (`/lib/utils/quality-scorer.ts`)
-
-`scoreAnalysisQuality(result)` returns a `QualityReport` with `overallQuality` (0–100) computed from 5 weighted signals: evidence grounding (30%), score variance (25%), specificity rate (20%), competitor presence (15%), field completeness (10%). The API attaches this to the `complete` SSE event. Quality report is only logged in non-production environments. Also emits a warning when the input page contributed zero findings (likely JS SPA not rendered).
+- **`json-extract.ts`** — `extractJSON(text)` strips LLM preamble/postamble and returns the first JSON object or array by scanning brackets. All agents use this — never call `JSON.parse()` on raw LLM output directly.
+- **`normalize-section-type.ts`** — `normalizeSectionType(raw)` converts any LLM-returned section string to the canonical camelCase `SectionType` value: strips trailing " section", camelCases multi-word inputs (`"social proof"` → `"socialProof"`, `"how it works"` → `"howItWorks"`), lowercases all-caps acronyms (`"FAQ"` → `"faq"`). Used by agents 4, 5, and 6 — always import from here, never re-implement locally.
+- **`scrape-quality.ts`** — `isUsableMarkdown(md)` returns `false` if content is < 300 chars or contains JS-not-rendered signals. Used by Agent 0 (fail fast) and Agent 3 (trigger two-pass retry).
+- **`ssrf.ts`** — `isUnsafeUrl(raw)` returns an error string or `null`. Allows HTTP and HTTPS, blocks private IPs (127.x, 10.x, 192.168.x, 172.16–31.x, 169.254.x), blocks non-standard ports (only 80/443 or no port). Shared by both API routes — do not duplicate this logic inline.
+- **`quality-scorer.ts`** — `scoreAnalysisQuality(result)` returns a `QualityReport` with `overallQuality` (0–100) from 5 weighted signals: evidence grounding (30%), score variance (25%), specificity rate (20%), competitor presence (15%), field completeness (10%). Attached to the `complete` SSE event; only logged in non-production environments.
+- **`markdown-clean.ts`** — `stripMarkdownLinks(md)` used by Agent 5 to reduce token count before sending section content to the LLM.
 
 ### API Security (`/app/api/analyze/route.ts`)
 
 - **Rate limiting**: In-memory IP-based, 2 requests per minute per IP
-- **SSRF protection**: HTTPS-only, blocks private IPs (127.x, 10.x, 192.168.x, 172.16-31.x, 169.254.x), blocks non-standard ports
+- **SSRF protection**: Both HTTP and HTTPS allowed; blocks private IPs and non-standard ports via `isUnsafeUrl()` from `lib/utils/ssrf.ts` — applied in both `/api/analyze` and `/api/validate-url`
 - **CORS**: Origin header validated against host — cross-origin requests rejected
 
 ### UI
@@ -118,9 +115,10 @@ All keys are server-side only — never exposed to the client.
 - API route runs Node.js runtime (not Edge) — Firecrawl and Gemini SDKs require it
 - No server-side persistence — all pipeline data lives in memory for the duration of one request
 - Agents run sequentially; Agent 3 and Agent 5 process pages in parallel internally
+- Agent 3 mutates `ctx.competitors` to only include successfully scraped competitors (backups may substitute primaries)
 - Screenshots are used by Agent 5 for analysis but stripped from SSE payload before sending to client
 - shadcn components use `base-nova` style, neutral base color, lucide icons
 - All agent prompts enforce evidence-based output: generic verbs are forbidden, every insight must cite specific copy or visual elements
 - `SectionFinding` and `Recommendation` carry a `confidence` field (0–1) indicating how certain the agent is in each finding
-- `@react-pdf/renderer` is a client-side dependency (~750 KB); always lazy-import it (`import("@react-pdf/renderer")`) — never import statically to avoid bloating the initial bundle
+- `@react-pdf/renderer` is a client-side dependency (~750 KB); `AnalysisPDF.tsx` has a `"use client"` directive and must only ever be accessed via `import("./AnalysisPDF")` — never import it statically from any file
 - `SECTION_LABELS` mapping (`SectionType` → display string) is duplicated in `SectionCard.tsx`, `AnalysisPDF.tsx`, and `ResultsPanel.tsx` by design (each has slightly different rendering context)

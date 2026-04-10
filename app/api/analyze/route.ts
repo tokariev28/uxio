@@ -1,6 +1,7 @@
 import { createSSEStream } from "@/lib/sse";
 import { runPipeline } from "@/lib/agents/orchestrator";
 import { headers } from "next/headers";
+import { isUnsafeUrl } from "@/lib/utils/ssrf";
 
 export const maxDuration = 300;
 
@@ -23,32 +24,6 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
-// ── SSRF protection ───────────────────────────────────────────────────────
-const PRIVATE_HOST_RE =
-  /^(localhost|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|169\.254\.\d+\.\d+|0\.0\.0\.0|\[?::1\]?)$/i;
-
-function isUnsafeUrl(raw: string): string | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    return "Please provide a valid URL (e.g. https://apollo.io)";
-  }
-
-  if (parsed.protocol !== "https:") {
-    return "Only HTTPS URLs are allowed";
-  }
-  if (!parsed.hostname.includes(".")) {
-    return "Please provide a valid URL (e.g. https://apollo.io)";
-  }
-  if (PRIVATE_HOST_RE.test(parsed.hostname)) {
-    return "Private or internal URLs are not allowed";
-  }
-  if (parsed.port && parsed.port !== "443") {
-    return "Non-standard ports are not allowed";
-  }
-  return null;
-}
 
 export async function POST(request: Request) {
   // ── Rate limiting ────────────────────────────────────────────────────

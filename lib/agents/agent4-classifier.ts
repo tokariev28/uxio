@@ -1,6 +1,7 @@
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
 import { extractJSON } from "@/lib/utils/json-extract";
+import { normalizeSectionType } from "@/lib/utils/normalize-section-type";
 import type {
   PipelineContext,
   PageSections,
@@ -53,20 +54,17 @@ async function classifyPage(
 
   const seen = new Set<SectionType>();
   const sections: ClassifiedSection[] = raw.sections
-    .filter((item) => {
-      const s = item as Record<string, unknown>;
-      return VALID_SECTION_TYPES.has(s.type as SectionType);
-    })
     .map((item) => {
       const s = item as Record<string, unknown>;
       const start = typeof s.startChar === "number" ? s.startChar : 0;
       const end = typeof s.endChar === "number" ? s.endChar : markdown.length;
       return {
-        type: s.type as SectionType,
+        type: normalizeSectionType(s.type) as SectionType,
         markdownSlice: markdown.slice(start, end),
         scrollFraction: markdown.length > 0 ? start / markdown.length : 0,
       };
     })
+    .filter((s) => VALID_SECTION_TYPES.has(s.type))
     // Deduplicate by type — keep first occurrence (earliest in page)
     .filter((s) => {
       if (seen.has(s.type)) return false;
