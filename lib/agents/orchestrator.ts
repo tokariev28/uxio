@@ -104,7 +104,7 @@ export async function runPipeline(
             type: "progress",
             stage: "analysis",
             status: "running",
-            message: `Could not analyze ${hostnames.join(", ")} — excluded from comparison. Other pages analyzed successfully.`,
+            message: `Could not analyze ${hostnames.join(", ")} — excluded from comparison. Results may be incomplete.`,
           });
         }
 
