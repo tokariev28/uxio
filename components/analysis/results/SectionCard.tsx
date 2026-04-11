@@ -133,7 +133,7 @@ export function SectionCard({
                       flex: 1,
                       borderRadius: 12,
                       background: "rgba(16,185,129,0.09)",
-                      color: "#059669",
+                      color: "#047857",
                       padding: 12,
                     }}
                   >
@@ -143,7 +143,7 @@ export function SectionCard({
                         fontWeight: 500,
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
-                        color: "#059669",
+                        color: "#047857",
                         marginBottom: 6,
                       }}
                     >
@@ -166,7 +166,7 @@ export function SectionCard({
                       flex: 1,
                       borderRadius: 12,
                       background: "rgba(244,63,94,0.09)",
-                      color: "#e11d48",
+                      color: "#be123c",
                       padding: 12,
                     }}
                   >
@@ -176,7 +176,7 @@ export function SectionCard({
                         fontWeight: 500,
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
-                        color: "#e11d48",
+                        color: "#be123c",
                         marginBottom: 6,
                       }}
                     >

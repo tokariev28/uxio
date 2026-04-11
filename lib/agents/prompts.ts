@@ -680,9 +680,8 @@ export const AGENT_PROMPTS = {
     GOOD: "Asana's hero anchors '184,000+ teams' directly below its primary CTA."
     GOOD: "Linear's feature grid uses a unified monochrome icon style with consistent card dimensions."
   - No generic UX advice applicable to any product.
-  - competitorExample must be a direct quote or precise visual description.
-  - reasoning must explain WHY the gap weakens the page — do NOT quote or paraphrase the competitorExample text here.
-  - competitorExample must contain specific evidence NEW to reasoning (do not repeat what reasoning already says). Max 2 sentences.
+  - competitorExample must be the specific evidence anchor — the exact quote, metric, or visual detail from the competitor that proves the point made in reasoning. Max 2 sentences.
+  - reasoning names the competitor and explains the gap at a high level; competitorExample provides the granular proof (exact copy, CTA label, layout detail, metric).
   - Use human-readable section names in all text (Hero, FAQ, Benefits, etc.) — never the sectionType field string like "faq sectionType".
   - If SECTION ANALYSES is empty, base recommendations on product brief features, competitor context, and industry best practices. State explicitly when a recommendation cannot be grounded in visual evidence.
   - BALANCE: Across all recommendations for a page, ensure a mix of copy/conversion recommendations AND visual/design recommendations. Do not produce recommendations that are all about CTA text and headlines — also address layout, color, imagery, iconography, and visual consistency where the data supports it.
@@ -715,16 +714,21 @@ export const AGENT_PROMPTS = {
         "section": "hero" | "navigation" | "features" | "benefits" | "socialProof" | "testimonials" | "integrations" | "howItWorks" | "pricing" | "faq" | "cta" | "footer" | "videoDemo" | "comparison" | "metrics",
         "title": string,
         "reasoning": string,
-        // Two-part structure: (1) Refer to the specific competitor by name. (2) Explain WHY that gap weakens the page — through lost conversions, reduced trust, or diminished design quality. NEVER write numerical scores.
+        // THIS IS THE CORE INSIGHT — it must read as a direct comparison between a named competitor and the input page.
+        // MINIMUM 2 sentences. Sentence 1: what the competitor does vs what the input page does. Sentence 2: why this gap hurts — the concrete consequence for visitors (lost trust, confusion, drop-off, etc.).
+        // Structure: "[Competitor] does [specific thing], while [input company] does [different thing]. [Why this gap hurts conversions/trust/clarity — what visitors experience as a result]."
+        // The reasoning text is displayed prominently in the UI and competitor names are auto-linked with favicons. If reasoning doesn't name a competitor, the insight feels like generic design advice instead of competitive benchmarking.
+        // NEVER write numerical scores.
         // GOOD reasoning examples:
-        //   "Stripe shows 145k logos at the fold while the input page has none — first-time visitors lack a trust anchor at the moment they evaluate whether to engage."
-        //   "Linear's feature section uses a unified icon style with consistent card sizing, while the input page mixes 3 different icon styles — the visual inconsistency signals a lack of product polish to design-aware buyers."
-        //   "HubSpot's hero places a product screenshot beside the headline, while the input page uses abstract illustration — visitors cannot see what the product looks like before committing to a trial."
-        //   "Notion's pricing page highlights the recommended tier with a contrasting border and 'Most Popular' label, while the input page gives all 3 tiers equal visual weight — visitors receive no guidance on which plan fits them."
+        //   "Cohere anchors a single prominent 'Request a demo' CTA in its hero, while Anthropic fragments visitor attention across 4 navigation-style links — the lack of a clear primary action means visitors have no obvious next step."
+        //   "Linear's feature section uses a unified icon style with consistent card sizing, while this page mixes 3 different icon styles — the visual inconsistency signals a lack of product polish to design-aware buyers."
+        //   "OpenAI places an interactive text input directly in its hero, while this page leads with mission text — visitors can't experience the product before scrolling."
+        //   "Notion's pricing page highlights the recommended tier with a contrasting border and 'Most Popular' label, while this page gives all tiers equal visual weight — visitors receive no guidance on which plan fits them."
         // BAD reasoning examples:
         //   "The competitor has a better hero section" — no specifics about what makes it better.
         //   "The input page could benefit from stronger visual hierarchy" — forbidden phrasing, no competitor reference, no evidence.
         //   "This would increase conversions by approximately 15%" — never fabricate statistics.
+        //   "The features section uses disparate visual styles" — NO competitor named, reads as generic audit.
         "competitorExample": string,
         // Must: (1) name a specific competitor, and (2) state exactly what that competitor does — copy/CTA observation OR visual design observation.
         // FORMAT: "[Name]'s [section] [specific observation]".

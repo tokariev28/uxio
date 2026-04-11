@@ -490,8 +490,8 @@
 .insight-card-priority--critical .insight-card-priority-dot { background: #dc2626; }
 .insight-card-priority--high { color: #d97706; }
 .insight-card-priority--high .insight-card-priority-dot { background: #d97706; }
-.insight-card-priority--medium { color: #16a34a; }
-.insight-card-priority--medium .insight-card-priority-dot { background: #16a34a; }
+.insight-card-priority--medium { color: #15803d; }
+.insight-card-priority--medium .insight-card-priority-dot { background: #15803d; }
 
 .insight-card-title {
   font-size: 14px;

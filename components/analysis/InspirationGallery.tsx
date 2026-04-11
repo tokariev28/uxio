@@ -213,18 +213,25 @@ export function InspirationGallery() {
     if (!el) return;
 
     let rafId: number;
-    let paused = false;
+    let running = true;
 
     function onVisibility() {
-      paused = document.hidden;
-      if (!paused) rafId = requestAnimationFrame(tick);
+      if (document.hidden) {
+        // Tab hidden — stop the loop. cancelAnimationFrame prevents the
+        // pending tick from firing; setting running=false is a safety net.
+        running = false;
+        cancelAnimationFrame(rafId);
+      } else {
+        // Tab visible again — restart exactly one loop.
+        running = true;
+        rafId = requestAnimationFrame(tick);
+      }
     }
 
     function tick() {
-      if (paused) return;
+      if (!running) return;
       if (!isHovered.current && el) {
         el.scrollLeft += SCROLL_SPEED;
-        // When we've scrolled past the first copy, jump back seamlessly
         const oneThird = el.scrollWidth / 3;
         if (el.scrollLeft >= oneThird) {
           el.scrollLeft -= oneThird;
@@ -236,6 +243,7 @@ export function InspirationGallery() {
     document.addEventListener("visibilitychange", onVisibility);
     rafId = requestAnimationFrame(tick);
     return () => {
+      running = false;
       cancelAnimationFrame(rafId);
       document.removeEventListener("visibilitychange", onVisibility);
     };

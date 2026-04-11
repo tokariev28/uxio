@@ -87,7 +87,7 @@ export function SectionInsightCard({ insight, index, total }: InsightCardProps) 
         <span
           style={{
             fontSize: 11,
-            color: isEvidenceBased ? "#16a34a" : "#d97706",
+            color: isEvidenceBased ? "#15803d" : "#d97706",
           }}
         >
           {isEvidenceBased ? "● Evidence-based" : "● Inferred"}

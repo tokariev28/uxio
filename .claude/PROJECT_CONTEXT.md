@@ -46,7 +46,7 @@ The backend implements a 7-agent pipeline end-to-end:
 
 **Agent 5** active prompt: `AGENT_PROMPTS.sectionAnalyzerBatch` (`visionAnalyzer` key is legacy reference, not in active code path). Each `SectionFinding.confidence`: `1.0` (full visual + copy evidence), `0.7` (text-only — also the runtime cap enforced in code when no screenshot is available), `0.4` (inferred from sparse markdown), `0.2` (markup artifacts only, no readable copy). Agent 5 receives full product context injected into its prompt — CVP, key features, pricing model, free-trial flag, and industry — so it can score `icpFit`, `ctaQuality`, and `specificity` against real product data rather than guessing.
 
-**Agent 6** strips numerical scores from Agent 5 output before synthesis. `overallScores` computed programmatically from Agent 5 data — not LLM-generated.
+**Agent 6** strips numerical scores from Agent 5 output before synthesis. `overallScores` computed programmatically from Agent 5 data — not LLM-generated. Agent 6 enforces a two-part recommendation structure: `reasoning` must read as a direct competitor-vs-input comparison (minimum 2 sentences), and `competitorExample` must be the specific evidence anchor (exact quote, metric, or visual detail). The Zod schema uses `competitorExample` internally and maps to `exampleFromCompetitor` in the TypeScript type. Forbidden openers in `suggestedAction` are validated at runtime.
 
 **Result assembly**: `screenshotBase64` stripped from `PageData` before SSE `complete` event (~4–12 MB payload reduction). Screenshots resolved to base64 in Agent 3 while GCS URLs are fresh (30–60 min TTL).
 
@@ -96,6 +96,7 @@ The following decisions are fixed for this MVP:
   - All API keys stored only in server-side environment variables (e.g. Vercel env vars).
   - No secrets in client-side code or committed to the repository.
   - Scraped content and screenshots are not stored long term in MVP.
+  - `next.config.ts` sets a permissive dev-only CSP (React 19 + Turbopack require `'unsafe-eval'`); `proxy.ts` also conditionally includes it in non-production. Both are gated and never apply in production.
 
 ---
 

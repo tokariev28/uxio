@@ -458,16 +458,16 @@ export function AnalysisPDF({ result, logoUrl }: Props) {
                     {strengths.length > 0 && (
                       <View style={s.swCol}>
                         <View style={[s.swTag, { backgroundColor: "#E9F8F3" }]}>
-                          <Text style={[s.swColLabel, { color: "#059669" }]}>Strengths:</Text>
-                          <Text style={[s.swTagText, { color: "#059669" }]}>{strengths[0]}</Text>
+                          <Text style={[s.swColLabel, { color: "#047857" }]}>Strengths:</Text>
+                          <Text style={[s.swTagText, { color: "#047857" }]}>{strengths[0]}</Text>
                         </View>
                       </View>
                     )}
                     {weaknesses.length > 0 && (
                       <View style={s.swCol}>
                         <View style={[s.swTag, { backgroundColor: "#FEEEF0" }]}>
-                          <Text style={[s.swColLabel, { color: "#e11d48" }]}>Weaknesses:</Text>
-                          <Text style={[s.swTagText, { color: "#e11d48" }]}>{weaknesses[0]}</Text>
+                          <Text style={[s.swColLabel, { color: "#be123c" }]}>Weaknesses:</Text>
+                          <Text style={[s.swTagText, { color: "#be123c" }]}>{weaknesses[0]}</Text>
                         </View>
                       </View>
                     )}

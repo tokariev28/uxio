@@ -57,6 +57,8 @@ Both `competitorDiscovery` and `competitorValidator` contain extensive **negativ
 
 **Agent 5 active prompt**: uses `AGENT_PROMPTS.sectionAnalyzerBatch` — batches all sections in a single LLM call. The `AGENT_PROMPTS.visionAnalyzer` key in `prompts.ts` is legacy and kept for reference only; it is not in the active code path.
 
+**Agent 6 synthesis prompt** (`AGENT_PROMPTS.synthesis`) enforces a two-part recommendation structure: `reasoning` must be a direct comparison (minimum 2 sentences — what the competitor does vs what the input page does, then the concrete consequence for visitors), and `competitorExample` is the evidence anchor — the exact quote, metric, or visual detail that proves the point. The Zod schema uses `competitorExample` internally; Agent 6 maps it to `exampleFromCompetitor` in the TypeScript `Recommendation` type. Forbidden openers in `suggestedAction` are validated at runtime (logged warning, not hard fail).
+
 ### AI Gateway (`/lib/ai/gateway.ts`)
 
 All LLM calls go through Vercel AI Gateway with automatic fallback chains. Model slugs are defined in the `MODELS` constant; `CHAINS` wires them with fallbacks:
@@ -105,7 +107,7 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 - **Rate limiting**: In-memory IP-based, 2 requests per minute per IP
 - **SSRF protection**: Both HTTP and HTTPS allowed; blocks private IPs and non-standard ports via `isUnsafeUrl()` from `lib/utils/ssrf.ts` — applied in `/api/analyze`, `/api/validate-url`, and internally in Agent 3 (`resolveScreenshot`) and Agent 5 (`urlToBase64`) for Firecrawl-returned URLs. The validate-url route uses `redirect: "manual"` on both its HEAD and GET probes — do not change to `redirect: "follow"`, which would allow bypass via attacker-controlled 301 redirects to private IPs.
 - **CORS**: Origin header validated against host — cross-origin requests rejected
-- **Security headers**: `proxy.ts` sets CSP, X-Frame-Options (DENY), X-Content-Type-Options (nosniff), Referrer-Policy, Permissions-Policy, and HSTS on all responses
+- **Security headers**: `proxy.ts` sets CSP, X-Frame-Options (DENY), X-Content-Type-Options (nosniff), Referrer-Policy, Permissions-Policy, and HSTS on all responses. CSP conditionally includes `'unsafe-eval'` in `script-src` when `NODE_ENV !== "production"` — React 19 needs the Function constructor in dev mode. Production CSP omits it.
 - **Env validation**: `lib/env.ts` lazily validates `FIRECRAWL_API_KEY`, `TAVILY_API_KEY`, `GEMINI_API_KEY` via Zod on first use — throws a clear error if any key is missing
 
 ### UI
@@ -172,4 +174,4 @@ All keys are server-side only — never exposed to the client.
 - Shared constants live in `lib/constants.ts`: `SECTION_LABELS` (SectionType → display string, 15 types), `VALID_SECTION_TYPES` (Set), `PRIORITY_ORDER`, `PRIORITY_COLORS`, `PRIORITY_STYLES`. All UI components and agents import from here — do not duplicate locally
 - Client-only APIs (`sessionStorage`, `Notification`, `window`) are guarded with a module-level `isSupported = typeof window !== "undefined" && ...` constant. State that reads from these APIs must initialize to a safe default (e.g. `false`) and sync in `useEffect` — never read them inside a `useState` lazy initializer, as that causes SSR/hydration mismatch. `eslint-config-next` enforces `react-hooks/set-state-in-effect`; if you must call `setState` synchronously in an effect to sync external state, add `// eslint-disable-next-line react-hooks/set-state-in-effect` with a comment explaining why.
 - `package.json` has an `"overrides": { "axios": "^1.15.0" }` entry to keep the transitive axios dependency (used by `@mendable/firecrawl-js`) patched against the NO_PROXY SSRF vulnerability — do not remove it.
-- `next.config.ts` has `images.remotePatterns` allowing only `www.google.com/s2/favicons`. Any new external `<Image>` source (e.g. competitor logos) must be added here or Next.js will throw at build time.
+- `next.config.ts` has `images.remotePatterns` allowing only `www.google.com/s2/favicons`. Any new external `<Image>` source (e.g. competitor logos) must be added here or Next.js will throw at build time. It also sets a permissive dev-only CSP via `async headers()` — React 19 needs `'unsafe-eval'` in development for the Function constructor (Turbopack call-stack reconstruction). This header is gated behind `isDev` and never sent in production.

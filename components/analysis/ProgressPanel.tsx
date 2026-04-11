@@ -89,7 +89,7 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
                   key="confirmed"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  style={{ color: "#16a34a", marginLeft: 4 }}
+                  style={{ color: "#15803d", marginLeft: 4 }}
                 >
                   ✓ You&apos;ll be notified.
                 </motion.span>
