@@ -17,7 +17,9 @@ export const AGENT_PROMPTS = {
   - company: exact name from the page.
   - industry: use a short, standardized market category (e.g. "Project Management", "CRM", "Analytics Platform", "DevTools", "Email Marketing"). Do NOT copy the product's own marketing tagline or self-description verbatim — write what a user would type to search for competitors in this space.
   - icp: infer the target buyer from messaging if not explicitly stated.
+  - icpKeyword: REQUIRED — always provide a 2-3 word search keyword even if the page doesn't explicitly state a target buyer. Infer from messaging tone, use cases, pricing tier, or product positioning. Never leave empty.
   - coreValueProp: infer the primary outcome promised if not explicitly stated.
+  - cvpKeyword: REQUIRED — always provide a 2-3 word searchable category term even if the page uses abstract language. Infer from the primary headline, hero section, and CTA. Never leave empty.
   - keyFeatures: verbatim or close paraphrase from the page, max 6.
   - pricingVisible / hasFreeTrialOrFreemium: true/false based on page content.
   - primaryCTAText: The single most conversion-oriented action on the page — the button that starts a trial, opens the product, signs up, or contacts sales. Exact label from page. Return null if none found. EXCLUDE (always): "Read more", "Learn more", "Continue reading", "Read the story" — these are content navigation links. EXCLUDE (only if a trial/signup CTA also exists): "Watch demo", "See how it works" — prefer the conversion action when both are present, but use "Watch demo" as the CTA if it is the only above-fold action.

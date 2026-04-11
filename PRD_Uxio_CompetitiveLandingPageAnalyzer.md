@@ -248,24 +248,53 @@ Accounts and collaboration aren't just product features — they're what makes m
 
 Individual contributors discover Uxio for free and bring it into their team. The free tier demonstrates real value; the team tier captures it. This is the Figma and Notion playbook — individual utility that grows into shared team infrastructure.
 
-| Tier | Price | What it unlocks |
-|------|-------|-----------------|
-| **Free** | $0 | 3 analyses/month, 7-day report access, PDF export |
-| **Pro** | $29/mo | 25 analyses/month, report history (30 days), re-analyze, shareable read-only links |
-| **Team** | $79/mo | Unlimited analyses, team collaboration (comments, @mentions), shared workspaces, unlimited history |
-| **Enterprise** | Custom | SSO, API access, Figma and Slack integrations, SLA |
+| Tier | Price | Analyses/mo | Seats | What it unlocks |
+|------|-------|-------------|-------|-----------------|
+| **Free** | $0 | 3 | 1 | PDF export |
+| **Pro** | $9/mo | 25 | 1 | Report history (90 days), re-analyze, shareable read-only links |
+| **Team** | $29/mo | 75 | 3 | Unlimited history, team collaboration (comments, @mentions), shared workspaces |
+| **Business** | $79/mo | 250 | 10 | Everything in Team, higher volume |
+| **Enterprise** | Custom | Custom | Custom | SSO, API access, Figma and Slack integrations, SLA |
+
+### Feature access by tier
+
+| Feature | Free | Pro $9 | Team $29 | Business $79 |
+|---------|------|--------|---------|-------------|
+| Analyses/month | 3 | 25 | 75 | 250 |
+| PDF export | ✓ | ✓ | ✓ | ✓ |
+| Report history | — | 90 days | Unlimited | Unlimited |
+| Shareable links | — | ✓ | ✓ | ✓ |
+| Re-analyze | — | ✓ | ✓ | ✓ |
+| Team workspace | — | — | ✓ | ✓ |
+| Comments / @mentions | — | — | ✓ | ✓ |
+| API access | — | — | — | ✓ |
+| SSO | — | — | — | Enterprise |
 
 ### Why these tiers
 
 **Free at 3 analyses** is enough to run a real use case — not just a demo. A designer can analyze their own page against two competitors in one session and walk away with actionable findings. That's the moment the value becomes tangible, and it happens before a credit card is ever asked for.
 
-**Pro at $29** targets individual power users. A single avoided stakeholder debate pays for the month. Shareable links land here — because sharing is what creates the team-level discovery loop that drives upgrades.
+**Pro at $9** is priced to remove friction, not extract maximum value from individuals. Uxio is a sprint-based tool — designers use it 2–5 times before a redesign, then go quiet for weeks. The math works because each analysis costs roughly $0.18 in API fees after cost optimizations (see below), so 25 analyses at $9/mo yields ~$4.50 gross margin at average real-world usage. Shareable links land at Pro — not Team — because sharing is what starts the team discovery loop, and that loop needs to fire at the lowest possible barrier.
 
-**Team at $79** is the primary revenue driver and the natural endpoint of the product's growth loop. A team of 3–5 designers and PMs sharing a workspace, commenting on findings, and aligning on decisions gets more value from one session than the plan costs in a month. Collaboration is also what creates retention — it shifts Uxio from a research tool you use occasionally to a shared decision space your team returns to.
+**Team at $29** is the primary revenue driver. Now it buys 3 seats and 75 analyses — a genuinely team-sized product rather than an individual subscription with a higher cap. A team of 3 designers and PMs sharing a workspace, commenting on findings, and aligning on decisions gets more value from one session than the plan costs in a month.
+
+**Business at $79** captures power users and agencies running high-volume competitive research — 250 analyses/month at ~$0.18 API cost each means ~$45 in infrastructure costs and ~$34 gross margin.
+
+### Unit economics and cost optimizations
+
+Each pipeline run calls three external services: Firecrawl (scraping 4 pages with screenshots), Tavily (search queries for competitor discovery), and Gemini (7 agent calls). Unoptimized, this costs approximately $0.40 per analysis. Three targeted optimizations bring this to ~$0.18:
+
+1. **Shared scrape cache** — the single biggest lever. Popular competitor pages (Stripe, Notion, Linear, HubSpot) are scraped by many users independently. A 12–24 hour server-side cache means the Firecrawl cost is paid once and amortized across all users who analyze the same URL that day. This alone cuts Firecrawl costs by 60–70% in aggregate.
+
+2. **Reduced Tavily queries** — Agent 1 runs parallel search queries to discover competitors. Trimming from 5 to 3 queries retains sufficient discovery signal while reducing search API spend.
+
+3. **Aggressive Flash-Lite routing** — Gemini 2.5 Flash-Lite already handles extraction, scoring, and classification. Extending this to synthesis (Agent 6), which produces structured text rather than complex reasoning, reduces LLM costs without meaningful quality loss.
+
+At ~$0.18/analysis average cost, the free tier (3 analyses/month) costs roughly $0.54/month per free user — a sustainable lead-gen investment. Break-even on the free tier requires roughly a 7% free-to-Pro conversion rate, which is achievable for a B2B tool that delivers tangible value in the first session.
 
 ### The growth loop
 
-A Pro user shares a report link → a PM or growth lead opens it, sees a specific finding they want to discuss → they need an account to comment → the team is on a paid plan. Sharing is the acquisition channel; collaboration is the conversion trigger. This is why shareable links come before comments in the roadmap, not after — the link is what starts the loop.
+A Pro user shares a report link → a PM or growth lead opens it, sees a specific finding they want to discuss → they need an account to comment → the team is on a paid plan. Sharing is the acquisition channel; collaboration is the conversion trigger. This is why shareable links sit at Pro ($9), not Team ($29) — the link needs to be easy to create for the loop to fire reliably.
 
 ---
 

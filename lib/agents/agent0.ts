@@ -13,9 +13,13 @@ const ProductBriefSchema = z.object({
   company: z.string(),
   industry: z.string(),
   icp: z.string(),
-  icpKeyword: z.string().optional().default(""),
+  icpKeyword: z.string().optional().default("").describe(
+    "2-3 word search keyword for ideal customer profile. Always infer even if page is vague. Examples: 'AI developers', 'SMB sales teams', 'enterprise marketers', 'engineering teams', 'startup founders'"
+  ),
   coreValueProp: z.string(),
-  cvpKeyword: z.string().optional().default(""),
+  cvpKeyword: z.string().optional().default("").describe(
+    "2-3 word search keyword for core value proposition category. Always infer from headline/CTA. Examples: 'AI models API', 'sales intelligence', 'project management', 'CRM', 'email marketing'"
+  ),
   keyFeatures: z.array(z.string()).min(1),
   pricingModel: z.string().optional(),
   primaryCTAText: z.string().optional(),
@@ -62,11 +66,26 @@ export async function runAgent0(
       throw new AgentError("agent0", "keyFeatures array contains only empty strings");
     }
 
+    // ── Fallback: derive keywords from other fields if LLM left them empty ──
+    // icpKeyword ← first 3 substantive words from icp field
+    let icpKeyword = brief.icpKeyword?.trim() || "";
+    if (!icpKeyword && brief.icp) {
+      const STOP = new Set(["and", "or", "the", "a", "an", "for", "to", "in", "on", "with", "of", "who", "that", "focused", "looking", "seeking", "interested"]);
+      const words = brief.icp.split(/[\s,]+/).filter((w) => w.length > 1 && !STOP.has(w.toLowerCase()));
+      icpKeyword = words.slice(0, 3).join(" ");
+    }
+
+    // cvpKeyword ← industry (already a standardized short category)
+    let cvpKeyword = brief.cvpKeyword?.trim() || "";
+    if (!cvpKeyword && brief.industry) {
+      cvpKeyword = brief.industry.toLowerCase();
+    }
+
     return {
       ...brief,
       keyFeatures: validFeatures,
-      icpKeyword: brief.icpKeyword ?? "",
-      cvpKeyword: brief.cvpKeyword ?? "",
+      icpKeyword,
+      cvpKeyword,
     };
   } catch (err) {
     if (err instanceof AgentError) throw err;

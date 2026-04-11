@@ -31,7 +31,8 @@ function nameFromDomain(domain: string): string {
 
 async function tavilySearch(
   query: string,
-  apiKey: string
+  apiKey: string,
+  excludeDomains: string[]
 ): Promise<TavilyResult[]> {
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
@@ -42,6 +43,7 @@ async function tavilySearch(
       search_depth: "basic",
       max_results: 10,
       days: 365,
+      exclude_domains: excludeDomains,
     }),
   });
 
@@ -143,13 +145,42 @@ export async function runDiscovery(
 
   const inputDomain = rootDomain(ctx.inputUrl);
 
+  // ── Compute deterministic filter conditions BEFORE Tavily calls ───────────
+  // Moved up so we can include filtered domains in exclude_domains, freeing
+  // Tavily result slots for actual competitors.
+  const briefText = `${brief.industry} ${brief.coreValueProp}`.toLowerCase();
+
+  const VCS_PLATFORM_DOMAINS = new Set(['github.com', 'gitlab.com', 'bitbucket.org', 'sourcehut.org']);
+  const isVcsTool = /version.?control|code.?host|source.?code|git.*(platform|hosting)|repository|vcs/.test(briefText);
+
+  const MODEL_HUB_DOMAINS = new Set(['huggingface.co', 'kaggle.com', 'paperswithcode.com']);
+  const isModelHub = /model.*(hub|registry|sharing)|dataset.*(hub|sharing)|ai.*(community|repository)/.test(briefText);
+
+  const CONSUMER_AI_DOMAINS = new Set(['character.ai', 'perplexity.ai', 'poe.com', 'you.com']);
+  const isConsumerAI = /consumer.*(chat|assistant)|ai.*(search|companion)|personal.*(ai|assistant)/.test(briefText);
+
+  const ORCHESTRATION_DOMAINS = new Set(['langchain.com', 'llamaindex.ai']);
+
+  const DOCS_WIKI_DOMAINS = new Set(['notion.so', 'slab.com', 'slite.com', 'nuclino.com', 'tettra.com']);
+  const isDocsWikiTool = /wiki|knowledge.?base|documentation.*(platform|tool)|note.?taking|connected.?workspace|team.?docs/.test(briefText);
+
+  // ── Build Tavily exclude_domains list ─────────────────────────────────────
+  // Pre-filtering at the API level frees all 10 result slots for real competitors.
+  // Post-fetch filtering is kept as a safety net below.
+  const excludeDomains = [...META_DOMAINS, inputDomain];
+  if (!isVcsTool) excludeDomains.push(...VCS_PLATFORM_DOMAINS);
+  if (!isModelHub) excludeDomains.push(...MODEL_HUB_DOMAINS);
+  if (!isConsumerAI) excludeDomains.push(...CONSUMER_AI_DOMAINS);
+  excludeDomains.push(...ORCHESTRATION_DOMAINS);
+  if (!isDocsWikiTool) excludeDomains.push(...DOCS_WIKI_DOMAINS);
+
   // ── Run Tavily searches and LLM discovery in parallel ─────────────────────
   // Emit each short label as its search completes — progressive reveal.
   const emitted: string[] = [];
   const [tavilySettled, llmCandidates] = await Promise.all([
     Promise.allSettled(
       queries.map(({ label, query }) =>
-        tavilySearch(query, apiKey).then((results) => {
+        tavilySearch(query, apiKey, excludeDomains).then((results) => {
           emitted.push(label);
           onActions?.([...emitted]);
           return results.map((r) => ({ url: r.url, label }));
@@ -220,20 +251,50 @@ export async function runDiscovery(
     }
   }
 
-  // ── Remove VCS / code-hosting platforms unless the input IS one ───────────
-  // github.com, gitlab.com, bitbucket.org bundle issue tracking as a secondary
-  // feature — they are not direct competitors to issue trackers, PM tools, or
-  // productivity apps. Filtering here is deterministic: if they never reach
-  // Agent 2's candidate list, Agent 2 physically cannot select them.
-  // Exception: keep them if the input product IS a code-hosting tool.
-  const VCS_PLATFORM_DOMAINS = new Set(['github.com', 'gitlab.com', 'bitbucket.org', 'sourcehut.org']);
-  const briefText = `${brief.industry} ${brief.coreValueProp}`.toLowerCase();
-  const isVcsTool = /version.?control|code.?host|source.?code|git.*(platform|hosting)|repository|vcs/.test(briefText);
+  // ── Deterministic domain filters (safety net) ────────────────────────────
+  // These domains are also pre-excluded via Tavily's exclude_domains parameter.
+  // The post-fetch filters below catch anything that slips through (e.g. from
+  // LLM discovery or if Tavily's exclusion is imperfect).
 
+  // VCS / code-hosting platforms — issue tracking is a bundled minor feature
   if (!isVcsTool) {
     for (const d of VCS_PLATFORM_DOMAINS) {
       if (map.delete(d)) {
         console.warn(`[agent1] Filtered VCS platform '${d}' — not a code-hosting product`);
+      }
+    }
+  }
+
+  // Model hubs / AI community platforms — not commercial API competitors
+  if (!isModelHub) {
+    for (const d of MODEL_HUB_DOMAINS) {
+      if (map.delete(d)) {
+        console.warn(`[agent1] Filtered model hub '${d}' — not a model hub product`);
+      }
+    }
+  }
+
+  // Consumer AI products — not API platform competitors
+  if (!isConsumerAI) {
+    for (const d of CONSUMER_AI_DOMAINS) {
+      if (map.delete(d)) {
+        console.warn(`[agent1] Filtered consumer AI product '${d}' — not a consumer AI product`);
+      }
+    }
+  }
+
+  // Orchestration frameworks — developer libraries, never direct SaaS competitors
+  for (const d of ORCHESTRATION_DOMAINS) {
+    if (map.delete(d)) {
+      console.warn(`[agent1] Filtered orchestration framework '${d}'`);
+    }
+  }
+
+  // Docs/wiki platforms — not PM/issue-tracking competitors
+  if (!isDocsWikiTool) {
+    for (const d of DOCS_WIKI_DOMAINS) {
+      if (map.delete(d)) {
+        console.warn(`[agent1] Filtered docs/wiki platform '${d}' — not a docs/wiki product`);
       }
     }
   }
