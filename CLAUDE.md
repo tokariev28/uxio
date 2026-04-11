@@ -45,6 +45,8 @@ All Gemini system prompts live in `lib/agents/prompts.ts` (key: `AGENT_PROMPTS`)
 
 **Category detection** uses `productCategory` from Agent 0's structured output (enum: `vcs`, `modelHub`, `consumerAI`, `orchestration`, `docsWiki`, `other`). This replaced the previous fragile regex patterns that tested `industry + coreValueProp` against hardcoded substrings. The LLM determines the category from the full page markdown, which is far more robust. Five domain sets are filtered with category-based exceptions: `VCS_PLATFORM_DOMAINS` (github.com, gitlab.com, bitbucket.org, sourcehut.org), `MODEL_HUB_DOMAINS` (huggingface.co, kaggle.com, paperswithcode.com), `CONSUMER_AI_DOMAINS` (character.ai, perplexity.ai, poe.com, you.com), `ORCHESTRATION_DOMAINS` (langchain.com, llamaindex.ai — always excluded), and `DOCS_WIKI_DOMAINS` (notion.so, slab.com, slite.com, nuclino.com, tettra.com — filtered when category is not `docsWiki`).
 
+Domain filtering is **subdomain-aware**: `about.gitlab.com` matches the `gitlab.com` filter, `docs.github.com` matches `github.com`, etc. The `matchesFilterSet()` helper checks both exact match and `.endsWith('.'+domain)`.
+
 **Weighted mention scoring**: Tavily queries carry different signal strengths — `"vs"` queries (1.8x) are stronger than generic `"category"` queries (1.0x). LLM knowledge entries get 2.5x weight. This gives Agent 2's validator better differentiation when ranking candidates by market recognition.
 
 Both `competitorDiscovery` and `competitorValidator` contain extensive **negative examples** (invalid competitor patterns — GitHub for Linear, LinkedIn for Apollo, Hugging Face for Anthropic, Intercom/Zendesk for HubSpot, etc.). Do not remove or shorten these sections — they exist because the LLM reliably hallucinates these false positives without them.
@@ -64,9 +66,9 @@ All LLM calls go through Vercel AI Gateway with automatic fallback chains. Model
 To add or change a model, update `MODELS` in `gateway.ts` — no agent files need to change.
 
 Three functions:
-- `aiGenerate()` — text-only (used by Agent 6)
+- `aiGenerate()` — text-only (no longer used by active agents; kept for potential future use)
 - `aiGenerateMultimodal()` — text + image (used by Agent 5)
-- `aiGenerateStructured()` — Zod schema-validated structured output via AI SDK `Output.object()` (used by Agents 0, 1, 2, 4). Returns typed data directly — no `extractJSON`/`jsonrepair` needed.
+- `aiGenerateStructured()` — Zod schema-validated structured output via AI SDK `Output.object()` (used by Agents 0, 1, 2, 4, 6). Returns typed data directly — no `extractJSON`/`jsonrepair` needed.
 
 All three wrap calls in `withRetry()` — up to 2 retries on transient errors (429, 502, 503, 504, timeout, rate limit, overloaded, econnrefused, connection reset) with 1s/2s delays. The orchestrator also wraps each agent step in `withStepRetry()` (1 retry, immediate retry — no delay) for step-level resilience.
 
@@ -78,7 +80,7 @@ All three wrap calls in `withRetry()` — up to 2 retries on transient errors (4
 
 All pipeline types are defined here. TypeScript strict mode — no `any`. Key types:
 
-- **Pipeline data**: `ProductBrief`, `CompetitorCandidate` (has `source: string` — Tavily query label or `"llm-knowledge"`), `Competitor`, `PageData`, `ClassifiedSection` (has `scrollFraction: number` = `i / (dedupedSections.length - 1)` — section array index normalized to 0–1; derived from LLM response order, not character positions, which are unreliable), `PageSections`, `SectionFinding` (has `scores: SectionScores` with 10 sub-scores across 3 groups — Communication: clarity/specificity/icpFit; Conversion: attentionRatio/ctaQuality/trustSignals; Visual: visualHierarchy/cognitiveEase/typographyReadability/densityBalance; weighted final score computed deterministically in code: Communication ×1.5, Conversion ×1.2, Visual ×1.0 — plus `strengths/weaknesses: string[]`, `summary`, `evidence`, `confidence`), `SectionAnalysis`, `Recommendation` (has `priority: Priority`, `reasoning`, `suggestedAction`, `impact?`, `confidence?`), `Priority = "critical" | "high" | "medium"`, `OverallScores`, `AnalysisResult` (has `executiveSummary?`, `overallScores?`, `pageSections?`), `PipelineContext`
+- **Pipeline data**: `ProductCategory` (enum: `"vcs" | "modelHub" | "consumerAI" | "orchestration" | "docsWiki" | "other"`), `ProductBrief` (includes `productCategory`), `CompetitorCandidate` (has `source: string` — Tavily query label or `"llm-knowledge"`), `Competitor`, `PageData`, `ClassifiedSection` (has `scrollFraction: number` = `i / (dedupedSections.length - 1)` — section array index normalized to 0–1; derived from LLM response order, not character positions, which are unreliable), `PageSections`, `SectionFinding` (has `scores: SectionScores` with 10 sub-scores across 3 groups — Communication: clarity/specificity/icpFit; Conversion: attentionRatio/ctaQuality/trustSignals; Visual: visualHierarchy/cognitiveEase/typographyReadability/densityBalance; weighted final score computed deterministically in code: Communication ×1.5, Conversion ×1.2, Visual ×1.0 — plus `strengths/weaknesses: string[]`, `summary`, `evidence`, `confidence`), `SectionAnalysis`, `Recommendation` (has `priority: Priority`, `reasoning`, `suggestedAction`, `impact?`, `confidence?`), `Priority = "critical" | "high" | "medium"`, `OverallScores`, `AnalysisResult` (has `executiveSummary?`, `overallScores?`, `pageSections?`), `PipelineContext`
 - **SSE events**: `SSEProgressEvent`, `SSECompleteEvent` (carries `quality: QualityReport`), `SSEErrorEvent` — union type `SSEEvent`
 - **Stage tracking**: `AgentStage` (7 string literals), `StageStatus`, `StageState`
 
@@ -89,7 +91,9 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 
 ### Shared Utilities (`/lib/utils/`)
 
-- **`json-extract.ts`** — `extractJSON(text)` strips LLM preamble/postamble and returns the first JSON object or array by scanning brackets. Agents that still use `aiGenerate()`/`aiGenerateMultimodal()` (Agents 5 and 6) pair this with `jsonrepair` (from the `jsonrepair` package) as a second recovery tier — the pattern is `JSON.parse(jsonrepair(extractJSON(text)))`. Never call `JSON.parse()` on raw LLM output directly; never skip the `jsonrepair` tier. Agents 0, 1, 2, 4 use `aiGenerateStructured()` instead, which handles validation automatically via Zod schemas.
+- **`json-extract.ts`** — `extractJSON(text)` strips LLM preamble/postamble and returns the first JSON object or array by scanning brackets. Agent 5 (multimodal) still uses `aiGenerateMultimodal()` and pairs this with `jsonrepair` (from the `jsonrepair` package) as a recovery tier — the pattern is `JSON.parse(jsonrepair(extractJSON(text)))`, then Zod validation via `z.array(BatchSectionResultSchema).parse()`. Never call `JSON.parse()` on raw LLM output directly; never skip the `jsonrepair` tier. Agents 0, 1, 2, 4, 6 use `aiGenerateStructured()` instead, which handles validation automatically via Zod schemas.
+- **`url.ts`** — `getHostname(url)` extracts hostname without `www.` prefix (returns raw input on parse failure); `getHostnameOrEmpty(url)` same but returns `""` on failure (for filtering). Replaces 19+ inline `new URL(url).hostname.replace(/^www\./, "")` patterns across agents and UI components.
+- **`score.ts`** — `getScoreColor(score)` returns hex color by threshold (≥85 green, ≥70 cyan, ≥50 orange, <50 red); `getGradeLabel(score)` returns "Excellent"/"Good"/"Needs work"/"Critical". Used by all gauge and PDF components.
 - **`normalize-section-type.ts`** — `normalizeSectionType(raw)` converts any LLM-returned section string to the canonical camelCase `SectionType` value: strips trailing " section", camelCases multi-word inputs (`"social proof"` → `"socialProof"`, `"how it works"` → `"howItWorks"`), lowercases all-caps acronyms (`"FAQ"` → `"faq"`). Used by agents 4, 5, and 6 — always import from here, never re-implement locally.
 - **`scrape-quality.ts`** — `isUsableMarkdown(md)` returns `false` if content is < 300 chars or contains unusable-page signals (JS not rendered, 404/403 error pages, CAPTCHA/bot detection, cookie walls, Cloudflare challenges). Used by Agent 0 (fail fast) and Agent 3 (trigger two-pass retry).
 - **`ssrf.ts`** — `isUnsafeUrl(raw)` returns an error string or `null`. Allows HTTP and HTTPS, blocks private IPs (127.x, 10.x, 192.168.x, 172.16–31.x, 169.254.x), blocks non-standard ports (only 80/443 or no port). Shared by both API routes — do not duplicate this logic inline.
@@ -99,8 +103,10 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 ### API Security (`/app/api/analyze/route.ts`)
 
 - **Rate limiting**: In-memory IP-based, 2 requests per minute per IP
-- **SSRF protection**: Both HTTP and HTTPS allowed; blocks private IPs and non-standard ports via `isUnsafeUrl()` from `lib/utils/ssrf.ts` — applied in both `/api/analyze` and `/api/validate-url`. The validate-url route uses `redirect: "manual"` on both its HEAD and GET probes — do not change to `redirect: "follow"`, which would allow bypass via attacker-controlled 301 redirects to private IPs.
+- **SSRF protection**: Both HTTP and HTTPS allowed; blocks private IPs and non-standard ports via `isUnsafeUrl()` from `lib/utils/ssrf.ts` — applied in `/api/analyze`, `/api/validate-url`, and internally in Agent 3 (`resolveScreenshot`) and Agent 5 (`urlToBase64`) for Firecrawl-returned URLs. The validate-url route uses `redirect: "manual"` on both its HEAD and GET probes — do not change to `redirect: "follow"`, which would allow bypass via attacker-controlled 301 redirects to private IPs.
 - **CORS**: Origin header validated against host — cross-origin requests rejected
+- **Security headers**: `proxy.ts` sets CSP, X-Frame-Options (DENY), X-Content-Type-Options (nosniff), Referrer-Policy, Permissions-Policy, and HSTS on all responses
+- **Env validation**: `lib/env.ts` lazily validates `FIRECRAWL_API_KEY`, `TAVILY_API_KEY`, `GEMINI_API_KEY` via Zod on first use — throws a clear error if any key is missing
 
 ### UI
 
@@ -117,13 +123,15 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 - `components/ui/` — shadcn/ui primitives (button, input, card, badge, separator, skeleton)
 - `components/NotFoundContent.tsx` — `"use client"` component for the 404 page; uses `.hero-wrapper` gradient + framer-motion staggered entrance. The split exists because `app/not-found.tsx` must remain a Server Component to export `metadata`, while animations require `"use client"`. Apply the same pattern to any page that needs both `metadata` export and framer-motion.
 - `lib/hooks/useNotification.ts` — browser Notification API hook; fires when analysis completes while the tab is hidden; also manages tab title (`"Analyzing… • Uxio"` while running, `"✓ Analysis ready • Uxio"` on complete, then restores after 3s)
-- `AnalysisForm.tsx` caches completed results in `localStorage` (key: `uxio:cache:<url>`, TTL: 2 hours). On submit, a cache hit skips the pipeline entirely and shows results instantly.
+- `AnalysisForm.tsx` caches completed results in `localStorage` (key: `uxio:v{CACHE_VERSION}:cache:<url>`, TTL: 2 hours). On submit, a cache hit skips the pipeline entirely and shows results instantly. Bump `CACHE_VERSION` in `AnalysisForm.tsx` when `AnalysisResult` schema changes to auto-invalidate stale entries.
 - Tailwind CSS v4 (PostCSS). Fonts: **Helvetica Now Display** loaded locally via `@font-face` in `globals.css` (weights 100–900, normal + italic; CSS var `--font-primary`); **Instrument Serif** italic loaded via `next/font/google` (`--font-instrument-serif`). Geist Mono is only a CSS fallback in `--font-mono` — it is not loaded via `next/font`. `framer-motion` for enter animations — standard easing is `[0.16, 1, 0.3, 1]` with `initial={{ opacity: 0, y: 32 }}`. `"use client"` on all interactive components.
 - The `.hero-wrapper`, `.hero-content`, `.hero-heading`, `.hero-heading em`, `.hero-subtitle`, and `.hero-submit` CSS classes in `globals.css` are reusable across any full-bleed gradient page (currently used by the home page and the 404 page). `.hero-heading em` applies Instrument Serif italic automatically.
-- `@vercel/analytics` and `@vercel/speed-insights` are wired in `app/layout.tsx`; JSON-LD `SoftwareApplication` structured data is also injected in `<head>` at layout level
+- `@vercel/analytics` and `@vercel/speed-insights` are wired in `app/layout.tsx`; JSON-LD `SoftwareApplication` structured data is also injected in `<head>` at layout level. Custom analytics events via `track()`: `analysis_started`, `analysis_completed` (with score, sections, duration_s), `analysis_failed`, `pdf_exported`
+- `app/error.tsx` — client-side error boundary with retry button (`.hero-wrapper` style). `app/global-error.tsx` — root layout crash fallback (minimal inline styles, no dependencies)
 
 ### SEO
 
+- `lib/site-url.ts` — canonical `SITE_URL` resolved from `VERCEL_PROJECT_PRODUCTION_URL` → `VERCEL_URL` → hardcoded fallback. Used by `robots.ts`, `sitemap.ts`, and `indexnow/route.ts` — do not hardcode the URL in those files
 - `app/robots.ts` — Next.js `MetadataRoute.Robots` handler (allows all, points to sitemap)
 - `app/sitemap.ts` — Next.js `MetadataRoute.Sitemap` handler (single root URL, weekly change frequency)
 - `app/opengraph-image.tsx` — Next.js OG image route (`next/og` `ImageResponse`, Edge runtime). Renders a static 1200×630 dark card with an Instrument Serif italic headline and three static score pills. Font fetched at request time from `fonts.gstatic.com`. To change the OG image update this file — do not add a static PNG.
@@ -161,7 +169,7 @@ All keys are server-side only — never exposed to the client.
 - All agent prompts enforce evidence-based output: generic verbs are forbidden, every insight must cite specific copy or visual elements
 - `SectionFinding` and `Recommendation` carry a `confidence` field (0–1) indicating how certain the agent is in each finding
 - `@react-pdf/renderer` is a client-side dependency (~750 KB); `AnalysisPDF.tsx` has a `"use client"` directive and must only ever be accessed via `import("./AnalysisPDF")` — never import it statically from any file
-- `SECTION_LABELS` mapping (`SectionType` → display string) is duplicated in `SectionCard.tsx`, `AnalysisPDF.tsx`, and `ResultsPanel.tsx` by design (each has slightly different rendering context). `AnalysisPDF.tsx` carries the most complete list (15 types: hero, navigation, features, benefits, socialProof, testimonials, integrations, howItWorks, pricing, faq, cta, footer, videoDemo, comparison, metrics) — treat it as the source of truth for valid `SectionType` values
+- Shared constants live in `lib/constants.ts`: `SECTION_LABELS` (SectionType → display string, 15 types), `VALID_SECTION_TYPES` (Set), `PRIORITY_ORDER`, `PRIORITY_COLORS`, `PRIORITY_STYLES`. All UI components and agents import from here — do not duplicate locally
 - Client-only APIs (`sessionStorage`, `Notification`, `window`) are guarded with a module-level `isSupported = typeof window !== "undefined" && ...` constant. State that reads from these APIs must initialize to a safe default (e.g. `false`) and sync in `useEffect` — never read them inside a `useState` lazy initializer, as that causes SSR/hydration mismatch. `eslint-config-next` enforces `react-hooks/set-state-in-effect`; if you must call `setState` synchronously in an effect to sync external state, add `// eslint-disable-next-line react-hooks/set-state-in-effect` with a comment explaining why.
 - `package.json` has an `"overrides": { "axios": "^1.15.0" }` entry to keep the transitive axios dependency (used by `@mendable/firecrawl-js`) patched against the NO_PROXY SSRF vulnerability — do not remove it.
 - `next.config.ts` has `images.remotePatterns` allowing only `www.google.com/s2/favicons`. Any new external `<Image>` source (e.g. competitor logos) must be added here or Next.js will throw at build time.
