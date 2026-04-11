@@ -1,8 +1,8 @@
+import { z } from "zod";
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
-import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
-import { extractJSON } from "@/lib/utils/json-extract";
+import { aiGenerateStructured, CHAINS } from "@/lib/ai/gateway";
 import { normalizeSectionType } from "@/lib/utils/normalize-section-type";
-import { stripMarkdownLinks } from "@/lib/utils/markdown-clean";
+import { stripMarkdownLinks, stripBoilerplate } from "@/lib/utils/markdown-clean";
 import type {
   PipelineContext,
   PageSections,
@@ -10,7 +10,6 @@ import type {
   SectionType,
 } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
-import { jsonrepair } from "jsonrepair";
 
 const VALID_SECTION_TYPES = new Set<SectionType>([
   "hero",
@@ -30,6 +29,16 @@ const VALID_SECTION_TYPES = new Set<SectionType>([
   "metrics",
 ]);
 
+// ── Zod schema for structured output ─────────────────────────────────────
+const SectionClassificationSchema = z.object({
+  sections: z.array(z.object({
+    type: z.string(),
+    startChar: z.number().optional().default(0),
+    endChar: z.number().optional(),
+    summary: z.string().optional(),
+  })),
+});
+
 async function classifyPage(
   url: string,
   markdown: string
@@ -38,41 +47,25 @@ async function classifyPage(
   // Long tracking URLs (100-200 chars each) cause the LLM's startChar/endChar
   // estimates to drift by hundreds of positions, producing slices that land
   // inside URL query strings instead of actual page content.
-  const cleanMd = stripMarkdownLinks(markdown);
+  const cleanMd = stripBoilerplate(stripMarkdownLinks(markdown));
 
-  const rawText = await aiGenerate(CHAINS.flashLite, {
+  const raw = await aiGenerateStructured(CHAINS.flashLite, {
     system: AGENT_PROMPTS.sectionClassifier,
     prompt: cleanMd,
-    json: true,
+    schema: SectionClassificationSchema,
   });
 
-  let raw: { sections: unknown[] };
-  try {
-    raw = JSON.parse(jsonrepair(extractJSON(rawText)));
-  } catch (err) {
-    throw new AgentError(
-      "agent4",
-      `AI response is not valid JSON for ${url}: ${err instanceof Error ? err.message : String(err)}`
-    );
-  }
-
-  if (!Array.isArray(raw?.sections)) {
-    throw new AgentError("agent4", `Response missing "sections" array for ${url}`);
-  }
-
   const seen = new Set<SectionType>();
-  const rawSections: ClassifiedSection[] = raw.sections
-    .map((item) => {
-      const s = item as Record<string, unknown>;
-      const rawStart = typeof s.startChar === "number" ? s.startChar : 0;
-      const rawEnd = typeof s.endChar === "number" ? s.endChar : cleanMd.length;
+  const dedupedSections = raw.sections
+    .map((s) => {
+      const rawStart = s.startChar ?? 0;
+      const rawEnd = s.endChar ?? cleanMd.length;
       // Clamp to valid bounds — LLM sometimes returns positions beyond text length
       const clampedStart = Math.max(0, Math.min(rawStart, cleanMd.length));
       const clampedEnd = Math.max(clampedStart, Math.min(rawEnd, cleanMd.length));
       return {
         type: normalizeSectionType(s.type) as SectionType,
         markdownSlice: cleanMd.slice(clampedStart, clampedEnd),
-        scrollFraction: cleanMd.length > 0 ? clampedStart / cleanMd.length : 0,
       };
     })
     .filter((s) => VALID_SECTION_TYPES.has(s.type))
@@ -83,13 +76,14 @@ async function classifyPage(
       return true;
     });
 
-  // Fallback: if LLM omitted all position data, every section gets scrollFraction=0,
-  // which makes the agent5 sort and the UI sidebar order meaningless.
-  // Distribute them evenly across the page using their detection order instead.
-  const allAtZero = rawSections.length > 1 && rawSections.every((s) => s.scrollFraction === 0);
-  const sections = allAtZero
-    ? rawSections.map((s, i) => ({ ...s, scrollFraction: i / rawSections.length }))
-    : rawSections;
+  // Assign scrollFraction from LLM response order, not startChar.
+  // LLMs process markdown top-to-bottom and return sections in page order,
+  // but their character-position estimates (startChar) are unreliable and
+  // produce scrambled ordering (e.g. hero at 0.4, socialProof at 0.02).
+  const sections: ClassifiedSection[] = dedupedSections.map((s, i) => ({
+    ...s,
+    scrollFraction: dedupedSections.length > 1 ? i / (dedupedSections.length - 1) : 0,
+  }));
 
   return { url, sections };
 }
@@ -102,24 +96,23 @@ export async function runClassifier(
     throw new AgentError("agent4", "pages is missing from pipeline context");
   }
 
-  // Emit all page domains being classified (input URL + competitors)
-  if (ctx.pages?.length) {
-    const domains = ctx.pages.map((p) => {
-      try {
-        return new URL(p.url).hostname.replace(/^www\./, "");
-      } catch {
-        return p.url;
-      }
-    });
-    onActions?.(domains);
-  }
+  const getHostname = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } };
 
+  // Emit each domain as its classification completes — progressive reveal.
+  const emitted: string[] = [];
   const results = await Promise.allSettled(
     ctx.pages.map((page) => {
+      const hostname = getHostname(page.url);
       if (!page.markdown) {
+        emitted.push(hostname);
+        onActions?.([...emitted]);
         return Promise.resolve<PageSections>({ url: page.url, sections: [] });
       }
-      return classifyPage(page.url, page.markdown);
+      return classifyPage(page.url, page.markdown).then((result) => {
+        emitted.push(hostname);
+        onActions?.([...emitted]);
+        return result;
+      });
     })
   );
 

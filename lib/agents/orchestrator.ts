@@ -153,6 +153,9 @@ export async function runPipeline(
       stage: "synthesis",
       label: "Synthesizing recommendations",
       run: async (ctx) => {
+        const onActions = (actions: string[]) =>
+          writer.send({ type: "progress", stage: "synthesis", status: "running", message: "Synthesising insights…", actions });
+
         // Filter out competitors that failed analysis — prevents Agent 6 from
         // fabricating examples based on competitors it never actually analyzed.
         if (ctx.failedUrls?.length && ctx.competitors?.length) {
@@ -166,7 +169,7 @@ export async function runPipeline(
           });
         }
 
-        const synthesis = await runSynthesis(ctx);
+        const synthesis = await runSynthesis(ctx, onActions);
         ctx.recommendations = synthesis.recommendations;
         ctx.executiveSummary = synthesis.executiveSummary;
         ctx.overallScores = synthesis.overallScores;

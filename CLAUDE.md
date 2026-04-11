@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev     # Start dev server (forces webpack bundler)
+npm run dev     # Start dev server (Turbopack, Next.js 16 default)
 npm run build   # Production build
 npm run lint    # ESLint check
 npm start       # Production server
@@ -55,7 +55,12 @@ All LLM calls go through Vercel AI Gateway with automatic fallback chains. Model
 
 To add or change a model, update `MODELS` in `gateway.ts` — no agent files need to change.
 
-Two functions: `aiGenerate()` (text-only) and `aiGenerateMultimodal()` (text + image, used by Agent 5). Both wrap calls in `withRetry()` — up to 2 retries on transient errors (429, 503, timeout) with 1s/2s delays. The orchestrator also wraps each agent step in `withStepRetry()` (1 retry, 2s delay) for step-level resilience.
+Three functions:
+- `aiGenerate()` — text-only (used by Agent 6)
+- `aiGenerateMultimodal()` — text + image (used by Agent 5)
+- `aiGenerateStructured()` — Zod schema-validated structured output via AI SDK `Output.object()` (used by Agents 0, 1, 2, 4). Returns typed data directly — no `extractJSON`/`jsonrepair` needed.
+
+All three wrap calls in `withRetry()` — up to 2 retries on transient errors (429, 502, 503, 504, timeout, rate limit, overloaded, econnrefused, connection reset) with 1s/2s delays. The orchestrator also wraps each agent step in `withStepRetry()` (1 retry, immediate retry — no delay) for step-level resilience.
 
 ### SSE Streaming (`/lib/sse.ts`)
 
@@ -76,12 +81,12 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 
 ### Shared Utilities (`/lib/utils/`)
 
-- **`json-extract.ts`** — `extractJSON(text)` strips LLM preamble/postamble and returns the first JSON object or array by scanning brackets. All agents pair this with `jsonrepair` (from the `jsonrepair` package) as a second recovery tier before falling back to an LLM retry — the pattern is `JSON.parse(jsonrepair(extractJSON(text)))`. Never call `JSON.parse()` on raw LLM output directly; never skip the `jsonrepair` tier.
+- **`json-extract.ts`** — `extractJSON(text)` strips LLM preamble/postamble and returns the first JSON object or array by scanning brackets. Agents that still use `aiGenerate()`/`aiGenerateMultimodal()` (Agents 5 and 6) pair this with `jsonrepair` (from the `jsonrepair` package) as a second recovery tier — the pattern is `JSON.parse(jsonrepair(extractJSON(text)))`. Never call `JSON.parse()` on raw LLM output directly; never skip the `jsonrepair` tier. Agents 0, 1, 2, 4 use `aiGenerateStructured()` instead, which handles validation automatically via Zod schemas.
 - **`normalize-section-type.ts`** — `normalizeSectionType(raw)` converts any LLM-returned section string to the canonical camelCase `SectionType` value: strips trailing " section", camelCases multi-word inputs (`"social proof"` → `"socialProof"`, `"how it works"` → `"howItWorks"`), lowercases all-caps acronyms (`"FAQ"` → `"faq"`). Used by agents 4, 5, and 6 — always import from here, never re-implement locally.
-- **`scrape-quality.ts`** — `isUsableMarkdown(md)` returns `false` if content is < 300 chars or contains JS-not-rendered signals. Used by Agent 0 (fail fast) and Agent 3 (trigger two-pass retry).
+- **`scrape-quality.ts`** — `isUsableMarkdown(md)` returns `false` if content is < 300 chars or contains unusable-page signals (JS not rendered, 404/403 error pages, CAPTCHA/bot detection, cookie walls, Cloudflare challenges). Used by Agent 0 (fail fast) and Agent 3 (trigger two-pass retry).
 - **`ssrf.ts`** — `isUnsafeUrl(raw)` returns an error string or `null`. Allows HTTP and HTTPS, blocks private IPs (127.x, 10.x, 192.168.x, 172.16–31.x, 169.254.x), blocks non-standard ports (only 80/443 or no port). Shared by both API routes — do not duplicate this logic inline.
 - **`quality-scorer.ts`** — `scoreAnalysisQuality(result)` returns a `QualityReport` with `overallQuality` (0–100) from 5 weighted signals: evidence grounding (30%), score variance (25%), specificity rate (20%), competitor presence (15%), field completeness (10%). Attached to the `complete` SSE event; only logged in non-production environments.
-- **`markdown-clean.ts`** — two utilities: `stripMarkdownLinks(md)` converts `[text](url)` → `text` while **intentionally keeping bare URLs** (they count as LLM evidence); used by Agent 5 before prompt calls. `stripInlineCode(md)` removes backtick spans from AI-generated display text (UI rendering only, not pre-prompt).
+- **`markdown-clean.ts`** — three utilities: `stripMarkdownLinks(md)` converts `[text](url)` → `text` while **intentionally keeping bare URLs** (they count as LLM evidence); used by Agent 5 before prompt calls. `stripBoilerplate(md)` removes common boilerplate lines (nav menus, cookie banners, breadcrumbs, decorative separators) from scraped markdown before sending to LLM — prevents the model from citing non-content elements as evidence; used by Agents 4 and 5. `stripInlineCode(md)` removes backtick spans from AI-generated display text (UI rendering only, not pre-prompt).
 
 ### API Security (`/app/api/analyze/route.ts`)
 
@@ -102,15 +107,18 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
   - `AnalysisPDF` — `@react-pdf/renderer` document component; mirrors the results UI structure
   - `CompetitorTabSwitcher`, `RecommendationCard`, `ScoreBadge`, `SectionInsightCard`, `SkeletonSectionCard`
 - `components/ui/` — shadcn/ui primitives (button, input, card, badge, separator, skeleton)
+- `components/NotFoundContent.tsx` — `"use client"` component for the 404 page; uses `.hero-wrapper` gradient + framer-motion staggered entrance. The split exists because `app/not-found.tsx` must remain a Server Component to export `metadata`, while animations require `"use client"`. Apply the same pattern to any page that needs both `metadata` export and framer-motion.
 - `lib/hooks/useNotification.ts` — browser Notification API hook; fires when analysis completes while the tab is hidden; also manages tab title (`"Analyzing… • Uxio"` while running, `"✓ Analysis ready • Uxio"` on complete, then restores after 3s)
 - `AnalysisForm.tsx` caches completed results in `localStorage` (key: `uxio:cache:<url>`, TTL: 2 hours). On submit, a cache hit skips the pipeline entirely and shows results instantly.
-- Tailwind CSS v4 (PostCSS), Geist fonts + Instrument Serif italic (`--font-instrument-serif`), `framer-motion` for enter animations, `"use client"` on all interactive components
+- Tailwind CSS v4 (PostCSS). Fonts: **Helvetica Now Display** loaded locally via `@font-face` in `globals.css` (weights 100–900, normal + italic; CSS var `--font-primary`); **Instrument Serif** italic loaded via `next/font/google` (`--font-instrument-serif`). Geist Mono is only a CSS fallback in `--font-mono` — it is not loaded via `next/font`. `framer-motion` for enter animations — standard easing is `[0.16, 1, 0.3, 1]` with `initial={{ opacity: 0, y: 32 }}`. `"use client"` on all interactive components.
+- The `.hero-wrapper`, `.hero-content`, `.hero-heading`, `.hero-heading em`, `.hero-subtitle`, and `.hero-submit` CSS classes in `globals.css` are reusable across any full-bleed gradient page (currently used by the home page and the 404 page). `.hero-heading em` applies Instrument Serif italic automatically.
 - `@vercel/analytics` and `@vercel/speed-insights` are wired in `app/layout.tsx`; JSON-LD `SoftwareApplication` structured data is also injected in `<head>` at layout level
 
 ### SEO
 
 - `app/robots.ts` — Next.js `MetadataRoute.Robots` handler (allows all, points to sitemap)
 - `app/sitemap.ts` — Next.js `MetadataRoute.Sitemap` handler (single root URL, weekly change frequency)
+- `app/opengraph-image.tsx` — Next.js OG image route (`next/og` `ImageResponse`, Edge runtime). Renders a static 1200×630 dark card with an Instrument Serif italic headline and three static score pills. Font fetched at request time from `fonts.gstatic.com`. To change the OG image update this file — do not add a static PNG.
 - `app/api/indexnow/route.ts` — GET endpoint that submits the site URL to the IndexNow API (`api.indexnow.org`). Key: `d4f3e2c1b0a9f8e7d6c5b4a3f2e1d0c9`, verification file at `public/d4f3e2c1b0a9f8e7d6c5b4a3f2e1d0c9.txt`
 - `metadataBase` in `app/layout.tsx` resolves using `VERCEL_PROJECT_PRODUCTION_URL` → `VERCEL_URL` → hardcoded fallback
 - `public/llms.txt` and `public/llms-full.txt` — LLM crawler discovery files
@@ -123,8 +131,9 @@ Copy `.env.local.example` to `.env.local`:
 FIRECRAWL_API_KEY=        # Firecrawl web scraping
 TAVILY_API_KEY=           # Tavily search
 GEMINI_API_KEY=           # Google Gemini 2.5 Flash / Flash-Lite
-AI_GATEWAY_URL=           # Vercel AI Gateway base URL (set in Vercel dashboard for prod)
 ```
+
+`AI_GATEWAY_URL` (Vercel AI Gateway base URL) is **not** in `.env.local.example` — it is set in the Vercel dashboard for prod and pulled locally via `vercel env pull .env.local`. Required for production; local dev works without it if the AI SDK `gateway()` function can resolve the provider directly.
 
 All keys are server-side only — never exposed to the client.
 

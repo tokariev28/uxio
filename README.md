@@ -90,8 +90,9 @@ Open `.env.local` and fill in your API keys:
 FIRECRAWL_API_KEY=your_firecrawl_api_key_here
 TAVILY_API_KEY=your_tavily_api_key_here
 GEMINI_API_KEY=your_gemini_api_key_here
-AI_GATEWAY_URL=your_vercel_ai_gateway_url_here
 ```
+
+> `AI_GATEWAY_URL` is not in the example file — it is set in the Vercel dashboard and can be pulled locally with `vercel env pull .env.local`. Local development works without it.
 
 ### 4. Run the dev server
 
@@ -180,7 +181,7 @@ uxio/
 │       ├── json-extract.ts        # Safe LLM JSON parsing
 │       ├── normalize-section-type.ts # Canonical SectionType normalization
 │       ├── scrape-quality.ts      # Markdown usability check
-│       ├── markdown-clean.ts      # stripMarkdownLinks() + stripInlineCode()
+│       ├── markdown-clean.ts      # stripMarkdownLinks() + stripInlineCode() + stripBoilerplate()
 │       ├── ssrf.ts                # isUnsafeUrl() — shared by both API routes
 │       └── quality-scorer.ts      # Analysis quality gate (5-signal score)
 └── .env.local.example
@@ -191,7 +192,7 @@ uxio/
 ## Scripts
 
 ```bash
-npm run dev    # Start dev server (Webpack bundler)
+npm run dev    # Start dev server (Turbopack, default in Next.js 16)
 npm run build  # Production build
 npm run lint   # ESLint check
 npm start      # Production server

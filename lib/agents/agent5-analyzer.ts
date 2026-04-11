@@ -1,6 +1,6 @@
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerateMultimodal, CHAINS } from "@/lib/ai/gateway";
-import { stripMarkdownLinks, stripInlineCode } from "@/lib/utils/markdown-clean";
+import { stripMarkdownLinks, stripBoilerplate, stripInlineCode } from "@/lib/utils/markdown-clean";
 import { normalizeSectionType } from "@/lib/utils/normalize-section-type";
 import type {
   PipelineContext,
@@ -82,37 +82,12 @@ async function urlToBase64(url: string): Promise<string> {
   return Buffer.from(buffer).toString("base64");
 }
 
-// ── Evidence grounding helpers ─────────────────────────────────────────────
-// Post-processing guard: if a strength/weakness has no quoted phrase and no
-// number, automatically prepend the section's best keyEvidence quote so the
-// quality-scorer's isEvidenceGrounded() check passes.
-
-function needsGrounding(text: string): boolean {
-  if (/["""][^"""]{3,}["""]/.test(text)) return false; // already quoted (ASCII or smart quotes)
-  if (/\b\d+/.test(text)) return false;                 // already has a number
-  return true;
-}
-
-/**
- * Apply evidence grounding to a list of insights. Cycles through available
- * evidence fields (copyQuote → headlineText → visualObservation) so each
- * ungrounded item gets a different anchor quote instead of repeating one.
- */
-function applyGrounding(
-  items: string[],
-  evidence: { copyQuote: string | null; headlineText: string | null; visualObservation?: string | null }
-): string[] {
-  const quotes = [evidence.copyQuote, evidence.headlineText, evidence.visualObservation]
-    .filter((q): q is string => typeof q === "string" && q.length >= 3);
-  let quoteIdx = 0;
-  return items.map((item) => {
-    if (!needsGrounding(item)) return item;
-    if (quoteIdx >= quotes.length) return item;
-    const quote = quotes[quoteIdx];
-    quoteIdx++;
-    return `"${quote}" — ${item}`;
-  });
-}
+// ── Evidence grounding ────────────────────────────────────────────────────
+// The prompt now requires every insight to start with a quote or visual
+// description. We no longer auto-inject quotes into generic text — that
+// masked weak LLM output instead of fixing it. The quality-scorer will
+// honestly report ungrounded insights, and the prompt improvements prevent
+// them from occurring in the first place.
 
 // ── Deterministic score computation ───────────────────────────────────────
 // LLMs frequently get multi-step weighted arithmetic wrong. Computing the
@@ -173,7 +148,7 @@ async function analyzePageBatch(
     .sort((a, b) => a.scrollFraction - b.scrollFraction)
     .map((s) => ({
       ...s,
-      markdownSlice: stripMarkdownLinks(s.markdownSlice).slice(0, MAX_MARKDOWN_CHARS),
+      markdownSlice: stripBoilerplate(stripMarkdownLinks(s.markdownSlice)).slice(0, MAX_MARKDOWN_CHARS),
     }));
 
   const sectionsInput = limitedSections
@@ -183,7 +158,19 @@ async function analyzePageBatch(
     )
     .join("\n\n---\n\n");
 
-  const textContent = `TARGET ICP: ${ctx.productBrief!.icp}\n\nYou will analyze exactly ${limitedSections.length} sections. Your JSON array must contain exactly ${limitedSections.length} objects.\n\nSECTIONS TO ANALYZE:\n\n${sectionsInput}`;
+  // Pass rich product context so the LLM can score icpFit, ctaQuality, and
+  // specificity against real product data instead of guessing.
+  const brief = ctx.productBrief!;
+  const productContext = [
+    `TARGET ICP: ${brief.icp}`,
+    `CORE VALUE PROP: ${brief.coreValueProp}`,
+    brief.keyFeatures?.length ? `KEY FEATURES: ${brief.keyFeatures.join("; ")}` : null,
+    brief.pricingModel ? `PRICING MODEL: ${brief.pricingModel}` : null,
+    brief.hasFreeTrialOrFreemium != null ? `FREE TRIAL/FREEMIUM: ${brief.hasFreeTrialOrFreemium ? "yes" : "no"}` : null,
+    brief.industry ? `INDUSTRY: ${brief.industry}` : null,
+  ].filter(Boolean).join("\n");
+
+  const textContent = `${productContext}\n\nYou will analyze exactly ${limitedSections.length} sections. Your JSON array must contain exactly ${limitedSections.length} objects.\n\nSECTIONS TO ANALYZE:\n\n${sectionsInput}`;
 
   // ── Single Flash call (multimodal: screenshot + all sections) ──────
   const rawText = await aiGenerateMultimodal(CHAINS.flash, {
@@ -251,11 +238,7 @@ export async function runAnalyzer(
     throw new AgentError("agent5", "pageSections is missing from pipeline context");
   }
 
-  // Emit all page domains being analyzed
-  const domains = ctx.pages.map((p) => {
-    try { return new URL(p.url).hostname.replace(/^www\./, ""); } catch { return p.url; }
-  });
-  onActions?.(domains);
+  const getHostname = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } };
 
   const competitors = ctx.competitors ?? [];
 
@@ -280,6 +263,10 @@ export async function runAnalyzer(
   // most-important page from being starved by concurrent gateway rate limits.
   const [inputPage, ...competitorPages] = ctx.pages;
 
+  // Emit input hostname immediately; competitors appear at their 600 ms stagger point.
+  const emitted: string[] = [getHostname(inputPage.url)];
+  onActions?.([...emitted]);
+
   const inputResult = await makeJob(inputPage).then(
     (value): PromiseSettledResult<BatchSectionResult[]> => ({ status: "fulfilled", value }),
     (reason): PromiseSettledResult<BatchSectionResult[]> => ({ status: "rejected", reason })
@@ -292,7 +279,11 @@ export async function runAnalyzer(
     competitorPages.map(
       (page, i) =>
         new Promise<BatchSectionResult[]>((resolve, reject) => {
-          setTimeout(() => makeJob(page).then(resolve, reject), i * 600);
+          setTimeout(() => {
+            emitted.push(getHostname(page.url));
+            onActions?.([...emitted]);
+            makeJob(page).then(resolve, reject);
+          }, i * 600);
         })
     )
   );
@@ -319,32 +310,25 @@ export async function runAnalyzer(
     for (const raw of result.value) {
       const sectionType = normalizeSectionType(raw.sectionType) as SectionType;
 
-      const kev = raw.keyEvidence;
-      const evidenceCtx = {
-        copyQuote: kev.copyQuote,
-        headlineText: kev.headlineText,
-        visualObservation: kev.visualObservation,
-      };
-
-      const groundedStrengths = applyGrounding(
-        (raw.strengths ?? []).filter((s): s is string => typeof s === "string"),
-        evidenceCtx,
-      ).map(stripInlineCode);
-      const groundedWeaknesses = applyGrounding(
-        (raw.weaknesses ?? []).filter((s): s is string => typeof s === "string"),
-        evidenceCtx,
-      ).map(stripInlineCode);
+      const strengths = (raw.strengths ?? [])
+        .filter((s): s is string => typeof s === "string")
+        .map(stripInlineCode);
+      const weaknesses = (raw.weaknesses ?? [])
+        .filter((s): s is string => typeof s === "string")
+        .map(stripInlineCode);
 
       // Compute score deterministically from sub-scores (LLMs get weighted arithmetic wrong)
       const computedScore = computeWeightedScore(raw.scores);
       let score = computedScore >= 0 ? computedScore : Math.max(0, Math.min(1, raw.overallScore));
 
-      // Enforce self-consistency rules from the prompt rubric
-      if (groundedWeaknesses.length >= 3 && score > 0.50) score = 0.50;
-      else if (groundedWeaknesses.length >= 2 && score > 0.65) score = 0.65;
-      if (score >= 0.80 && groundedWeaknesses.length > 1) score = 0.79;
-      if (raw.scores && (raw.scores.clarity < 0.5 || raw.scores.specificity < 0.5 || raw.scores.icpFit < 0.5) && score > 0.60) {
-        score = 0.60;
+      // Light safeguard: only cap truly egregious inconsistencies.
+      // The weighted sub-scores already encode quality — aggressive caps
+      // destroy differentiation (the "all 55" bug).
+      if (weaknesses.length >= 3 && strengths.length === 0 && score > 0.5) {
+        score = 0.5;
+      }
+      if (score >= 0.92 && weaknesses.length >= 3) {
+        score = 0.88;
       }
 
       const finding: SectionFinding = {
@@ -357,9 +341,9 @@ export async function runAnalyzer(
               ? Math.round((raw.confidence / 10) * 100) / 100   // 1–10 scale → 0–1
               : raw.confidence
             : undefined,
-        strengths: groundedStrengths,
-        weaknesses: groundedWeaknesses,
-        summary: groundedStrengths[0] ?? groundedWeaknesses[0] ?? "No notable findings",
+        strengths: strengths,
+        weaknesses: weaknesses,
+        summary: strengths[0] ?? weaknesses[0] ?? "No notable findings",
         evidence: {
           headlineText: raw.keyEvidence.headlineText ?? undefined,
           ctaText: raw.keyEvidence.ctaText ?? undefined,

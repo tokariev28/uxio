@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Instrument_Serif } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -23,6 +23,9 @@ export const metadata: Metadata = {
   title: "Uxio — AI Competitive Landing Page Analyzer",
   description:
     "Get instant, evidence-based competitive design intelligence for your SaaS landing page.",
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: "/favicon.svg",
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
@@ -31,38 +34,45 @@ export const metadata: Metadata = {
     title: "Uxio — AI Competitive Landing Page Analyzer",
     description:
       "Get instant, evidence-based competitive design intelligence for your SaaS landing page.",
-    url: "https://uxio-wheat.vercel.app",
+    url: "/",
     siteName: "Uxio",
-    images: [
-      {
-        url: "https://uxio-wheat.vercel.app/og.png",
-        width: 1200,
-        height: 630,
-        alt: "Uxio — See your landing page through your competitor's eyes",
-        type: "image/png",
-      },
-    ],
     type: "website",
+    locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
     title: "Uxio — AI Competitive Landing Page Analyzer",
     description:
       "Get instant, evidence-based competitive design intelligence for your SaaS landing page.",
-    images: [{ url: "https://uxio-wheat.vercel.app/og.png", alt: "Uxio — See your landing page through your competitor's eyes" }],
   },
 };
 
-// Static compile-time constant — not user input, safe for dangerouslySetInnerHTML
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+  ],
+};
+
+const SITE_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : "https://uxio-wheat.vercel.app";
+
+// Static compile-time object built from env vars — not user input
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   name: "Uxio",
   description:
-    "AI-powered competitive landing page analyzer. Submit any public SaaS URL — Uxio runs a 7-agent pipeline that identifies your 3 closest true competitors, scores 12 page sections on a 10-axis rubric, and returns prioritized, evidence-backed recommendations in 2–4 minutes.",
-  url: "https://uxio-wheat.vercel.app",
+    "AI-powered competitive landing page analyzer. Submit any public SaaS URL — Uxio runs a 7-agent pipeline that identifies your 3 closest true competitors, scores 15 page sections on a 10-axis rubric, and returns prioritized, evidence-backed recommendations in 2–4 minutes.",
+  url: SITE_URL,
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
+  inLanguage: "en-US",
+  datePublished: "2026-04-01",
+  dateModified: "2026-04-11",
   offers: {
     "@type": "Offer",
     price: "0",
@@ -73,13 +83,13 @@ const jsonLd = {
     "7-agent AI pipeline (Page Intelligence, Competitor Discovery, Vision Analysis, Synthesis)",
     "Multi-signal competitor discovery via Tavily search and LLM knowledge cross-validation",
     "10-axis scoring rubric across Communication, Conversion, and Visual groups",
-    "12 SaaS section types detected (hero, features, pricing, testimonials, CTA, and more)",
+    "15 SaaS section types detected (hero, features, pricing, testimonials, CTA, and more)",
     "Real-time progress streaming via SSE",
     "PDF export of the full analysis report",
     "5-signal quality gate before result delivery",
     "2-hour result cache — revisit the same URL instantly",
   ],
-  screenshot: "https://uxio-wheat.vercel.app/og.png",
+  screenshot: `${SITE_URL}/opengraph-image`,
   audience: {
     "@type": "Audience",
     audienceType:

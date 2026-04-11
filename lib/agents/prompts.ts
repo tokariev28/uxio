@@ -81,11 +81,29 @@ export const AGENT_PROMPTS = {
   - For monitoring / observability (e.g. Datadog): New Relic, Dynatrace, Grafana, Splunk, Elastic — NOT uptime checkers (Pingdom) or error-tracking-only tools (Sentry)
   - For HR / people management (e.g. Rippling, Workday): Gusto, BambooHR, Lattice, Deel, TriNet — NOT single-function tools (expense management only, scheduling only)
   - For collaboration docs / wiki (e.g. Notion, Confluence): Coda, Slab, Slite, Nuclino, Tettra — NOT project management tools, even if they overlap
+  - For productivity launcher / command bar (e.g. Raycast): Alfred, LaunchBar — NOT Spotlight (OS built-in, not a product), NOT terminal emulators or IDEs
+  - For web browser (e.g. Arc, Dia): Chrome, Firefox, Safari, Brave, Vivaldi, Edge — NOT AI chatbots (ChatGPT, Perplexity), NOT desktop launchers (Raycast, Alfred)
+  - For website builder / visual development (e.g. Webflow, Framer): Squarespace, Wix, WordPress.com, Cargo, Duda — NOT Figma or Sketch (design tools with no publishing/hosting)
+  - For scheduling / appointment booking (e.g. Calendly, Cal.com): Acuity Scheduling, SavvyCal, Doodle, TidyCal — NOT Google Calendar or Outlook (calendar apps, not booking-link tools)
+  - For transactional / developer email API (e.g. Resend): SendGrid, Postmark, Mailgun, Amazon SES — NOT Mailchimp (marketing campaigns, not developer API)
+  - For document / note-taking app (e.g. Craft): Notion, Bear, Obsidian, Ulysses — NOT Google Docs (office suite), NOT issue trackers (Linear, Jira)
   — Specific well-known products —
   - For B2B sales intelligence + engagement (e.g. Apollo.io): ZoomInfo, Outreach, Salesloft, Cognism, Lusha — NOT LinkedIn or LinkedIn Sales Navigator (social network; Sales Navigator is a prospecting addon only — no email sequencing, no automated cadences, no contact data export), NOT Salesforce or HubSpot full platform (CRM, different job-to-be-done), NOT conversation intelligence tools (Gong, Chorus record calls — different category entirely), NOT cold-email-only tools (Instantly, Smartlead, Lemlist)
   - For engineering issue tracking / PM (e.g. Linear): Jira, Shortcut, ClickUp, Height, Plane — NOT GitHub or GitLab or Bitbucket (version-control platforms; issue tracking is a bundled minor feature on a code-hosting homepage), NOT Trello (generic visual kanban aimed at any team — different ICP and no engineering-specific features), NOT Notion or Confluence (docs/wiki tools, not issue trackers)
   - For AI / LLM API platform (e.g. Anthropic / Claude): OpenAI, Google AI (Gemini API), Cohere, Mistral AI, AI21 Labs — NOT Hugging Face (model hub and community repository — its homepage is about sharing models, not a competing commercial API), NOT Character.ai (consumer entertainment chatbot, no API product), NOT Perplexity (AI search engine, consumer product), NOT LangChain or LlamaIndex (open-source orchestration frameworks, not model providers), NOT AWS Bedrock / Vertex AI / Azure OpenAI (managed cloud sub-products — see infrastructure exclusion rule)
   - For all-in-one CRM + marketing automation (e.g. HubSpot): Salesforce, ActiveCampaign, Marketo, Zoho CRM, Klaviyo — NOT Intercom (customer messaging and support chat — its homepage leads with "customer service", not CRM or marketing automation), NOT Zendesk (help-desk ticketing platform, not a CRM or campaign tool), NOT single-channel tools (Mailchimp alone, Calendly), NOT project management tools (Monday.com, Asana)
+  - For productivity launcher / command bar (e.g. Raycast): Alfred, LaunchBar, Quicksilver — NOT VS Code or terminal emulators (developer tools, different paradigm), NOT Notion or Obsidian (knowledge management apps, not launchers), NOT Spotlight (macOS built-in feature, not a standalone product), NOT browser extensions or Alfred-only workflows
+  - For connected workspace / docs + projects (e.g. Notion): Coda, Confluence, Slab, Slite, Nuclino — NOT Jira or Linear (purpose-built issue trackers, not docs/wiki), NOT Asana or Monday.com (project management, different primary function), NOT Google Docs (single-purpose document editor, no database/wiki/project features), NOT Obsidian (local-first personal notes, no real-time team collaboration), NOT Craft (polished personal writing app, not a team workspace)
+  - For web browser (e.g. Arc, Dia): Chrome, Firefox, Safari, Brave, Vivaldi, Edge — NOT ChatGPT or Perplexity (AI products accessed through a browser, not browsers themselves), NOT Raycast or Alfred (desktop launchers, not browsers), NOT Notion or Obsidian (productivity apps, not browsers), NOT browser extensions or password managers
+  - For website builder / visual development (e.g. Framer, Webflow): Squarespace, Wix, WordPress.com, Cargo, Duda — NOT Figma or Sketch (design/prototyping tools — they output design files, not live websites; no hosting or publishing), NOT Shopify (e-commerce platform, not general website builder), NOT GitHub Pages or Netlify (developer hosting/CI, not visual builders), NOT Canva (graphic design templates, not website builder)
+  - For email marketing / campaigns (e.g. Mailchimp): Constant Contact, ConvertKit, Klaviyo, Campaign Monitor, Brevo — NOT HubSpot (full CRM+marketing platform, not email-marketing-only), NOT Resend or SendGrid (transactional developer email API, not marketing campaigns), NOT Intercom (customer support messaging, not email campaigns), NOT Gmail or Outlook (email clients, not campaign platforms)
+  - For customer messaging / support platform (e.g. Intercom): Zendesk, Freshdesk, Drift, Help Scout, Crisp, Front — NOT HubSpot or Salesforce (CRM platforms — support widget is a minor add-on, homepage leads with CRM not support), NOT Mailchimp (email marketing campaigns, not real-time customer messaging), NOT Slack (internal team messaging, not customer-facing support)
+  - For scheduling / appointment booking (e.g. Calendly, Cal.com): Acuity Scheduling, SavvyCal, Doodle, TidyCal, YouCanBook.me — NOT Google Calendar or Outlook (calendar apps for viewing your own schedule, not external booking-link tools), NOT Zoom (video conferencing platform, not scheduling), NOT CRM tools that bundle a booking widget as a minor feature
+  - For payments infrastructure (e.g. Stripe, PayPal): Adyen, Braintree, Square, Paddle, Checkout.com — NOT QuickBooks or Xero (accounting software), NOT Plaid (banking data aggregation, not payment processing), NOT Shopify Payments (e-commerce platform with bundled payments, not a standalone processor), NOT Apple Pay or Google Pay (payment methods/wallets, not payment processors)
+  - For transactional / developer email API (e.g. Resend): SendGrid, Postmark, Mailgun, Amazon SES, SparkPost — NOT Mailchimp or Constant Contact (marketing email campaigns for marketers, not developer API), NOT Gmail or Outlook (email clients), NOT Intercom (customer messaging platform, not email delivery infrastructure)
+  - For document / note-taking app (e.g. Craft): Notion, Bear, Obsidian, Ulysses, Apple Notes — NOT Google Docs (full office suite, not a focused notes/writing app), NOT Linear or Jira (issue trackers), NOT Figma (design tool), NOT Evernote-era tools that have been discontinued or are unmaintained
+  - For team messaging / real-time collaboration (e.g. Slack): Microsoft Teams, Google Chat, Discord (for teams), Lark, Webex — NOT email clients (asynchronous, different paradigm), NOT Notion or Confluence (docs/wiki, not real-time messaging), NOT Zoom (video-first conferencing, chat is secondary), NOT Asana or Monday.com (project management, not team chat)
+  - For UI design / prototyping (e.g. Figma): Sketch, Adobe XD, InVision, Penpot, Lunacy — NOT Canva (templates-first graphic design for non-designers, different buyer), NOT Framer or Webflow (website builders — they publish live sites, not design files), NOT Miro (whiteboarding/brainstorming, not UI design), NOT PowerPoint or Keynote (presentation tools)
 
   INVALID COMPETITOR PATTERNS — commonly confused, always exclude:
   - Platform-with-feature-bundled: A competitor must be in the SAME primary market. GitHub.com is a code-hosting platform — GitHub Issues is an incidental feature. GitHub is NOT a direct competitor to issue trackers (Linear, Shortcut). GitLab and Bitbucket have the same problem.
@@ -94,7 +112,11 @@ export const AGENT_PROMPTS = {
   - Model hub / open-source community: Hugging Face is a model repository and community hub. It is NOT a competing commercial API for building AI products. Its homepage leads with "the AI community", not "build AI applications with our API". Do not include huggingface.co as a competitor to Anthropic, OpenAI, or Cohere.
   - Consumer AI products: Character.ai (entertainment chatbot), Perplexity (AI search), Claude.ai consumer tier — these are end-user consumer products, not API platforms competing for developer or enterprise buyers.
   - Orchestration frameworks: LangChain, LlamaIndex, AutoGen, CrewAI — these are open-source developer libraries, not AI model providers. They sit on top of APIs like OpenAI/Anthropic — exclude them as competitors to API providers.
-  - Adjacent-category confusion: Intercom and Zendesk are customer support/messaging platforms — NOT competitors to CRM+marketing suites like HubSpot. Gong and Chorus are conversation intelligence tools — NOT competitors to sales intelligence+engagement platforms like Apollo.
+  - Adjacent-category confusion: Intercom and Zendesk are customer support/messaging platforms — NOT competitors to CRM+marketing suites like HubSpot. Gong and Chorus are conversation intelligence tools — NOT competitors to sales intelligence+engagement platforms like Apollo. Mailchimp is email marketing — NOT a competitor to developer email APIs like Resend. Google Calendar is a calendar app — NOT a competitor to scheduling-link tools like Calendly.
+  - Design tool vs website builder: Figma and Sketch produce design files for handoff — they do NOT publish live websites. Framer and Webflow publish live websites — they are NOT design-only prototyping tools. These are adjacent but distinct categories with different buyers (designer vs marketer/founder).
+  - OS built-in feature: macOS Spotlight, Apple Notes, Safari — built-in OS utilities are not standalone product competitors. Do not list Spotlight as a competitor to Raycast, or Apple Notes as a competitor to Craft.
+  - Payment method vs payment processor: Apple Pay, Google Pay, PayPal consumer wallet — these are payment methods/wallets that consumers use. Stripe, Adyen, Checkout.com are payment processors that merchants integrate. Different layer of the stack, different buyer.
+  - Marketing email vs transactional email: Mailchimp and Constant Contact send marketing campaigns to subscriber lists (buyer: marketer). Resend, SendGrid, and Postmark deliver transactional emails via developer API (buyer: engineer). These are distinct markets despite both involving email.
   - Database or storage platforms: Raw Postgres, MongoDB, Supabase, Firebase — infrastructure, not product competitors.
   - Note-taking / docs tools for project managers: Notion and Confluence are knowledge-base tools — only valid competitors to other knowledge-base/wiki products, not to purpose-built issue trackers.
 
@@ -135,6 +157,14 @@ export const AGENT_PROMPTS = {
     · Sales intelligence/outreach: linkedin.com / linkedin.com/sales — social network; Sales Navigator lacks email sequencing and bulk contact export. salesforce.com without "outreach" qualifier — CRM, not engagement platform.
     · AI / LLM API: huggingface.co — model hub/community repository, not a commercial API competitor. character.ai / perplexity.ai — consumer products, not API platforms. langchain.com / llamaindex.ai — orchestration frameworks, not model providers.
     · CRM + marketing automation: intercom.com — customer messaging/support, leads with "customer service" not CRM. zendesk.com — help-desk ticketing, not CRM. monday.com — project management, not CRM.
+    · Website builder: figma.com / sketch.com — design/prototyping tools that output design files, not live websites. shopify.com — e-commerce platform, not general website builder. github.io / netlify.com — developer hosting, not visual builders.
+    · Scheduling / booking: calendar.google.com / outlook.com — calendar apps for viewing your own schedule, not booking-link tools. zoom.us — video conferencing, not scheduling.
+    · Productivity launcher: spotlight (macOS) — OS built-in, not a product. code.visualstudio.com — code editor, not a launcher. notion.so / obsidian.md — knowledge management, not a launcher.
+    · Payments infrastructure: quickbooks.intuit.com / xero.com — accounting software, not payment processing. plaid.com — banking data aggregation, not payments. shopify.com/payments — e-commerce platform with bundled payments.
+    · Transactional email API: mailchimp.com / constantcontact.com — marketing email campaigns, different buyer (marketer vs developer). intercom.com — customer messaging, not email delivery.
+    · Team messaging: notion.so / confluence.atlassian.com — docs/wiki, not real-time messaging. zoom.us — video-first conferencing. asana.com / monday.com — project management, not chat.
+    · UI design / prototyping: canva.com — graphic design templates for non-designers. framer.com / webflow.com — website builders that publish live sites. miro.com — whiteboarding, not UI design.
+    · Document / note-taking: docs.google.com — full office suite, not a focused notes app. linear.app / jira.atlassian.com — issue trackers. figma.com — design tool.
     If unsure, ask: does this competitor's homepage describe selling the same primary outcome as the input product? If not, exclude it.
   - Top 3 = primary competitors shown to user. Positions 4–5 = backup competitors used if a primary fails.
   - TIER RULE: When two candidates have similar matchScore (within 0.10), strongly prefer the one with higher market presence (more mentions, widely recognized brand). B2B buyers benchmark against market leaders — a well-known competitor with 0.75 matchScore is more analytically valuable than a niche tool with 0.85 matchScore.
@@ -197,6 +227,8 @@ export const AGENT_PROMPTS = {
   - metrics: 2+ standalone large numbers with "+" or "%" and minimal surrounding copy
 
   Detect ALL sections present on the page. Report ONLY sections that explicitly appear in the markdown. Never add inferred or assumed sections. It is acceptable to return fewer than 5 sections if the page genuinely has fewer. Never use "other".
+
+  CRITICAL: List sections in the order they appear on the page, from top to bottom. The first section in the array must be the first section on the page (usually hero or navigation).
 
   OUTPUT FORMAT — strict JSON:
   {
@@ -432,13 +464,14 @@ export const AGENT_PROMPTS = {
   , 2)
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SELF-CONSISTENCY RULES (violations invalidate the analysis)
+  SCORING INTEGRITY
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  • ≥ 2 weaknesses                               → overallScore must be ≤ 0.65
-  • ≥ 3 weaknesses                               → overallScore must be ≤ 0.50
-  • overallScore ≥ 0.80                          → weaknesses must contain at most 1 item
-  • any of {clarity, specificity, icpFit} < 0.50 → overallScore must be ≤ 0.60
+  Score each axis independently and honestly based on the evidence you observe.
+  Do NOT adjust sub-scores to fit a preconceived overallScore.
+  Do NOT lower scores because you listed weaknesses — weaknesses describe what could be better, not that everything is bad.
+  A section can have 2 weaknesses and still score 0.75 if most axes are strong.
+  Score consistency is enforced automatically after generation — your job is to be accurate, not to balance numbers.
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   SECTION-SPECIFIC SCORING CONTEXT
@@ -464,22 +497,48 @@ export const AGENT_PROMPTS = {
   metrics:      PRIMARY: specificity (numbers must have context), trustSignals, typographyReadability (large number styling). BY DESIGN LOW: icpFit, ctaQuality.
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  INSIGHT VOICE — how to write strengths and weaknesses
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Every strength and weakness MUST do at least one of these:
+    (A) Explain the CONVERSION lever — how the element drives or blocks sign-ups/engagement
+    (B) Name a specific DESIGN flaw or win — what visual problem/advantage it creates and the cognitive cost/benefit
+    (C) Compare to a known pattern — what a competitor does differently and why it matters
+
+  Write in active, declarative voice. State what IS, not what "could be."
+  Every observation must answer: "Why does this matter for a first-time visitor deciding to convert?"
+
+  DON'T just list attributes:
+    WEAK: "The testimonial includes a name, company, and measurable outcome."
+    GOOD: "Named outcome ('Reduced hiring time by 60% — Sarah, VP Eng at Acme') at 60% scroll — adds credibility at the peak decision point where buyers hesitate."
+
+  DON'T restate the rubric axis:
+    WEAK: "Specificity is strong because three metrics are mentioned."
+    GOOD: "Copy names '$50k saved' and 'within 3 months' — specific benchmarks that let CFOs self-select before the demo."
+
+  DON'T describe design without conversion logic:
+    WEAK: "The card grid uses consistent 24px spacing."
+    GOOD: "Card grid's 24px spacing + white-on-light backgrounds collapse visual weight at the fold — the 3rd feature tile is invisible without scrolling."
+
+  DON'T identify problems without naming the cost:
+    WEAK: "The CTA button is not very prominent."
+    GOOD: "CTA uses the same gray (#999) as body text — zero color contrast leaves the primary action invisible until hover."
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   EVIDENCE RULES (applied per section — no exceptions)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Strengths / weaknesses — max 3 each. Every item MUST start with:
+  Exactly 1 strength and 1 weakness per section. Pick the single most impactful observation for each — the one that would change a product manager's next decision.
+
+  Every item MUST start with:
     (a) exact quote from this section's copy in double quotes, OR
     (b) precise visual description from the screenshot ("3-column icon grid", "full-width red CTA button", "monochrome icon set with 2px stroke")
-  Then explain the design quality or conversion impact — both are equally valid.
+  Then explain the conversion lever or design mechanism — not just what you see, but why it matters.
 
-  BALANCE: Aim for a mix of design observations and conversion observations across strengths and weaknesses. Do not write all 3 strengths about copy/CTA or all 3 about layout — cover both dimensions.
-
-  FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Better, Cleaner, Clearer, Could, Should, Would.
-  FORBIDDEN phrases: "Clean layout", "Good visual hierarchy", "Effective design", "Vague copy", "Lacks specificity", "Visually appealing".
+  FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Better, Cleaner, Clearer, Could, Should, Would, Arguably, Might, May, Can, Possibly, Potentially, Relatively, Somewhat, Actually, Interesting, Notable.
+  FORBIDDEN phrases: "Clean layout", "Good visual hierarchy", "Effective design", "Vague copy", "Lacks specificity", "Visually appealing", "Could be stronger", "Might help", "Worth noting", "Has been shown to", "Tends to", "Appears to", "Seems to".
   FORBIDDEN: referencing sectionType field names in text — write human-readable names (Hero, FAQ, Benefits, etc.).
   FORBIDDEN: quoting URL strings, query parameters, tracking parameters, or data attributes (e.g. "?s_signup-url=...", "hubs_signup-cta=...") — these are markup artifacts, not page copy. If a section's markdown contains only URLs or query strings with no human-readable copy, write a single weakness: "No readable copy present — section contains only markup artifacts." and set confidence to 0.2.
-
-  Max 3 strengths. Max 3 weaknesses. At least 1 of each.
 
   EVIDENCE FORMAT EXAMPLES — organized by section type to guide your analysis:
 
@@ -572,8 +631,8 @@ export const AGENT_PROMPTS = {
       },
       "overallScore": number,    // 0.0–1.0 using the formula above
       "confidence": number,      // 0.0–1.0: 1.0 = screenshot + full copy available; 0.7 = text-only analysis; 0.4 = inferred from sparse markdown
-      "strengths": string[],
-      "weaknesses": string[],
+      "strengths": [string],     // exactly 1
+      "weaknesses": [string],    // exactly 1
       "keyEvidence": {
         "headlineText": string | null,
         "ctaText": string | null,
@@ -598,10 +657,12 @@ export const AGENT_PROMPTS = {
   TASK: Compare the input company's landing page against 3 competitors.
         Produce exactly 3 prioritised, evidence-based recommendations FOR EACH section type present in the SECTION ANALYSES input.
 
-  PRIORITY CLASSIFICATION (based on qualitative comparison of strengths/weaknesses):
-  - critical: A competitor significantly outperforms the input on this aspect — competitors show strong evidence of doing it well (multiple strengths), while the input has clear weaknesses in the same area. The gap is obvious from the evidence.
-  - high:     A competitor does noticeably better — there is a clear difference in quality or approach visible in the strengths/weaknesses, but the input is not completely failing.
-  - medium:   A minor improvement opportunity — competitors show a slightly better approach, or this is a best practice the input could adopt. Not a critical deficit.
+  PRIORITY CLASSIFICATION:
+  Use SCORE GAPS (if provided) to weight priority — larger gaps on high-weight axes (clarity, specificity, icpFit) outrank smaller gaps on visual axes.
+  NEVER quote score numbers in your text output — they are for internal weighting only.
+  - critical: A large gap on a high-weight axis (clarity, specificity, icpFit, ctaQuality, trustSignals). Competitors show strong evidence the input page is missing.
+  - high:     A moderate gap. Competitors do noticeably better — a clear difference in quality or approach, but the input is not completely failing.
+  - medium:   A small gap or visual polish opportunity. Competitors show a slightly better approach or best practice the input could adopt.
 
   RULES:
   - Every section type that appears in SECTION ANALYSES must have exactly 3 recommendations. No section may have fewer or more.
@@ -627,22 +688,25 @@ export const AGENT_PROMPTS = {
   OUTPUT FORMAT — strict JSON:
   {
     "executiveSummary": string,
-    // 3 sentences. This is the most important text the user reads — it must deliver clear, actionable conclusions.
-    // S1: The input's strongest asset — cite the SPECIFIC section and element working best (copy, visual, or both). What is the page doing well?
-    // S2: The single biggest gap — name which competitor and which section shows the strongest contrast. Where is the page falling behind?
-    // S3: The single highest-priority action — one concrete change that would have the most impact, grounded in what a specific competitor does better.
-    // GOOD S1 examples:
-    //   "The Benefits section's 'Cut onboarding from 3 days to 4 hours' is the page's sharpest proof point."
-    //   "The Features section's consistent 4-column icon grid with monochrome line icons creates the page's strongest visual impression — polished and intentional."
-    //   "The Hero pairs a live product screenshot with 'Start free — no credit card' — the combination of visual proof and anxiety-free CTA is the page's most effective conversion element."
-    // GOOD S2 examples:
-    //   "The Hero trails Stripe's equivalent, which anchors trust with '135,000+ businesses' before the CTA."
-    //   "The Features section's mixed icon styles and uneven card heights fall short of Linear's unified visual grid — the lack of visual consistency weakens the overall product impression."
-    // GOOD S3 examples:
-    //   "Adding a named testimonial with a measurable outcome directly below the hero CTA — as HubSpot does — would address the trust gap at the page's most critical decision point."
-    //   "Replacing the generic stock hero image with a product screenshot showing the core workflow would let visitors evaluate visual fit before reading any copy, following Figma's pattern."
-    //   "Unifying the feature icons to a single line-icon style and equalizing card heights would bring the grid to Linear's level of visual polish — the fastest way to raise the page's perceived quality."
-    // FORBIDDEN openers: "The landing page demonstrates", "Overall, the site shows", "The analysis reveals", "In summary", "To summarize". Lead with the most specific observation available.
+    // 3 sentences. This is the FIRST thing the user reads — write it like an executive brief, not a technical audit.
+    // Describe the OVERALL IMPRESSION a visitor gets when landing on this page, compared to competitors.
+    // Do NOT list individual section findings or quote specific text — synthesize the big picture.
+    //
+    // S1: Overall impression — what kind of experience does this page create for a first-time visitor? Is it clear, polished, trustworthy? Or confusing, generic, unfinished? One sentence that captures the page's personality.
+    // S2: The competitive gap — how does the overall page experience compare to the best competitor? What is the visitor-level difference (not section-level detail)?
+    // S3: The single most impactful change — what one shift in approach would bring the page closer to the competitor benchmark? Frame it as a strategic direction, not a tactical fix.
+    //
+    // GOOD examples (notice: no section names, no quoted text, no technical details):
+    //   "Apollo's page leads with a clear value proposition and strong metrics, creating immediate credibility for sales teams evaluating the tool. However, the page relies heavily on feature descriptions without showing the product in action — competitors like ZoomInfo build confidence by letting visitors see the interface before committing. Replacing the feature-first approach with a product-led hero that demonstrates the core workflow would close the biggest trust gap."
+    //   "Linear's page feels intentionally designed and product-forward — the dark UI screenshots and minimal copy signal engineering quality. The gap is in social proof: while Shortcut anchors trust with named customers and measurable outcomes, Linear asks visitors to trust the product on aesthetics alone. Adding one quantified customer result above the fold would bridge the credibility gap without diluting the design-forward identity."
+    //   "The page communicates what the product does but not why it matters — every section describes features without connecting them to the buyer's pain. Notion's page, by contrast, leads with the outcome ('All your tools, one workspace') and proves it with 30M+ users before showing any feature. Reframing the narrative around the buyer's problem rather than the product's capabilities would make the strongest single impact."
+    //
+    // BAD examples (never write these — too detailed, too technical):
+    //   BAD: "The Benefits section's 'Cut onboarding from 3 days to 4 hours' is the page's sharpest proof point." — quotes specific section text
+    //   BAD: "The Hero section trails Stripe's, which shows 135,000+ businesses before the CTA." — too granular, reads like a finding not a summary
+    //   BAD: "Incorporating third-party rating scores and a clear friction reducer like 'No credit card required' directly into Apollo's hero..." — specific tactical action, not strategic direction
+    //
+    // FORBIDDEN openers: "The landing page demonstrates", "Overall, the site shows", "The analysis reveals", "In summary", "To summarize", "The input's". Lead with the company name or a direct observation.
     "recommendations": [
       {
         "priority": "critical" | "high" | "medium",
@@ -687,16 +751,17 @@ export const AGENT_PROMPTS = {
         //   "Make the design more consistent." — no specifics about what to change.
         //   "Add more whitespace." — no specifics about where and how much.
         "impact": string,
-        // One sentence. Describe the design or conversion MECHANISM — how and why the change produces a result. Ground it in competitor evidence or a named industry pattern. NEVER invent percentages or statistics.
+        // One sentence. State the concrete OUTCOME the site owner will see after implementing this change — what visitors will do differently and what business result that produces. End with the payoff, not the theory. NEVER invent percentages or statistics.
         // GOOD examples:
-        //   "When visitors see a logo strip before the first scroll (as Notion does), decision-makers have a trust anchor before evaluating the CTA — reducing early exit."
-        //   "A consistent icon style across feature cards (as Linear uses) creates visual cohesion — the grid reads as one intentional system rather than assembled from separate sources, reinforcing product polish."
-        //   "Showing the actual product interface in the hero (as Figma does) lets visitors evaluate visual fit before reading any copy — reducing the 'what does it look like?' uncertainty that delays sign-up."
-        //   "Highlighting the recommended pricing tier with a visual accent (Stripe's blue border) reduces decision paralysis — visitors without strong preference default to the guided option."
+        //   "Visitors will trust the product before reaching the CTA — fewer drop off at the sign-up step."
+        //   "The feature grid will read as one polished system instead of mismatched parts — visitors stay longer and explore more pages."
+        //   "Visitors will see what the product looks like instantly — the main hesitation before sign-up ('what does it actually look like?') disappears."
+        //   "New visitors will pick a plan faster instead of bouncing between options — more completed checkouts from the pricing page."
         // BAD examples:
-        //   "Will improve conversions." — no mechanism explained.
-        //   "Creates a better user experience." — vague, no design or conversion logic.
+        //   "Enhances perceived utility and reinforces relevance." — academic jargon, no concrete outcome.
+        //   "Creates visual cohesion across the grid." — describes a design property, not a result the owner cares about.
         //   "Correlates with 18% higher engagement." — never fabricate numbers.
+        //   "Reduces cognitive load for the end user." — UX theory, not a business outcome.
         "confidence": number        // 0.0–1.0. How confident you are in this recommendation. 1.0 = grounded in strong visual/copy evidence from both input and competitor. 0.7 = based on text analysis only. 0.4 = inferred from limited data or industry best practices.
       }
     ]

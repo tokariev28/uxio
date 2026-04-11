@@ -1,10 +1,27 @@
 import FirecrawlApp from "@mendable/firecrawl-js";
+import { z } from "zod";
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
-import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
-import { extractJSON } from "@/lib/utils/json-extract";
+import { aiGenerateStructured, CHAINS } from "@/lib/ai/gateway";
 import type { ProductBrief } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 import { isUsableMarkdown } from "@/lib/utils/scrape-quality";
+
+// ── Zod schema for structured output ─────────────────────────────────────
+// AI SDK validates the LLM response against this schema automatically.
+// No manual JSON.parse / extractJSON / field validation needed.
+const ProductBriefSchema = z.object({
+  company: z.string(),
+  industry: z.string(),
+  icp: z.string(),
+  icpKeyword: z.string().optional().default(""),
+  coreValueProp: z.string(),
+  cvpKeyword: z.string().optional().default(""),
+  keyFeatures: z.array(z.string()).min(1),
+  pricingModel: z.string().optional(),
+  primaryCTAText: z.string().optional(),
+  pricingVisible: z.boolean().optional(),
+  hasFreeTrialOrFreemium: z.boolean().optional(),
+});
 
 export async function runAgent0(
   url: string,
@@ -31,58 +48,31 @@ export async function runAgent0(
     );
   }
 
-  // ── Step 2: AI Gateway extraction (Flash-Lite → GPT-5.4 fallback) ───────────
-  const rawText = await aiGenerate(CHAINS.flashLite, {
-    system: AGENT_PROMPTS.pageIntelligence,
-    prompt: scraped.markdown!,
-    json: true,
-  });
-
-  // ── Step 3: Parse JSON ─────────────────────────────────────────
-  let raw: Record<string, unknown>;
+  // ── Step 2: Structured AI extraction (schema-validated) ─────────
   try {
-    raw = JSON.parse(extractJSON(rawText));
+    const brief = await aiGenerateStructured(CHAINS.flashLite, {
+      system: AGENT_PROMPTS.pageIntelligence,
+      prompt: scraped.markdown!,
+      schema: ProductBriefSchema,
+    });
+
+    // Filter empty keyFeatures strings (Zod min(1) ensures array is non-empty)
+    const validFeatures = brief.keyFeatures.filter((f) => f.trim().length > 0);
+    if (validFeatures.length === 0) {
+      throw new AgentError("agent0", "keyFeatures array contains only empty strings");
+    }
+
+    return {
+      ...brief,
+      keyFeatures: validFeatures,
+      icpKeyword: brief.icpKeyword ?? "",
+      cvpKeyword: brief.cvpKeyword ?? "",
+    };
   } catch (err) {
+    if (err instanceof AgentError) throw err;
     throw new AgentError(
       "agent0",
-      `Gemini response is not valid JSON: ${err instanceof Error ? err.message : String(err)}`
+      `AI extraction failed: ${err instanceof Error ? err.message : String(err)}`
     );
   }
-
-  // ── Step 4: Validate required fields ──────────────────────────
-  for (const field of ["company", "industry", "icp", "coreValueProp"] as const) {
-    if (typeof raw[field] !== "string" || !(raw[field] as string).trim()) {
-      throw new AgentError("agent0", `Missing or empty required field: ${field}`);
-    }
-  }
-  if (!Array.isArray(raw.keyFeatures)) {
-    throw new AgentError("agent0", "Missing or invalid field: keyFeatures");
-  }
-  const validFeatures = (raw.keyFeatures as unknown[]).filter(
-    (f): f is string => typeof f === "string" && f.trim().length > 0
-  );
-  if (validFeatures.length === 0) {
-    throw new AgentError("agent0", "keyFeatures array is empty — page may not describe product features");
-  }
-
-  // ── Step 5: Map to ProductBrief ────────────────────────────────
-  return {
-    company: raw.company as string,
-    industry: raw.industry as string,
-    icp: raw.icp as string,
-    icpKeyword: typeof raw.icpKeyword === "string" ? raw.icpKeyword : "",
-    coreValueProp: raw.coreValueProp as string,
-    cvpKeyword: typeof raw.cvpKeyword === "string" ? raw.cvpKeyword : "",
-    keyFeatures: validFeatures,
-    pricingModel:
-      typeof raw.pricingModel === "string" ? raw.pricingModel : undefined,
-    primaryCTAText:
-      typeof raw.primaryCTAText === "string" ? raw.primaryCTAText : undefined,
-    pricingVisible:
-      typeof raw.pricingVisible === "boolean" ? raw.pricingVisible : undefined,
-    hasFreeTrialOrFreemium:
-      typeof raw.hasFreeTrialOrFreemium === "boolean"
-        ? raw.hasFreeTrialOrFreemium
-        : undefined,
-  };
 }

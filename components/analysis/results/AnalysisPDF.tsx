@@ -263,28 +263,27 @@ const s = StyleSheet.create({
   // ── Strengths / Weaknesses ─────────────────────────────────────────────
   swRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 16,
   },
   swCol: {
     flex: 1,
-    gap: 5,
   },
   swColLabel: {
-    fontSize: 7,
-    fontFamily: "Helvetica-Bold",
+    fontSize: 10,
+    fontFamily: "Helvetica",
     textTransform: "uppercase",
     letterSpacing: 0.8,
+    marginBottom: 6,
   },
   swTag: {
     flexGrow: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 7,
-    borderWidth: 1,
+    padding: 12,
+    borderRadius: 12,
+    gap: 4,
   },
   swTagText: {
-    fontSize: 10,
-    lineHeight: 1.5,
+    fontSize: 14,
+    lineHeight: 1.45,
   },
 
   // ── Insight cards (stacked) ────────────────────────────────────────────
@@ -513,16 +512,16 @@ export function AnalysisPDF({ result, logoUrl }: Props) {
                   <View style={s.swRow}>
                     {strengths.length > 0 && (
                       <View style={s.swCol}>
-                        <Text style={[s.swColLabel, { color: "#059669" }]}>Strengths</Text>
-                        <View style={[s.swTag, { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0" }]}>
+                        <View style={[s.swTag, { backgroundColor: "#E9F8F3" }]}>
+                          <Text style={[s.swColLabel, { color: "#059669" }]}>Strengths:</Text>
                           <Text style={[s.swTagText, { color: "#059669" }]}>{strengths[0]}</Text>
                         </View>
                       </View>
                     )}
                     {weaknesses.length > 0 && (
                       <View style={s.swCol}>
-                        <Text style={[s.swColLabel, { color: "#e11d48" }]}>Weaknesses</Text>
-                        <View style={[s.swTag, { backgroundColor: "#fff1f2", borderColor: "#fecdd3" }]}>
+                        <View style={[s.swTag, { backgroundColor: "#FEEEF0" }]}>
+                          <Text style={[s.swColLabel, { color: "#e11d48" }]}>Weaknesses:</Text>
                           <Text style={[s.swTagText, { color: "#e11d48" }]}>{weaknesses[0]}</Text>
                         </View>
                       </View>

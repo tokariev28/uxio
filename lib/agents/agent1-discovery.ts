@@ -1,7 +1,7 @@
+import { z } from "zod";
 import type { PipelineContext, CompetitorCandidate, ProductBrief } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
-import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
-import { extractJSON } from "@/lib/utils/json-extract";
+import { aiGenerateStructured, CHAINS } from "@/lib/ai/gateway";
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 
 const META_DOMAINS = new Set([
@@ -61,6 +61,11 @@ async function tavilySearch(
 // well-known direct competitors that Tavily searches might miss (e.g. Jira for
 // a project management tool). Results are merged into the candidate map with a
 // base `mentions` signal so Agent 2 can weigh them appropriately.
+const LlmCompetitorSchema = z.array(z.object({
+  url: z.string(),
+  name: z.string(),
+}));
+
 async function llmDiscovery(
   brief: ProductBrief
 ): Promise<Array<{ url: string; name: string }>> {
@@ -72,18 +77,14 @@ async function llmDiscovery(
   ].join("\n");
 
   try {
-    const rawText = await aiGenerate(CHAINS.flashLite, {
+    const competitors = await aiGenerateStructured(CHAINS.flashLite, {
       system: AGENT_PROMPTS.competitorDiscovery,
       prompt: userMessage,
-      json: true,
+      schema: LlmCompetitorSchema,
     });
-    const parsed = JSON.parse(extractJSON(rawText)) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return (parsed as unknown[])
-      .filter((item): item is { url: string; name: string } => {
-        const i = item as Record<string, unknown>;
-        if (typeof i?.url !== "string" || typeof i?.name !== "string") return false;
-        try { new URL(i.url); return true; } catch { return false; }
+    return competitors
+      .filter((c) => {
+        try { new URL(c.url); return true; } catch { return false; }
       })
       .slice(0, 8);
   } catch (err) {
@@ -140,18 +141,19 @@ export async function runDiscovery(
     },
   ];
 
-  // Emit the actual search queries as chips
-  onActions?.(queries.map((q) => q.query));
-
   const inputDomain = rootDomain(ctx.inputUrl);
 
   // ── Run Tavily searches and LLM discovery in parallel ─────────────────────
+  // Emit each short label as its search completes — progressive reveal.
+  const emitted: string[] = [];
   const [tavilySettled, llmCandidates] = await Promise.all([
     Promise.allSettled(
       queries.map(({ label, query }) =>
-        tavilySearch(query, apiKey).then((results) =>
-          results.map((r) => ({ url: r.url, label }))
-        )
+        tavilySearch(query, apiKey).then((results) => {
+          emitted.push(label);
+          onActions?.([...emitted]);
+          return results.map((r) => ({ url: r.url, label }));
+        })
       )
     ),
     llmDiscovery(brief),

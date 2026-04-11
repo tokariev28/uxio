@@ -84,11 +84,11 @@ export async function runScraper(
   const primaryCompetitors = competitors.slice(0, 3);
   const backupCompetitors = competitors.slice(3);
 
-  // Emit all URLs being scraped as chips (primary only for display)
-  const hostnames = [inputUrl, ...primaryCompetitors.map((c) => c.url)].map((u) => {
-    try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
-  });
-  onActions?.(hostnames);
+  const getHostname = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } };
+
+  // Emit input hostname immediately; competitor hostnames appear as each scrape completes.
+  const emitted: string[] = [getHostname(inputUrl)];
+  onActions?.([...emitted]);
 
   // ── Always scrape input page (two-pass for JS SPAs) ─────────────
   let inputPage: PageData;
@@ -105,40 +105,57 @@ export async function runScraper(
   const finalCompetitors: Competitor[] = [];
   const fallbackQueue = [...backupCompetitors];
 
-  // ── Scrape each primary competitor; substitute backup on failure ──
-  for (const competitor of primaryCompetitors) {
-    let page: PageData | null = null;
-    let successCompetitor: Competitor = competitor;
+  // ── Scrape all primary competitors in parallel; substitute backup on failure ──
+  const primaryResults = await Promise.allSettled(
+    primaryCompetitors.map((c) =>
+      scrapePageWithRetry(firecrawl, c.url).then((page) => {
+        emitted.push(getHostname(c.url));
+        onActions?.([...emitted]);
+        return page;
+      })
+    )
+  );
 
-    try {
-      page = await scrapePageWithRetry(firecrawl, competitor.url);
-    } catch (primaryErr) {
+  for (const [i, result] of primaryResults.entries()) {
+    const competitor = primaryCompetitors[i];
+
+    if (result.status === "fulfilled" && result.value.markdown) {
+      pages.push(result.value);
+      finalCompetitors.push(competitor);
+      continue;
+    }
+
+    // Primary failed — try backups sequentially
+    if (result.status === "rejected") {
       console.warn(
         `[agent3] Primary competitor failed (${competitor.url}):`,
-        primaryErr instanceof Error ? primaryErr.message : String(primaryErr)
+        result.reason instanceof Error ? result.reason.message : String(result.reason)
       );
+    }
 
-      // Try backups in order
-      while (fallbackQueue.length > 0) {
-        const backup = fallbackQueue.shift()!;
-        try {
-          page = await scrapePageWithRetry(firecrawl, backup.url);
-          successCompetitor = backup;
+    let substituted = false;
+    while (fallbackQueue.length > 0) {
+      const backup = fallbackQueue.shift()!;
+      try {
+        const page = await scrapePageWithRetry(firecrawl, backup.url);
+        if (page.markdown) {
+          pages.push(page);
+          finalCompetitors.push(backup);
+          emitted.push(getHostname(backup.url));
+          onActions?.([...emitted]);
           console.log(`[agent3] Substituted ${competitor.url} → ${backup.url}`);
+          substituted = true;
           break;
-        } catch (backupErr) {
-          console.warn(
-            `[agent3] Backup also failed (${backup.url}):`,
-            backupErr instanceof Error ? backupErr.message : String(backupErr)
-          );
         }
+      } catch (backupErr) {
+        console.warn(
+          `[agent3] Backup also failed (${backup.url}):`,
+          backupErr instanceof Error ? backupErr.message : String(backupErr)
+        );
       }
     }
 
-    if (page && page.markdown) {
-      pages.push(page);
-      finalCompetitors.push(successCompetitor);
-    } else {
+    if (!substituted) {
       console.warn(`[agent3] No successful scrape for ${competitor.url}, skipping`);
     }
   }

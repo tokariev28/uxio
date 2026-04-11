@@ -51,6 +51,7 @@ function computeOverallScores(ctx: PipelineContext): OverallScores | undefined {
 
 export async function runSynthesis(
   ctx: PipelineContext,
+  onActions?: (actions: string[]) => void
 ): Promise<{ recommendations: Recommendation[]; executiveSummary: string; overallScores?: OverallScores }> {
   if (!ctx.productBrief) {
     throw new AgentError("agent6", "productBrief is missing from pipeline context");
@@ -61,14 +62,36 @@ export async function runSynthesis(
   // ── Step 1: Build user message ─────────────────────────────────
   const hasSectionData = (ctx.sectionAnalyses?.length ?? 0) > 0;
 
-  // Strip numerical scores from findings before passing to agent6.
-  // Agent5 uses scores internally for self-consistency, but exposing raw numbers
-  // to agent6 causes it to quote them verbatim in recommendation text.
+  // Strip raw score numbers from findings (the LLM quotes them verbatim).
+  // Instead, compute per-section gap summaries so Agent 6 can prioritize
+  // recommendations by actual competitive delta, not guesswork.
   const sanitizedAnalyses = ctx.sectionAnalyses?.map((sa) => ({
     ...sa,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     findings: sa.findings.map(({ scores: _s, score: _sc, ...rest }) => rest),
   }));
+
+  // Build score gap context: for each section, identify axes where competitors
+  // outperform the input most. Agent 6 uses this for priority classification.
+  const scoreGaps = (ctx.sectionAnalyses ?? []).map((sa) => {
+    const inputF = sa.findings.find((f) => f.site === "input");
+    if (!inputF?.scores) return null;
+    const compScores = sa.findings
+      .filter((f) => f.site !== "input" && f.scores)
+      .map((f) => f.scores!);
+    if (!compScores.length) return null;
+    const axes = Object.keys(inputF.scores) as (keyof typeof inputF.scores)[];
+    const gaps = axes
+      .map((axis) => {
+        const best = Math.max(...compScores.map((s) => s[axis]));
+        const gap = Math.round((best - inputF.scores![axis]) * 100) / 100;
+        return { axis, gap };
+      })
+      .filter((g) => g.gap > 0.1)
+      .sort((a, b) => b.gap - a.gap)
+      .slice(0, 3);
+    return gaps.length > 0 ? { section: sa.sectionType, gaps } : null;
+  }).filter(Boolean);
 
   const failedNote = ctx.failedUrls?.length
     ? `\n\nNOTE: The following competitor URLs could NOT be analyzed. Do NOT reference them as examples: ${ctx.failedUrls.join(", ")}`
@@ -80,9 +103,28 @@ export async function runSynthesis(
     hasSectionData
       ? `SECTION ANALYSES: ${JSON.stringify(sanitizedAnalyses)}`
       : `SECTION ANALYSES: [] (visual analysis unavailable — base recommendations on product brief and competitor context only)`,
-  ].join("\n\n") + failedNote;
+    scoreGaps.length > 0
+      ? `SCORE GAPS (for priority weighting only — NEVER quote these in output text): ${JSON.stringify(scoreGaps)}`
+      : "",
+  ].filter(Boolean).join("\n\n") + failedNote;
 
   // ── Step 2: AI Gateway call (Flash → GPT-5.4 fallback) ───────────────────────
+  // While the LLM works, reveal section chips one by one at 700 ms intervals.
+  const sectionLabels = (ctx.sectionAnalyses ?? []).map((sa) =>
+    sa.sectionType.replace(/([A-Z])/g, " $1").toLowerCase().trim()
+  );
+  const emitted: string[] = [];
+  let labelIdx = 0;
+  const interval =
+    onActions && sectionLabels.length > 0
+      ? setInterval(() => {
+          if (labelIdx < sectionLabels.length) {
+            emitted.push(sectionLabels[labelIdx++]);
+            onActions([...emitted]);
+          }
+        }, 700)
+      : null;
+
   let rawText: string;
   try {
     rawText = await aiGenerate(CHAINS.flash, {
@@ -91,11 +133,13 @@ export async function runSynthesis(
       json: true,
     });
   } catch (err) {
+    if (interval) clearInterval(interval);
     throw new AgentError(
       "agent6",
       `AI generation failed: ${err instanceof Error ? err.message : String(err)}`
     );
   }
+  if (interval) clearInterval(interval);
 
   // ── Step 3: Parse JSON ─────────────────────────────────────────
   // Must be `let` so the retry block below can reassign on success
@@ -172,6 +216,18 @@ export async function runSynthesis(
       if (typeof r[field] !== "string" || !(r[field] as string).trim()) {
         throw new AgentError("agent6", `recommendations[${i}] missing or empty field: ${field}`);
       }
+    }
+    // Validate forbidden openers in suggestedAction (prompt forbids these but LLMs slip)
+    const FORBIDDEN_OPENERS = /^(Improve|Enhance|Optimize|Consider|Update|Refine|Redesign|Revamp|Rework|Address|Ensure)\b/i;
+    if (FORBIDDEN_OPENERS.test((r.suggestedAction as string).trim())) {
+      console.warn(`[agent6] recommendations[${i}] suggestedAction starts with forbidden opener: "${(r.suggestedAction as string).slice(0, 40)}..."`);
+    }
+    // Validate competitorExample names a specific competitor, not generic references
+    const competitorNames = ctx.competitors?.map((c) => c.name.toLowerCase()) ?? [];
+    const exampleText = (r.competitorExample as string).toLowerCase();
+    const mentionsCompetitor = competitorNames.some((name) => exampleText.includes(name));
+    if (!mentionsCompetitor) {
+      console.warn(`[agent6] recommendations[${i}] competitorExample doesn't name a known competitor: "${(r.competitorExample as string).slice(0, 60)}..."`);
     }
 
     return {

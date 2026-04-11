@@ -44,7 +44,7 @@ The backend implements a 7-agent pipeline end-to-end:
 
 **Agent 4** deduplicates classified sections by type per page — only the first occurrence is retained.
 
-**Agent 5** active prompt: `AGENT_PROMPTS.sectionAnalyzerBatch` (`visionAnalyzer` key is legacy reference, not in active code path). Each `SectionFinding.confidence`: `1.0` (screenshot available), `0.7` (text-only), `0.4` (thin content).
+**Agent 5** active prompt: `AGENT_PROMPTS.sectionAnalyzerBatch` (`visionAnalyzer` key is legacy reference, not in active code path). Each `SectionFinding.confidence`: `1.0` (full visual + copy evidence), `0.7` (text-only — also the runtime cap enforced in code when no screenshot is available), `0.4` (inferred from sparse markdown), `0.2` (markup artifacts only, no readable copy).
 
 **Agent 6** strips numerical scores from Agent 5 output before synthesis. `overallScores` computed programmatically from Agent 5 data — not LLM-generated.
 
@@ -76,7 +76,7 @@ The following decisions are fixed for this MVP:
   - Single-page layout (no complex routing).
 
 - **Backend**
-- Next.js 15 App Router with Route Handlers (`app/api/*/route.ts`).
+- Next.js 16 App Router with Route Handlers (`app/api/*/route.ts`).
 - Node.js runtime (not Edge) — required because Firecrawl and Gemini SDKs use Node-specific APIs.
 - No separate backend service; frontend and backend live in the same Next.js repo and deploy together to Vercel.
 

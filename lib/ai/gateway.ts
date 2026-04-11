@@ -1,4 +1,5 @@
-import { generateText, gateway } from "ai";
+import { generateText, gateway, Output } from "ai";
+import type { z } from "zod";
 
 // ── Provider registry ──────────────────────────────────────────────────────────
 // To add a new model: add one line here, then reference it in CHAINS below.
@@ -102,4 +103,27 @@ export async function aiGenerateMultimodal(
     })
   );
   return text;
+}
+
+// ── Structured output with Zod schema (type-safe, auto-validated) ─────────
+// Replaces manual JSON.parse → extractJSON → jsonrepair → field validation.
+// The AI SDK passes the schema to the provider (Gemini responseSchema / OpenAI
+// response_format) and validates the output automatically.
+export async function aiGenerateStructured<T>(
+  chain: Chain,
+  params: { system: string; prompt: string; schema: z.ZodType<T> }
+): Promise<T> {
+  const { output } = await withRetry(() =>
+    generateText({
+      model: gateway(chain.primary),
+      output: Output.object({ schema: params.schema }),
+      system: params.system,
+      prompt: params.prompt,
+      providerOptions: {
+        gateway: { models: chain.fallbacks },
+      },
+    })
+  );
+  if (!output) throw new Error("AI returned no structured output");
+  return output;
 }

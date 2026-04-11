@@ -1,8 +1,18 @@
+import { z } from "zod";
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
-import { aiGenerate, CHAINS } from "@/lib/ai/gateway";
-import { extractJSON } from "@/lib/utils/json-extract";
+import { aiGenerateStructured, CHAINS } from "@/lib/ai/gateway";
 import type { PipelineContext, Competitor } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
+
+// ── Zod schema for structured output ─────────────────────────────────────
+const CompetitorResultSchema = z.object({
+  competitors: z.array(z.object({
+    url: z.string(),
+    name: z.string(),
+    matchScore: z.number(),
+    matchReason: z.string(),
+  })).min(3),
+});
 
 export async function runValidator(
   ctx: PipelineContext,
@@ -30,32 +40,18 @@ export async function runValidator(
   // ── Step 1: Build user message ─────────────────────────────────
   const userMessage = `PRODUCT BRIEF:\n${JSON.stringify(productBrief, null, 2)}\n\nCANDIDATES:\n${JSON.stringify(candidates, null, 2)}`;
 
-  // ── Step 2: AI Gateway call (Flash-Lite → GPT-5.4 fallback) ──────────────────
-  const rawText = await aiGenerate(CHAINS.flashLite, {
-    system: AGENT_PROMPTS.competitorValidator,
-    prompt: userMessage,
-    json: true,
-  });
-
-  // ── Step 3: Parse JSON ─────────────────────────────────────────
-  let raw: { competitors: unknown[] };
+  // ── Step 2: Structured AI call (schema-validated) ──────────────
+  let raw: z.infer<typeof CompetitorResultSchema>;
   try {
-    raw = JSON.parse(extractJSON(rawText));
+    raw = await aiGenerateStructured(CHAINS.flashLite, {
+      system: AGENT_PROMPTS.competitorValidator,
+      prompt: userMessage,
+      schema: CompetitorResultSchema,
+    });
   } catch (err) {
     throw new AgentError(
       "agent2",
-      `Gemini response is not valid JSON: ${err instanceof Error ? err.message : String(err)}`
-    );
-  }
-
-  // ── Step 5: Validate shape ─────────────────────────────────────
-  if (!Array.isArray(raw?.competitors)) {
-    throw new AgentError("agent2", 'Response missing "competitors" array');
-  }
-  if (raw.competitors.length < 3) {
-    throw new AgentError(
-      "agent2",
-      `Expected at least 3 competitors, got ${raw.competitors.length}`
+      `AI validation failed: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 
@@ -69,27 +65,18 @@ export async function runValidator(
     }).filter(Boolean)
   );
 
-  const competitors: Competitor[] = validatedPool.map((item, i) => {
-    const c = item as Record<string, unknown>;
-    for (const field of ["url", "name", "matchReason"] as const) {
-      if (typeof c[field] !== "string" || !(c[field] as string).trim()) {
-        throw new AgentError("agent2", `competitors[${i}] missing or empty field: ${field}`);
-      }
-    }
-    if (typeof c.matchScore !== "number") {
-      throw new AgentError("agent2", `competitors[${i}] matchScore must be a number`);
-    }
+  const competitors: Competitor[] = validatedPool.map((c, i) => {
     // Normalize matchScore to 0–1 range (LLM sometimes returns 0–100 scale)
-    if ((c.matchScore as number) > 1) {
-      c.matchScore = (c.matchScore as number) / 100;
+    let score = c.matchScore;
+    if (score > 1) score = score / 100;
+    if (score < 0 || score > 1) {
+      throw new AgentError("agent2", `competitors[${i}] matchScore out of range: ${score}`);
     }
-    if ((c.matchScore as number) < 0 || (c.matchScore as number) > 1) {
-      throw new AgentError("agent2", `competitors[${i}] matchScore out of range: ${c.matchScore}`);
-    }
+
     // Validate that competitor URL exists among original candidates (by domain)
     let competitorDomain: string;
     try {
-      competitorDomain = new URL(c.url as string).hostname.replace(/^www\./, "");
+      competitorDomain = new URL(c.url).hostname.replace(/^www\./, "");
     } catch {
       throw new AgentError("agent2", `competitors[${i}] has invalid URL: ${c.url}`);
     }
@@ -99,10 +86,10 @@ export async function runValidator(
     }
 
     return {
-      url: c.url as string,
-      name: c.name as string,
-      matchScore: c.matchScore as number,
-      matchReason: c.matchReason as string,
+      url: c.url,
+      name: c.name,
+      matchScore: score,
+      matchReason: c.matchReason,
     };
   }).filter((c): c is Competitor => c !== null);
 
