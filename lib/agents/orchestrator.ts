@@ -5,6 +5,7 @@ import type {
   PageData,
 } from "@/lib/types/analysis";
 import { scoreAnalysisQuality } from "@/lib/utils/quality-scorer";
+import { getHostname } from "@/lib/utils/url";
 import type { SSEWriter } from "@/lib/sse";
 import { runAgent0 } from "./agent0";
 import { runDiscovery } from "./agent1-discovery";
@@ -88,13 +89,9 @@ export async function runPipeline(
 
         // Surface a clear warning if the input page produced no classifiable sections.
         // This happens when Firecrawl returns thin content for JS SPAs.
-        const inputSections = ctx.pageSections?.find((ps) => {
-          try {
-            return new URL(ps.url).hostname.replace(/^www\./, "") === new URL(ctx.inputUrl).hostname.replace(/^www\./, "");
-          } catch {
-            return ps.url === ctx.inputUrl;
-          }
-        });
+        const inputSections = ctx.pageSections?.find((ps) =>
+          getHostname(ps.url) === getHostname(ctx.inputUrl)
+        );
         if (!inputSections?.sections.length) {
           writer.send({
             type: "progress",
@@ -118,9 +115,7 @@ export async function runPipeline(
         ctx.failedUrls = failedUrls;
 
         if (failedUrls.length > 0) {
-          const hostnames = failedUrls.map((u) => {
-            try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
-          });
+          const hostnames = failedUrls.map((u) => getHostname(u));
           writer.send({
             type: "progress",
             stage: "analysis",
@@ -159,14 +154,8 @@ export async function runPipeline(
         // Filter out competitors that failed analysis — prevents Agent 6 from
         // fabricating examples based on competitors it never actually analyzed.
         if (ctx.failedUrls?.length && ctx.competitors?.length) {
-          const failedDomains = new Set(
-            ctx.failedUrls.map((u) => {
-              try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
-            })
-          );
-          ctx.competitors = ctx.competitors.filter((c) => {
-            try { return !failedDomains.has(new URL(c.url).hostname.replace(/^www\./, "")); } catch { return true; }
-          });
+          const failedDomains = new Set(ctx.failedUrls.map((u) => getHostname(u)));
+          ctx.competitors = ctx.competitors.filter((c) => !failedDomains.has(getHostname(c.url)));
         }
 
         const synthesis = await runSynthesis(ctx, onActions);

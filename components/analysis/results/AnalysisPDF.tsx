@@ -8,55 +8,12 @@ import {
   Text,
   View,
 } from "@react-pdf/renderer";
-import type { AnalysisResult, Priority, SectionType } from "@/lib/types/analysis";
-
-// ── Constants ──────────────────────────────────────────────────────────────
-
-const SECTION_LABELS: Record<SectionType, string> = {
-  hero: "Hero",
-  navigation: "Navigation",
-  features: "Features",
-  benefits: "Benefits",
-  socialProof: "Social Proof",
-  testimonials: "Testimonials",
-  integrations: "Integrations",
-  howItWorks: "How It Works",
-  pricing: "Pricing",
-  faq: "FAQ",
-  cta: "Call to Action",
-  footer: "Footer",
-  videoDemo: "Video Demo",
-  comparison: "Comparison",
-  metrics: "Metrics",
-};
-
-const PRIORITY_COLORS: Record<Priority, string> = {
-  critical: "#f43f5e",
-  high: "#f97316",
-  medium: "#10b981",
-};
-
-const PRIORITY_ORDER: Record<Priority, number> = {
-  critical: 0,
-  high: 1,
-  medium: 2,
-};
+import type { AnalysisResult, Priority } from "@/lib/types/analysis";
+import { SECTION_LABELS, PRIORITY_COLORS, PRIORITY_ORDER } from "@/lib/constants";
+import { getScoreColor, getGradeLabel } from "@/lib/utils/score";
+import { getHostnameOrEmpty } from "@/lib/utils/url";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-function getScoreColor(score: number): string {
-  if (score >= 85) return "#10b981";
-  if (score >= 70) return "#06b6d4";
-  if (score >= 50) return "#f97316";
-  return "#f43f5e";
-}
-
-function getGradeLabel(score: number): string {
-  if (score >= 85) return "Excellent";
-  if (score >= 70) return "Good";
-  if (score >= 50) return "Needs work";
-  return "Critical";
-}
 
 function computeScore(result: AnalysisResult): number {
   if (result.overallScores?.input != null) {
@@ -79,13 +36,6 @@ function formatDate(): string {
   });
 }
 
-function getHostname(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
 
 // ── Styles ─────────────────────────────────────────────────────────────────
 
@@ -377,7 +327,7 @@ export function AnalysisPDF({ result, logoUrl }: Props) {
   const gradeLabel = getGradeLabel(score);
   const scoreColor = getScoreColor(score);
   const siteUrl = result.pages[0]?.url ?? "";
-  const host = getHostname(siteUrl);
+  const host = getHostnameOrEmpty(siteUrl);
 
   const sortedSections = [...result.sections]
     .filter((sec) => sec.findings.some((f) => f.site === "input"))

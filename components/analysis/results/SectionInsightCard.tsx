@@ -1,19 +1,14 @@
 "use client";
 
-import type { Recommendation, Priority } from "@/lib/types/analysis";
+import type { Recommendation } from "@/lib/types/analysis";
 import { toSentenceCase } from "@/lib/utils";
+import { PRIORITY_STYLES } from "@/lib/constants";
 
 interface InsightCardProps {
   insight: Recommendation;
   index: number;  // 1-based
   total: number;
 }
-
-const PRIORITY_STYLES: Record<Priority, { bg: string; color: string; border: string; label: string }> = {
-  critical: { bg: "#fef2f2", color: "#dc2626", border: "#fecaca", label: "Critical" },
-  high:     { bg: "#fffbeb", color: "#d97706", border: "#fde68a", label: "High" },
-  medium:   { bg: "#f0fdf4", color: "#16a34a", border: "#bbf7d0", label: "Medium" },
-};
 
 export function SectionInsightCard({ insight, index, total }: InsightCardProps) {
   const style = PRIORITY_STYLES[insight.priority] ?? {

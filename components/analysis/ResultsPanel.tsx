@@ -8,30 +8,9 @@ import { SectionCard } from "./results/SectionCard";
 import { SectionNavSidebar, type NavItem } from "./results/SectionNavSidebar";
 import { SummaryCard } from "./results/SummaryCard";
 import { ExportPDFButton } from "./results/ExportPDFButton";
-import type {
-  AnalysisResult,
-  SectionType,
-} from "@/lib/types/analysis";
+import type { AnalysisResult } from "@/lib/types/analysis";
 import { motion } from "framer-motion";
-
-
-const SECTION_LABELS: Record<SectionType, string> = {
-  hero: "Hero",
-  navigation: "Navigation",
-  features: "Features",
-  benefits: "Benefits",
-  socialProof: "Social Proof",
-  testimonials: "Testimonials",
-  integrations: "Integrations",
-  howItWorks: "How It Works",
-  pricing: "Pricing",
-  faq: "FAQ",
-  cta: "Call to Action",
-  footer: "Footer",
-  videoDemo: "Video Demo",
-  comparison: "Comparison",
-  metrics: "Metrics",
-};
+import { SECTION_LABELS } from "@/lib/constants";
 
 interface ResultsPanelProps {
   result: AnalysisResult;

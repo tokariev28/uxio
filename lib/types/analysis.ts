@@ -1,5 +1,13 @@
 // ── Product Brief (Agent 0 output) ──────────────────────────────
 
+export type ProductCategory =
+  | "vcs"
+  | "modelHub"
+  | "consumerAI"
+  | "orchestration"
+  | "docsWiki"
+  | "other";
+
 export interface ProductBrief {
   company: string;
   industry: string;
@@ -8,6 +16,7 @@ export interface ProductBrief {
   coreValueProp: string;
   cvpKeyword: string;   // short form, e.g. "ship faster AI"
   keyFeatures: string[];
+  productCategory: ProductCategory; // G2 primary category bucket for domain filtering
   pricingModel?: string;
   primaryCTAText?: string;
   pricingVisible?: boolean;

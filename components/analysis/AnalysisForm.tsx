@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { track } from "@vercel/analytics";
 import { cn } from "@/lib/utils";
 import { ProgressPanel } from "./ProgressPanel";
 import { ResultsPanel } from "./ResultsPanel";
@@ -78,7 +79,8 @@ function getFriendlyError(msg: string | null): string {
 }
 
 // ── localStorage cache helpers ─────────────────────────────────────────────
-const CACHE_PREFIX = "uxio:cache:";
+const CACHE_VERSION = 1;
+const CACHE_PREFIX = `uxio:v${CACHE_VERSION}:cache:`;
 const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 function getCachedResult(url: string): AnalysisResult | null {
@@ -120,6 +122,11 @@ export function AnalysisForm() {
   const abortRef = useRef<AbortController | null>(null);
 
   const prefersReducedMotion = useReducedMotion();
+
+  // Abort in-flight SSE stream on unmount
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
 
   const { isGranted, showBanner, showConfirmation, requestPermission, dismissBanner } =
     useNotification({
@@ -187,6 +194,9 @@ export function AnalysisForm() {
     setErrorMsg(null);
     setAppState("running");
 
+    const startTime = Date.now();
+    track("analysis_started", { domain: new URL(trimmed).hostname });
+
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -245,9 +255,16 @@ export function AnalysisForm() {
             setCachedResult(trimmed, event.data);
             setResult(event.data);
             setAppState("done");
+            track("analysis_completed", {
+              domain: new URL(trimmed).hostname,
+              score: event.data.overallScores?.input ?? -1,
+              sections: event.data.sections.length,
+              duration_s: Math.round((Date.now() - startTime) / 1000),
+            });
           } else if (event.type === "error") {
             setErrorMsg(event.message);
             setAppState("error");
+            track("analysis_failed", { domain: new URL(trimmed).hostname });
           }
         }
       }
@@ -265,7 +282,7 @@ export function AnalysisForm() {
         <motion.section
           key="hero"
           className="hero-wrapper"
-          exit={{ opacity: 0, y: -20 }}
+          exit={prefersReducedMotion ? undefined : { opacity: 0, y: -20 }}
           transition={{ duration: 0.35, ease: [0.76, 0, 0.24, 1] }}
         >
           <motion.div
@@ -275,7 +292,7 @@ export function AnalysisForm() {
             animate="visible"
           >
             <motion.div variants={heroItemVariants}>
-              <Link href="/">
+              <Link href="/" aria-label="Uxio homepage">
                 <Image src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" />
               </Link>
             </motion.div>
@@ -288,23 +305,27 @@ export function AnalysisForm() {
             </motion.p>
             <motion.div className="hero-form-area" variants={heroItemVariants}>
               <form onSubmit={handleSubmit} className="hero-form-wrapper">
+                <label htmlFor="url-input" className="sr-only">Landing page URL</label>
                 <input
+                  id="url-input"
                   type="text"
                   className="hero-input"
                   placeholder="https://your-saas.com"
                   value={url}
                   onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
+                  aria-describedby={urlError ? "url-error" : undefined}
                 />
                 <button
                   type="submit"
                   disabled={validating}
                   className="hero-submit"
+                  aria-busy={validating}
                 >
                   {validating ? "Checking…" : "Analyze"}
                 </button>
               </form>
               {urlError && (
-                <p className="hero-url-error">
+                <p id="url-error" role="alert" className="hero-url-error">
                   <AlertCircle className="size-4 shrink-0" />
                   {urlError}
                 </p>

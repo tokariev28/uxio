@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerateMultimodal, CHAINS } from "@/lib/ai/gateway";
 import { stripMarkdownLinks, stripBoilerplate, stripInlineCode } from "@/lib/utils/markdown-clean";
@@ -13,34 +14,38 @@ import type {
 import { AgentError } from "@/lib/agents/errors";
 import { extractJSON } from "@/lib/utils/json-extract";
 import { jsonrepair } from "jsonrepair";
+import { getHostname, getHostnameOrEmpty } from "@/lib/utils/url";
+import { isUnsafeUrl } from "@/lib/utils/ssrf";
 
-// ── Response types ─────────────────────────────────────────────────────────
+// ── Zod schema for runtime validation of multimodal LLM response ─────────
+// aiGenerateMultimodal returns raw text, so we validate with Zod after parsing.
+const BatchSectionResultSchema = z.object({
+  sectionType: z.string(),
+  scores: z.object({
+    clarity: z.number(),
+    specificity: z.number(),
+    icpFit: z.number(),
+    attentionRatio: z.number(),
+    ctaQuality: z.number(),
+    trustSignals: z.number(),
+    visualHierarchy: z.number(),
+    cognitiveEase: z.number(),
+    typographyReadability: z.number(),
+    densityBalance: z.number(),
+  }).optional(),
+  overallScore: z.number(),
+  confidence: z.number().optional(),
+  strengths: z.array(z.string()),
+  weaknesses: z.array(z.string()),
+  keyEvidence: z.object({
+    headlineText: z.string().nullable(),
+    ctaText: z.string().nullable(),
+    copyQuote: z.string().nullable(),
+    visualObservation: z.string(),
+  }),
+});
 
-interface BatchSectionResult {
-  sectionType: string;
-  scores?: {
-    clarity: number;
-    specificity: number;
-    icpFit: number;
-    attentionRatio: number;
-    ctaQuality: number;
-    trustSignals: number;
-    visualHierarchy: number;
-    cognitiveEase: number;
-    typographyReadability: number;
-    densityBalance: number;
-  };
-  overallScore: number;
-  confidence?: number;
-  strengths: string[];
-  weaknesses: string[];
-  keyEvidence: {
-    headlineText: string | null;
-    ctaText: string | null;
-    copyQuote: string | null;
-    visualObservation: string;
-  };
-}
+type BatchSectionResult = z.infer<typeof BatchSectionResultSchema>;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -52,30 +57,23 @@ function siteLabel(
   if (url === inputUrl) return "input";
   // Domain-based match for input URL — handles trailing slash, redirects,
   // or any minor URL difference introduced by Firecrawl
-  try {
-    const urlHost = new URL(url).hostname.replace(/^www\./, "");
-    const inputHost = new URL(inputUrl).hostname.replace(/^www\./, "");
-    if (urlHost === inputHost) return "input";
-  } catch { /* ignore invalid URLs */ }
+  const urlHost = getHostnameOrEmpty(url);
+  const inputHost = getHostnameOrEmpty(inputUrl);
+  if (urlHost && urlHost === inputHost) return "input";
   // Exact competitor match
   const exact = competitors.find((c) => c.url === url);
   if (exact) return exact.name;
   // Domain-based competitor fallback
-  try {
-    const host = new URL(url).hostname.replace(/^www\./, "");
-    const byDomain = competitors.find((c) => {
-      try {
-        return new URL(c.url).hostname.replace(/^www\./, "") === host;
-      } catch {
-        return false;
-      }
-    });
+  if (urlHost) {
+    const byDomain = competitors.find((c) => getHostnameOrEmpty(c.url) === urlHost);
     if (byDomain) return byDomain.name;
-  } catch { /* ignore invalid URLs */ }
+  }
   return url;
 }
 
 async function urlToBase64(url: string): Promise<string> {
+  const ssrfError = isUnsafeUrl(url);
+  if (ssrfError) throw new Error(`SSRF blocked: ${ssrfError}`);
   const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`Screenshot fetch failed: ${res.status}`);
   const buffer = await res.arrayBuffer();
@@ -182,12 +180,14 @@ async function analyzePageBatch(
 
   let parsed: BatchSectionResult[];
   try {
-    parsed = JSON.parse(extractJSON(rawText)) as BatchSectionResult[];
+    const jsonArr = JSON.parse(extractJSON(rawText));
+    parsed = z.array(BatchSectionResultSchema).parse(jsonArr);
   } catch {
     // Tier 2: jsonrepair fixes common LLM JSON flaws (literal newlines in strings,
     // trailing commas, unescaped quotes) without burning a full LLM retry.
     try {
-      parsed = JSON.parse(jsonrepair(extractJSON(rawText))) as BatchSectionResult[];
+      const repaired = JSON.parse(jsonrepair(extractJSON(rawText)));
+      parsed = z.array(BatchSectionResultSchema).parse(repaired);
     } catch {
       // Tier 3: JSON is structurally broken — retry the LLM call once as last resort.
       console.warn(`[agent5] JSON parse failed for ${page.url} — retrying LLM call`);
@@ -198,7 +198,8 @@ async function analyzePageBatch(
         json: true,
       });
       try {
-        parsed = JSON.parse(jsonrepair(extractJSON(retryText))) as BatchSectionResult[];
+        const retryRepaired = JSON.parse(jsonrepair(extractJSON(retryText)));
+        parsed = z.array(BatchSectionResultSchema).parse(retryRepaired);
       } catch (retryErr) {
         throw new AgentError(
           "agent5",
@@ -238,7 +239,6 @@ export async function runAnalyzer(
     throw new AgentError("agent5", "pageSections is missing from pipeline context");
   }
 
-  const getHostname = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } };
 
   const competitors = ctx.competitors ?? [];
 

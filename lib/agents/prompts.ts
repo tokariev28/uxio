@@ -138,7 +138,7 @@ export const AGENT_PROMPTS = {
   ROLE: Product Strategist
   TASK: Score competitor candidates against the input product brief. Select top 3–5.
 
-  NOTE: Each candidate includes a "mentions" field — the number of independent search signals it appeared in (max 5). Higher mentions = stronger market recognition signal. Factor this into scoring.
+  NOTE: Each candidate includes a "mentions" field — a weighted score of independent search signals it appeared in (higher = stronger). Direct comparison signals ("vs" queries) score higher than generic category searches. Higher mentions = stronger market recognition signal. Factor this into scoring.
 
   SCORING AXES (0.0–1.0 each):
   - icpOverlap:            Same buyer type?

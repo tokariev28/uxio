@@ -81,7 +81,7 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
   return (
     <div className="progress-container relative w-full max-w-md mx-auto py-6">
         {anyRunning && (
-          <p className="mb-5" style={{ fontSize: 13, color: "rgba(0,0,0,0.45)", lineHeight: 1.55 }}>
+          <p className="mb-5" style={{ fontSize: 13, color: "#525252", lineHeight: 1.55 }}>
             Analysis typically takes 2–4 minutes.
             {notification?.showConfirmation ? (
               <AnimatePresence>

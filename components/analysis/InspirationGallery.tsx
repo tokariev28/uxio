@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, RefObject } from "react";
+import { useRef, useEffect, useState, memo, RefObject } from "react";
 import Image from "next/image";
 import {
   motion,
@@ -67,7 +67,7 @@ interface GalleryCardProps {
   onCardMouseLeave: () => void;
 }
 
-function GalleryCard({
+const GalleryCard = memo(function GalleryCard({
   item,
   instanceKey,
   scrollXMV,
@@ -186,7 +186,7 @@ function GalleryCard({
       </div>
     </motion.div>
   );
-}
+});
 
 /* ── InspirationGallery ─────────────────────────────────────────────────── */
 
@@ -206,15 +206,22 @@ export function InspirationGallery() {
     return () => el.removeEventListener("scroll", onScroll);
   }, [scrollXMV]);
 
-  /* Auto-scroll RAF loop */
+  /* Auto-scroll RAF loop — pauses when tab is hidden */
   useEffect(() => {
     if (reducedMotion || isTouch) return;
     const el = containerRef.current;
     if (!el) return;
 
     let rafId: number;
+    let paused = false;
+
+    function onVisibility() {
+      paused = document.hidden;
+      if (!paused) rafId = requestAnimationFrame(tick);
+    }
 
     function tick() {
+      if (paused) return;
       if (!isHovered.current && el) {
         el.scrollLeft += SCROLL_SPEED;
         // When we've scrolled past the first copy, jump back seamlessly
@@ -226,8 +233,12 @@ export function InspirationGallery() {
       rafId = requestAnimationFrame(tick);
     }
 
+    document.addEventListener("visibilitychange", onVisibility);
     rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [reducedMotion, isTouch]);
 
   return (
