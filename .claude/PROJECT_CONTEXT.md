@@ -38,13 +38,13 @@ The backend implements a 7-agent pipeline end-to-end:
 | 5 | Vision Analyzer | Firecrawl screenshot → Gemini Vision | ✅ | Flash |
 | 6 | Synthesis | Gemini | ✅ | Flash |
 
-**Agent 1 LLM leg** enforces TIER-1 criteria (3+ years active, thousands of G2/Capterra reviews, recognized-without-explanation brand) and uses a chain-of-thought step before returning 8 candidates. Agents 1 (Tavily leg) and 3 (Firecrawl) are pure API calls — no prompts in `prompts.ts`.
+**Agent 1 LLM leg** enforces TIER-1 criteria (3+ years active, thousands of G2/Capterra reviews, recognized-without-explanation brand) and uses a chain-of-thought step before returning 8 candidates. Agents 1 (Tavily leg) and 3 (Firecrawl) are pure API calls — no prompts in `prompts.ts`. Agent 1 applies dual-layer domain filtering across 5 categories: `VCS_PLATFORM_DOMAINS`, `MODEL_HUB_DOMAINS`, `CONSUMER_AI_DOMAINS`, `ORCHESTRATION_DOMAINS`, and `DOCS_WIKI_DOMAINS` — exclusions are pre-computed and passed to Tavily via `exclude_domains`, then applied again post-fetch as a safety net on LLM-discovered candidates.
 
 **Agent 2** applies three rules beyond 4-axis scoring: DIVERSITY (max 2 competitors from same sub-category), INFRASTRUCTURE exclusion (blocks AWS/Azure/GCP/Vertex AI/Bedrock/Azure OpenAI as product competitors), TIER RULE (prefers well-known brand when matchScores within 0.10). Returns top 5 — positions 1–3 primary, 4–5 backup.
 
 **Agent 4** deduplicates classified sections by type per page — only the first occurrence is retained.
 
-**Agent 5** active prompt: `AGENT_PROMPTS.sectionAnalyzerBatch` (`visionAnalyzer` key is legacy reference, not in active code path). Each `SectionFinding.confidence`: `1.0` (full visual + copy evidence), `0.7` (text-only — also the runtime cap enforced in code when no screenshot is available), `0.4` (inferred from sparse markdown), `0.2` (markup artifacts only, no readable copy).
+**Agent 5** active prompt: `AGENT_PROMPTS.sectionAnalyzerBatch` (`visionAnalyzer` key is legacy reference, not in active code path). Each `SectionFinding.confidence`: `1.0` (full visual + copy evidence), `0.7` (text-only — also the runtime cap enforced in code when no screenshot is available), `0.4` (inferred from sparse markdown), `0.2` (markup artifacts only, no readable copy). Agent 5 receives full product context injected into its prompt — CVP, key features, pricing model, free-trial flag, and industry — so it can score `icpFit`, `ctaQuality`, and `specificity` against real product data rather than guessing.
 
 **Agent 6** strips numerical scores from Agent 5 output before synthesis. `overallScores` computed programmatically from Agent 5 data — not LLM-generated.
 
@@ -83,6 +83,7 @@ The following decisions are fixed for this MVP:
 - **AI & External APIs**
   - **Vercel AI Gateway** (`lib/ai/gateway.ts`) routes all LLM calls with automatic fallback chains: Gemini 2.5 Flash → GPT-5.4-nano and Gemini 2.5 Flash-Lite → GPT-5.4-nano.
   - **Gemini 2.5 Flash** for vision and synthesis tasks (Agents 5, 6); **Gemini 2.5 Flash-Lite** for text-only tasks (Agents 0, 1, 2, 4).
+  - Agents 0, 1, and 4 use `aiGenerateStructured()` with Zod schema validation (AI SDK `Output.object()`) — returns typed data directly, no manual JSON parsing needed. Agents 5 and 6 use `aiGenerate()`/`aiGenerateMultimodal()` + `extractJSON` + `jsonrepair` fallback chain.
   - **Tavily Search API** for competitor discovery.
   - **Firecrawl** for full-page screenshot + markdown scraping.
 
