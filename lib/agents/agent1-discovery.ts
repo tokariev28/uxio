@@ -220,5 +220,23 @@ export async function runDiscovery(
     }
   }
 
+  // ── Remove VCS / code-hosting platforms unless the input IS one ───────────
+  // github.com, gitlab.com, bitbucket.org bundle issue tracking as a secondary
+  // feature — they are not direct competitors to issue trackers, PM tools, or
+  // productivity apps. Filtering here is deterministic: if they never reach
+  // Agent 2's candidate list, Agent 2 physically cannot select them.
+  // Exception: keep them if the input product IS a code-hosting tool.
+  const VCS_PLATFORM_DOMAINS = new Set(['github.com', 'gitlab.com', 'bitbucket.org', 'sourcehut.org']);
+  const briefText = `${brief.industry} ${brief.coreValueProp}`.toLowerCase();
+  const isVcsTool = /version.?control|code.?host|source.?code|git.*(platform|hosting)|repository|vcs/.test(briefText);
+
+  if (!isVcsTool) {
+    for (const d of VCS_PLATFORM_DOMAINS) {
+      if (map.delete(d)) {
+        console.warn(`[agent1] Filtered VCS platform '${d}' — not a code-hosting product`);
+      }
+    }
+  }
+
   return Array.from(map.values());
 }
