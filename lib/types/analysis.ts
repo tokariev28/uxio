@@ -105,6 +105,7 @@ export interface SectionFinding {
 export interface SectionAnalysis {
   sectionType: SectionType;
   findings: SectionFinding[];
+  scrollFraction?: number; // 0.0–1.0, from input page's Agent 4 classification
 }
 
 // ── Recommendations (Agent 6 output) ───────────────────────────

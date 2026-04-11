@@ -44,17 +44,16 @@ export function ResultsPanel({ result, onReset }: ResultsPanelProps) {
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // ── Sort sections in actual page scroll order ──────────────────────────────
-  // Use scrollFraction from Agent 4's classified sections so the results reflect
-  // the real structure of the site, not a hardcoded canonical order.
+  // Agent 5 attaches scrollFraction from the input page's classified sections,
+  // so we sort directly on it — no cross-reference with pageSections needed.
+  const sortedSections = [...result.sections].sort(
+    (a, b) => (a.scrollFraction ?? 1) - (b.scrollFraction ?? 1)
+  );
+
   const inputUrl = result.pages[0]?.url;
   const inputPageSections = result.pageSections?.find((ps) => ps.url === inputUrl);
-  const scrollOrder = new Map<SectionType, number>(
-    inputPageSections?.sections.map((s) => [s.type, s.scrollFraction]) ?? []
-  );
-  const inputSectionTypes = new Set(scrollOrder.keys());
-
-  const sortedSections = [...result.sections].sort(
-    (a, b) => (scrollOrder.get(a.sectionType) ?? 1) - (scrollOrder.get(b.sectionType) ?? 1)
+  const inputSectionTypes = new Set(
+    inputPageSections?.sections.map((s) => s.type) ?? []
   );
 
   const visibleSections =

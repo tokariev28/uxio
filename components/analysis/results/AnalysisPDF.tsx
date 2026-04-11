@@ -379,14 +379,9 @@ export function AnalysisPDF({ result, logoUrl }: Props) {
   const siteUrl = result.pages[0]?.url ?? "";
   const host = getHostname(siteUrl);
 
-  const inputPageSections = result.pageSections?.find((ps) => ps.url === siteUrl);
-  const scrollOrder = new Map<SectionType, number>(
-    inputPageSections?.sections.map((s) => [s.type, s.scrollFraction]) ?? []
-  );
-
   const sortedSections = [...result.sections]
     .filter((sec) => sec.findings.some((f) => f.site === "input"))
-    .sort((a, b) => (scrollOrder.get(a.sectionType) ?? 1) - (scrollOrder.get(b.sectionType) ?? 1));
+    .sort((a, b) => (a.scrollFraction ?? 1) - (b.scrollFraction ?? 1));
 
   // Compute a single-page height so react-pdf never inserts page breaks.
   // Estimates are conservative (tall) — PDF viewers scroll to content end naturally.

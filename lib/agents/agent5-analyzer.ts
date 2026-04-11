@@ -359,5 +359,20 @@ export async function runAnalyzer(
     }
   }
 
-  return { analyses: Array.from(analysisMap.values()), failedUrls };
+  // Attach input-page scroll position and sort so results match actual page order
+  const inputPageSections = ctx.pageSections?.find(
+    (ps) => ps.url === ctx.inputUrl
+  );
+  const scrollLookup = new Map<SectionType, number>(
+    inputPageSections?.sections.map((s) => [s.type, s.scrollFraction]) ?? []
+  );
+
+  const analyses = Array.from(analysisMap.values())
+    .map((sa) => ({
+      ...sa,
+      scrollFraction: scrollLookup.get(sa.sectionType) ?? 1.0,
+    }))
+    .sort((a, b) => (a.scrollFraction ?? 1) - (b.scrollFraction ?? 1));
+
+  return { analyses, failedUrls };
 }
