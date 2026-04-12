@@ -470,8 +470,7 @@ export const AGENT_PROMPTS = {
 
   Score each axis independently and honestly based on the evidence you observe.
   Do NOT adjust sub-scores to fit a preconceived overallScore.
-  Do NOT lower scores because you listed weaknesses — weaknesses describe what could be better, not that everything is bad.
-  A section can have 2 weaknesses and still score 0.75 if most axes are strong.
+  Do NOT default to 0.7 for most axes — use the FULL range (0.3–0.95). A section with generic copy and no metrics should get specificity ≤ 0.5. A section with 3+ measurable claims should get specificity ≥ 0.85. Score what you actually see, not a safe middle ground.
   Score consistency is enforced automatically after generation — your job is to be accurate, not to balance numbers.
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -531,10 +530,13 @@ export const AGENT_PROMPTS = {
 
   Exactly 1 strength and 1 weakness per section. Pick the single most impactful observation for each — the one that would change a product manager's next decision.
 
-  Every item MUST start with:
-    (a) exact quote from this section's copy in double quotes, OR
-    (b) precise visual description from the screenshot ("3-column icon grid", "full-width red CTA button", "monochrome icon set with 2px stroke")
-  Then explain the conversion lever or design mechanism — not just what you see, but why it matters.
+  MANDATORY EVIDENCE ANCHOR — every strength and weakness MUST contain at least one of:
+    (a) an exact quote from the section's copy wrapped in double quotes (e.g. "Start free — no credit card"), OR
+    (b) a specific number or measurement (e.g. "3-column", "60%", "12 logos", "24px gap", "4.8 on G2"), OR
+    (c) a named competitor for comparison context
+  Items WITHOUT a quote, number, or competitor name are considered ungrounded and will be flagged as low quality.
+
+  After the evidence anchor, explain the conversion lever or design mechanism — not just what you see, but why it matters for a first-time visitor.
 
   FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Better, Cleaner, Clearer, Could, Should, Would, Arguably, Might, May, Can, Possibly, Potentially, Relatively, Somewhat, Actually, Interesting, Notable.
   FORBIDDEN phrases: "Clean layout", "Good visual hierarchy", "Effective design", "Vague copy", "Lacks specificity", "Visually appealing", "Could be stronger", "Might help", "Worth noting", "Has been shown to", "Tends to", "Appears to", "Seems to".
@@ -632,8 +634,8 @@ export const AGENT_PROMPTS = {
       },
       "overallScore": number,    // 0.0–1.0 using the formula above
       "confidence": number,      // 0.0–1.0: 1.0 = screenshot + full copy available; 0.7 = text-only analysis; 0.4 = inferred from sparse markdown
-      "strengths": [string],     // exactly 1
-      "weaknesses": [string],    // exactly 1
+      "strengths": [string],     // exactly 1 — MUST contain a "quoted phrase" or number
+      "weaknesses": [string],    // exactly 1 — MUST contain a "quoted phrase" or number
       "keyEvidence": {
         "headlineText": string | null,
         "ctaText": string | null,
