@@ -20,7 +20,7 @@ Paste any SaaS URL → Uxio benchmarks it against your top competitors and deliv
 8. **Exports a PDF** of the full analysis with one click
 9. **Notifies you** via browser notification when analysis finishes while the tab is in the background (gracefully handles incognito/denied permissions with a fallback message)
 
-Results stream in real time via Server-Sent Events (SSE). The full analysis takes ~2–4 minutes.
+Results stream in real time via Server-Sent Events (SSE). The full analysis takes ~1.5–3 minutes.
 
 ---
 
@@ -31,14 +31,14 @@ A 7-agent sequential pipeline runs entirely on the server:
 | # | Agent | What it does | APIs |
 |---|-------|-------------|------|
 | 0 | Page Intelligence | Extracts product brief + category classification | Firecrawl + AI Gateway (Gemini Flash-Lite) |
-| 1 | Multi-Signal Discovery | Finds competitors via weighted search + LLM knowledge | Tavily + AI Gateway (Gemini Flash-Lite) |
+| 1 | Multi-Signal Discovery | Finds competitors via 3 weighted searches + LLM knowledge | Tavily + AI Gateway (Gemini Flash-Lite) |
 | 2 | Competitor Validator | Scores and ranks the top 3 | AI Gateway (Gemini Flash-Lite) |
-| 3 | Scraper | Two-pass scrape of all competitor pages (JS SPA retry) | Firecrawl |
+| 3 | Scraper | Reuses Agent 0 scrape for input; two-pass scrape of competitor pages | Firecrawl |
 | 4 | Section Classifier | Identifies and deduplicates page sections | AI Gateway (Gemini Flash-Lite) |
-| 5 | Vision Analyzer | Analyzes screenshots + markdown per section | AI Gateway (Gemini Flash, multimodal) |
-| 6 | Synthesis | Produces 2–3 recommendations per section + executive summary | AI Gateway (Gemini Flash, structured output) |
+| 5 | Vision Analyzer | Analyzes screenshots + markdown (capped 8 sections/page, competitors filtered to input types) | AI Gateway (Gemini Flash, multimodal) |
+| 6 | Synthesis | Produces 2 recommendations per section (top 5 sections) + executive summary | AI Gateway (Gemini Flash, structured output) |
 
-All LLM calls go through **Vercel AI Gateway** with automatic fallback chains (Gemini 2.5 Flash → GPT-5.4-nano). Agent 6 uses **dynamic recommendation count** — 2 per section for sites with 10+ sections, 3 otherwise — to prevent output generation failures on large sites. Fatal pipeline errors are logged with full stack traces for debugging. Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result along with a quality validation report.
+All LLM calls go through **Vercel AI Gateway** with automatic fallback chains (Gemini 2.5 Flash → GPT-5.4-nano). Agent 5 caps to 8 sections per page and filters competitor pages to only section types present on the input page — this keeps multimodal calls focused and fast. Agent 6 selects the top 5 sections by competitive gap and generates 2 recommendations each (10 total). Fatal pipeline errors are logged with full stack traces for debugging. Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result along with a quality validation report.
 
 ---
 
