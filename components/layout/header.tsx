@@ -6,7 +6,7 @@ export function Header() {
     <header className="border-b border-border">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-center px-6">
         <Link href="/">
-          <Image src="/logo.svg" alt="Uxio" width={74} height={38} />
+          <Image src="/logo.svg" alt="Uxio" width={74} height={38} priority />
         </Link>
       </div>
     </header>

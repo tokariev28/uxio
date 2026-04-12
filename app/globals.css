@@ -261,7 +261,7 @@
 /* ─── Hero Section ──────────────────────────────────────────────────────── */
 .hero-wrapper {
   position: relative;
-  height: 100dvh;
+  min-height: 100dvh;
   background-color: #080c18;
   background-image: linear-gradient(
     in oklch to bottom,

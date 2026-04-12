@@ -37,7 +37,7 @@ Sequential orchestration in `orchestrator.ts`:
 | 3 | `agent3-scraper.ts` | Scraper — two-pass scrape (JS SPA retry) of all URLs in parallel | Firecrawl |
 | 4 | `agent4-classifier.ts` | Section Classifier — identify page sections, normalize section types, deduplicate by type, compute `scrollFraction` | Gemini |
 | 5 | `agent5-analyzer.ts` | Vision Analyzer — analyze screenshots + markdown | Gemini Vision (multimodal) |
-| 6 | `agent6-synthesis.ts` | Synthesis — produce 3 recommendations per section | Gemini |
+| 6 | `agent6-synthesis.ts` | Synthesis — produce 2–3 recommendations per section (dynamic) | Gemini |
 
 Each agent receives `PipelineContext` (accumulates results), returns a typed result, and throws `AgentError` (from `lib/agents/errors.ts`) on failure.
 
@@ -59,6 +59,12 @@ Both `competitorDiscovery` and `competitorValidator` contain extensive **negativ
 
 **Agent 6 synthesis prompt** (`AGENT_PROMPTS.synthesis`) enforces a two-part recommendation structure: `reasoning` must be a direct comparison (minimum 2 sentences — what the competitor does vs what the input page does, then the concrete consequence for visitors), and `competitorExample` is the evidence anchor — the exact quote, metric, or visual detail that proves the point. The Zod schema uses `competitorExample` internally; Agent 6 maps it to `exampleFromCompetitor` in the TypeScript `Recommendation` type. Forbidden openers in `suggestedAction` are validated at runtime (logged warning, not hard fail).
 
+**Agent 6 dynamic recommendation count**: `recsPerSection` is computed from `ctx.sectionAnalyses.length` — 2 recommendations per section when ≥10 section types exist, 3 otherwise. The value is passed to the LLM via `RECOMMENDATIONS_PER_SECTION` in the user message; the system prompt references this variable instead of a hardcoded number. This prevents "No output generated" failures on sites with many sections (e.g. linear.app with 10+ types).
+
+**Agent 6 input trimming**: Before sending findings to the LLM, Agent 6 strips `scores`, `score`, and `confidence` from each finding, and truncates `strengths`/`weaknesses` arrays to the first element. The `summary` and `evidence` fields are preserved intact — they carry the specific details needed for quality `competitorExample` and `reasoning` output. The separately computed `scoreGaps` provide quantitative priority signals.
+
+**Agent 6 impact truncation**: The `impact` field is truncated to the first 2 sentences in code (split by period + whitespace) as a safeguard against LLM over-generation. The prompt constrains impact to "STRICTLY one sentence, MAX 30 words."
+
 ### AI Gateway (`/lib/ai/gateway.ts`)
 
 All LLM calls go through Vercel AI Gateway with automatic fallback chains. Model slugs are defined in the `MODELS` constant; `CHAINS` wires them with fallbacks:
@@ -72,7 +78,7 @@ Three functions:
 - `aiGenerateMultimodal()` — text + image (used by Agent 5)
 - `aiGenerateStructured()` — Zod schema-validated structured output via AI SDK `Output.object()` (used by Agents 0, 1, 2, 4, 6). Returns typed data directly — no `extractJSON`/`jsonrepair` needed.
 
-All three wrap calls in `withRetry()` — up to 2 retries on transient errors (429, 502, 503, 504, timeout, rate limit, overloaded, econnrefused, connection reset) with 1s/2s delays. The orchestrator also wraps each agent step in `withStepRetry()` (1 retry, immediate retry — no delay) for step-level resilience.
+All three wrap calls in `withRetry()` — up to 2 retries on transient errors (429, 502, 503, 504, timeout, rate limit, overloaded, econnrefused, connection reset) with 1s/2s delays. The orchestrator also wraps each agent step in `withStepRetry()` (1 retry, immediate retry — no delay) for step-level resilience. Fatal pipeline errors are logged via `console.error("[pipeline] Fatal error:", err)` before sending the SSE error event — check server logs for the full stack trace when debugging failures.
 
 ### SSE Streaming (`/lib/sse.ts`)
 
@@ -107,13 +113,13 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
 - **Rate limiting**: In-memory IP-based, 2 requests per minute per IP
 - **SSRF protection**: Both HTTP and HTTPS allowed; blocks private IPs and non-standard ports via `isUnsafeUrl()` from `lib/utils/ssrf.ts` — applied in `/api/analyze`, `/api/validate-url`, and internally in Agent 3 (`resolveScreenshot`) and Agent 5 (`urlToBase64`) for Firecrawl-returned URLs. The validate-url route uses `redirect: "manual"` on both its HEAD and GET probes — do not change to `redirect: "follow"`, which would allow bypass via attacker-controlled 301 redirects to private IPs.
 - **CORS**: Origin header validated against host — cross-origin requests rejected
-- **Security headers**: `proxy.ts` sets CSP, X-Frame-Options (DENY), X-Content-Type-Options (nosniff), Referrer-Policy, Permissions-Policy, and HSTS on all responses. CSP conditionally includes `'unsafe-eval'` in `script-src` when `NODE_ENV !== "production"` — React 19 needs the Function constructor in dev mode. Production CSP omits it.
+- **Security headers**: `proxy.ts` sets CSP, X-Frame-Options (DENY), X-Content-Type-Options (nosniff), Referrer-Policy, Permissions-Policy, and HSTS on all responses. CSP conditionally includes `'unsafe-eval'` in `script-src` when `NODE_ENV !== "production"` — React 19 needs the Function constructor in dev mode. Production CSP omits it. CSP `img-src` allows `https://www.google.com` and `https://*.gstatic.com` — Google's favicon API (`/s2/favicons`) redirects to `t3.gstatic.com/faviconV2/...`; without the gstatic allowance, favicon images in insight cards are blocked.
 - **Env validation**: `lib/env.ts` lazily validates `FIRECRAWL_API_KEY`, `TAVILY_API_KEY`, `GEMINI_API_KEY` via Zod on first use — throws a clear error if any key is missing
 
 ### UI
 
 - `components/layout/header.tsx` — top nav header
-- `components/analysis/` — the three main panels (form, progress, results) plus `InspirationGallery` (auto-scrolling 3D card gallery of example sites shown on the home/form view)
+- `components/analysis/` — the three main panels (form, progress, results) plus `InspirationGallery` (auto-scrolling 3D card gallery of example sites shown during analysis). The gallery wrapper uses `mt-auto` inside a flex-column container to stay at the bottom of the viewport without `position: fixed` — this avoids the DevTools jump issue.
 - `components/analysis/results/` — sub-components for the results view:
   - `SummaryCard` — arc gauge SVG (`ArcGauge`) showing overall score (0–100) with colour thresholds (≥85 green, ≥70 cyan, ≥50 orange, <50 red) + executive summary block below
   - `SectionCard` — per-section card with strengths/weaknesses tags and `InsightSlider`; shows max **1 strength and 1 weakness** per section (Agent 5 may return up to 3 of each — the top signal is intentionally selected)
@@ -124,10 +130,10 @@ All pipeline types are defined here. TypeScript strict mode — no `any`. Key ty
   - `CompetitorTabSwitcher`, `RecommendationCard`, `ScoreBadge`, `SectionInsightCard`, `SkeletonSectionCard`
 - `components/ui/` — shadcn/ui primitives (button, input, card, badge, separator, skeleton)
 - `components/NotFoundContent.tsx` — `"use client"` component for the 404 page; uses `.hero-wrapper` gradient + framer-motion staggered entrance. The split exists because `app/not-found.tsx` must remain a Server Component to export `metadata`, while animations require `"use client"`. Apply the same pattern to any page that needs both `metadata` export and framer-motion.
-- `lib/hooks/useNotification.ts` — browser Notification API hook; fires when analysis completes while the tab is hidden; also manages tab title (`"Analyzing… • Uxio"` while running, `"✓ Analysis ready • Uxio"` on complete, then restores after 3s)
+- `lib/hooks/useNotification.ts` — browser Notification API hook; fires when analysis completes while the tab is hidden; also manages tab title (`"Analyzing… • Uxio"` while running, `"✓ Analysis ready • Uxio"` on complete, then restores after 3s). Returns `isGranted`, `isDenied`, `showBanner`, `showConfirmation`, `requestPermission`, `dismissBanner`. When permission is denied (e.g. incognito mode), `showConfirmation` is still set to `true` for 4s so the UI can show a "Notifications blocked" message instead of the button silently disappearing.
 - `AnalysisForm.tsx` caches completed results in `localStorage` (key: `uxio:v{CACHE_VERSION}:cache:<url>`, TTL: 2 hours). On submit, a cache hit skips the pipeline entirely and shows results instantly. Bump `CACHE_VERSION` in `AnalysisForm.tsx` when `AnalysisResult` schema changes to auto-invalidate stale entries.
 - Tailwind CSS v4 (PostCSS). Fonts: **Helvetica Now Display** loaded locally via `@font-face` in `globals.css` (weights 100–900, normal + italic; CSS var `--font-primary`); **Instrument Serif** italic loaded via `next/font/google` (`--font-instrument-serif`). Geist Mono is only a CSS fallback in `--font-mono` — it is not loaded via `next/font`. `framer-motion` for enter animations — standard easing is `[0.16, 1, 0.3, 1]` with `initial={{ opacity: 0, y: 32 }}`. `"use client"` on all interactive components.
-- The `.hero-wrapper`, `.hero-content`, `.hero-heading`, `.hero-heading em`, `.hero-subtitle`, and `.hero-submit` CSS classes in `globals.css` are reusable across any full-bleed gradient page (currently used by the home page and the 404 page). `.hero-heading em` applies Instrument Serif italic automatically.
+- The `.hero-wrapper`, `.hero-content`, `.hero-heading`, `.hero-heading em`, `.hero-subtitle`, and `.hero-submit` CSS classes in `globals.css` are reusable across any full-bleed gradient page (currently used by the home page and the 404 page). `.hero-heading em` applies Instrument Serif italic automatically. `.hero-wrapper` uses `min-height: 100dvh` as the CSS baseline; both `AnalysisForm.tsx` and `NotFoundContent.tsx` lock the wrapper's `minHeight` to `window.innerHeight` on mount via a ref + `useEffect` — this prevents the gradient background from jumping when browser DevTools opens (all viewport units recalculate when the viewport shrinks, so a JS-captured pixel value is the only stable approach).
 - `@vercel/analytics` and `@vercel/speed-insights` are wired in `app/layout.tsx`; JSON-LD `SoftwareApplication` structured data is also injected in `<head>` at layout level. Custom analytics events via `track()`: `analysis_started`, `analysis_completed` (with score, sections, duration_s), `analysis_failed`, `pdf_exported`
 - `app/error.tsx` — client-side error boundary with retry button (`.hero-wrapper` style). `app/global-error.tsx` — root layout crash fallback (minimal inline styles, no dependencies)
 

@@ -162,6 +162,7 @@ const GalleryCard = memo(function GalleryCard({
         src={item.image}
         alt={item.name}
         fill
+        sizes="384px"
         className="object-cover object-top"
         draggable={false}
       />

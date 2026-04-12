@@ -109,12 +109,10 @@ export function useNotification({
     if (!isSupported) return;
     const result = await Notification.requestPermission();
     setPermission(result);
-    if (result === "granted") {
-      setShowConfirmation(true);
-      confirmationTimer.current = setTimeout(() => {
-        setShowConfirmation(false);
-      }, 2000);
-    }
+    setShowConfirmation(true);
+    confirmationTimer.current = setTimeout(() => {
+      setShowConfirmation(false);
+    }, 4000);
   }, []);
 
   const dismissBanner = useCallback(() => {
@@ -130,6 +128,7 @@ export function useNotification({
   }, []);
 
   const isGranted = permission === "granted";
+  const isDenied = permission === "denied";
 
-  return { isGranted, showBanner, showConfirmation, requestPermission, dismissBanner };
+  return { isGranted, isDenied, showBanner, showConfirmation, requestPermission, dismissBanner };
 }

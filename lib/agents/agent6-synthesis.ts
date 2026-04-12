@@ -81,8 +81,14 @@ export async function runSynthesis(
   // recommendations by actual competitive delta, not guesswork.
   const sanitizedAnalyses = ctx.sectionAnalyses?.map((sa) => ({
     ...sa,
+    // Strip scores, confidence; truncate strengths/weaknesses to top signal.
+    // summary + evidence carry the detail; scoreGaps handle priority weighting.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    findings: sa.findings.map(({ scores: _s, score: _sc, ...rest }) => rest),
+    findings: sa.findings.map(({ scores: _s, score: _sc, confidence: _c, strengths, weaknesses, ...rest }) => ({
+      ...rest,
+      strengths: strengths.slice(0, 1),
+      weaknesses: weaknesses.slice(0, 1),
+    })),
   }));
 
   // Build score gap context: for each section, identify axes where competitors
@@ -107,6 +113,10 @@ export async function runSynthesis(
     return gaps.length > 0 ? { section: sa.sectionType, gaps } : null;
   }).filter(Boolean);
 
+  // For sites with many sections, reduce recs per section to keep output manageable.
+  const sectionCount = ctx.sectionAnalyses?.length ?? 0;
+  const recsPerSection = sectionCount >= 10 ? 2 : 3;
+
   const failedNote = ctx.failedUrls?.length
     ? `\n\nNOTE: The following competitor URLs could NOT be analyzed. Do NOT reference them as examples: ${ctx.failedUrls.join(", ")}`
     : "";
@@ -120,6 +130,7 @@ export async function runSynthesis(
     scoreGaps.length > 0
       ? `SCORE GAPS (for priority weighting only — NEVER quote these in output text): ${JSON.stringify(scoreGaps)}`
       : "",
+    `RECOMMENDATIONS_PER_SECTION: ${recsPerSection}`,
   ].filter(Boolean).join("\n\n") + failedNote;
 
   // ── Step 2: AI Gateway call (Flash → GPT-5.4 fallback) ───────────────────────
@@ -228,7 +239,9 @@ export async function runSynthesis(
       reasoning: stripInlineCode(r.reasoning),
       exampleFromCompetitor: stripInlineCode(r.competitorExample),
       suggestedAction: stripInlineCode(r.suggestedAction),
-      impact: r.impact?.trim() ? stripInlineCode(r.impact.trim()) : undefined,
+      impact: r.impact?.trim()
+        ? stripInlineCode(r.impact.trim().split(/(?<=\.)\s/).slice(0, 2).join(" "))
+        : undefined,
       confidence: r.confidence != null
         ? Math.max(0, Math.min(1, r.confidence > 1 ? Math.round((r.confidence / 10) * 100) / 100 : r.confidence))
         : undefined,
@@ -251,9 +264,9 @@ export async function runSynthesis(
     for (const section of expectedSections) {
       const count = sectionCounts.get(section) ?? 0;
       if (count === 0) {
-        console.warn(`[agent6] Section "${section}" has 0 recommendations — expected 3`);
-      } else if (count < 2) {
-        console.warn(`[agent6] Section "${section}" has only ${count} recommendations — expected 3`);
+        console.warn(`[agent6] Section "${section}" has 0 recommendations — expected ${recsPerSection}`);
+      } else if (count < recsPerSection - 1) {
+        console.warn(`[agent6] Section "${section}" has only ${count} recommendations — expected ${recsPerSection}`);
       }
     }
   }

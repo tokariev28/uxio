@@ -83,7 +83,7 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
         {anyRunning && (
           <p className="mb-5" style={{ fontSize: 13, color: "#525252", lineHeight: 1.55 }}>
             Analysis typically takes 2–4 minutes.
-            {notification?.showConfirmation ? (
+            {notification?.showConfirmation && notification?.isGranted ? (
               <AnimatePresence>
                 <motion.span
                   key="confirmed"
@@ -92,6 +92,17 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
                   style={{ color: "#15803d", marginLeft: 4 }}
                 >
                   ✓ You&apos;ll be notified.
+                </motion.span>
+              </AnimatePresence>
+            ) : notification?.showConfirmation && notification?.isDenied ? (
+              <AnimatePresence>
+                <motion.span
+                  key="denied"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  style={{ color: "#737373", marginLeft: 4 }}
+                >
+                  Notifications blocked. We&apos;ll update the tab title instead.
                 </motion.span>
               </AnimatePresence>
             ) : notification?.isGranted ? (

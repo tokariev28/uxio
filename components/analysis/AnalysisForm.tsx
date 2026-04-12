@@ -120,6 +120,15 @@ export function AnalysisForm() {
   const [urlError, setUrlError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Lock heights to initial viewport so DevTools/keyboard don't compress the gradient or shift the gallery.
+  useEffect(() => {
+    const vh = `${window.innerHeight}px`;
+    if (heroRef.current) heroRef.current.style.minHeight = vh;
+    if (wrapperRef.current) wrapperRef.current.style.minHeight = vh;
+  }, []);
 
   const prefersReducedMotion = useReducedMotion();
 
@@ -276,10 +285,11 @@ export function AnalysisForm() {
   }
 
   return (
-    <>
+    <div ref={wrapperRef} className="relative flex flex-col" style={{ minHeight: '100dvh' }}>
     <AnimatePresence mode="wait">
       {appState === "idle" ? (
         <motion.section
+          ref={heroRef}
           key="hero"
           className="hero-wrapper"
           exit={prefersReducedMotion ? undefined : { opacity: 0, y: -20 }}
@@ -293,7 +303,7 @@ export function AnalysisForm() {
           >
             <motion.div variants={heroItemVariants}>
               <Link href="/" aria-label="Uxio homepage">
-                <Image src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" />
+                <Image src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" priority />
               </Link>
             </motion.div>
             <motion.h1 className="hero-heading" variants={heroItemVariants}>
@@ -425,7 +435,7 @@ export function AnalysisForm() {
       {appState === "running" && (
         <motion.div
           key="gallery"
-          className="fixed bottom-0 left-0 right-0 z-10 pointer-events-none"
+          className="mt-auto z-10 pointer-events-none"
           initial={{ y: 48, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 48, opacity: 0 }}
@@ -437,6 +447,6 @@ export function AnalysisForm() {
         </motion.div>
       )}
     </AnimatePresence>
-    </>
+    </div>
   );
 }

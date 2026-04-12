@@ -210,6 +210,7 @@ export async function runPipeline(
     }
     writer.send({ type: "complete", data: result, quality });
   } catch (err) {
+    console.error("[pipeline] Fatal error:", err);
     const message =
       err instanceof Error ? err.message : "An unexpected error occurred";
     writer.send({ type: "error", message });

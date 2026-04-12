@@ -18,7 +18,7 @@ Paste any SaaS URL → Uxio benchmarks it against your top competitors and deliv
 6. **Generates prioritized recommendations** — critical, high, and medium priority — each citing specific evidence from competitor pages
 7. **Caches results** for 2 hours — revisiting the same URL shows results instantly without re-running the pipeline
 8. **Exports a PDF** of the full analysis with one click
-9. **Notifies you** via browser notification when analysis finishes while the tab is in the background
+9. **Notifies you** via browser notification when analysis finishes while the tab is in the background (gracefully handles incognito/denied permissions with a fallback message)
 
 Results stream in real time via Server-Sent Events (SSE). The full analysis takes ~2–4 minutes.
 
@@ -36,9 +36,9 @@ A 7-agent sequential pipeline runs entirely on the server:
 | 3 | Scraper | Two-pass scrape of all competitor pages (JS SPA retry) | Firecrawl |
 | 4 | Section Classifier | Identifies and deduplicates page sections | AI Gateway (Gemini Flash-Lite) |
 | 5 | Vision Analyzer | Analyzes screenshots + markdown per section | AI Gateway (Gemini Flash, multimodal) |
-| 6 | Synthesis | Produces 3 recommendations per section + executive summary | AI Gateway (Gemini Flash, structured output) |
+| 6 | Synthesis | Produces 2–3 recommendations per section + executive summary | AI Gateway (Gemini Flash, structured output) |
 
-All LLM calls go through **Vercel AI Gateway** with automatic fallback chains (Gemini 2.5 Flash → GPT-5.4-nano). Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result along with a quality validation report.
+All LLM calls go through **Vercel AI Gateway** with automatic fallback chains (Gemini 2.5 Flash → GPT-5.4-nano). Agent 6 uses **dynamic recommendation count** — 2 per section for sites with 10+ sections, 3 otherwise — to prevent output generation failures on large sites. Fatal pipeline errors are logged with full stack traces for debugging. Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result along with a quality validation report.
 
 ---
 
@@ -229,6 +229,6 @@ The API route requires Node.js runtime (not Edge) — Vercel handles this automa
 - **Rate limiting**: 2 requests per minute per IP (in-memory)
 - **SSRF protection**: HTTP and HTTPS; blocks private IP ranges (127.x, 10.x, 192.168.x, 172.16–31.x, 169.254.x) and non-standard ports — applied to user input URLs and Firecrawl-returned screenshot URLs
 - **CORS**: Origin header validated against host — cross-origin requests rejected
-- **Security headers**: CSP, X-Frame-Options (DENY), X-Content-Type-Options, Referrer-Policy, Permissions-Policy, HSTS — via `proxy.ts`
+- **Security headers**: CSP (with `*.gstatic.com` for Google favicon redirects), X-Frame-Options (DENY), X-Content-Type-Options, Referrer-Policy, Permissions-Policy, HSTS — via `proxy.ts`
 - **Env validation**: Required API keys validated via Zod on first use — clear error messages if missing
 - **Input validation**: hostname must contain `.`; any HTTP response (including 4xx/5xx) is treated as reachable — only network failures are rejected
