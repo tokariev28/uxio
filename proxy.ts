@@ -16,11 +16,12 @@ export default function proxy(request: NextRequest) {
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV !== "production" ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
+      `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${process.env.NODE_ENV !== "production" ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://www.google.com https://*.gstatic.com",
       "font-src 'self'",
-      "connect-src 'self' https://*.vercel-insights.com https://*.vercel-analytics.com https://gateway.ai.cloudflare.com",
+      "worker-src 'self' blob:",
+      "connect-src 'self' https://*.vercel-insights.com https://*.vercel-analytics.com https://va.vercel-scripts.com https://gateway.ai.cloudflare.com",
       "frame-ancestors 'none'",
     ].join("; ")
   );
