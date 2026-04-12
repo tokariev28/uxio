@@ -22,26 +22,26 @@ import { isUnsafeUrl } from "@/lib/utils/ssrf";
 const BatchSectionResultSchema = z.object({
   sectionType: z.string(),
   scores: z.object({
-    clarity: z.number(),
-    specificity: z.number(),
-    icpFit: z.number(),
-    attentionRatio: z.number(),
-    ctaQuality: z.number(),
-    trustSignals: z.number(),
-    visualHierarchy: z.number(),
-    cognitiveEase: z.number(),
-    typographyReadability: z.number(),
-    densityBalance: z.number(),
-  }).optional(),
-  overallScore: z.number(),
-  confidence: z.number().optional(),
-  strengths: z.array(z.string()),
-  weaknesses: z.array(z.string()),
+    clarity: z.coerce.number(),
+    specificity: z.coerce.number(),
+    icpFit: z.coerce.number(),
+    attentionRatio: z.coerce.number(),
+    ctaQuality: z.coerce.number(),
+    trustSignals: z.coerce.number(),
+    visualHierarchy: z.coerce.number(),
+    cognitiveEase: z.coerce.number(),
+    typographyReadability: z.coerce.number(),
+    densityBalance: z.coerce.number(),
+  }).nullable().optional(),
+  overallScore: z.coerce.number(),
+  confidence: z.coerce.number().nullable().optional(),
+  strengths: z.array(z.string()).nullable().transform(v => v ?? []),
+  weaknesses: z.array(z.string()).nullable().transform(v => v ?? []),
   keyEvidence: z.object({
     headlineText: z.string().nullable(),
     ctaText: z.string().nullable(),
     copyQuote: z.string().nullable(),
-    visualObservation: z.string(),
+    visualObservation: z.string().nullable().transform(v => v ?? ""),
   }),
 });
 
@@ -219,7 +219,7 @@ async function analyzePageBatch(
   // Cap confidence at 0.7 for text-only analysis (no screenshot available)
   if (!screenshotData) {
     for (const item of parsed) {
-      if (item.confidence !== undefined && item.confidence > 0.7) item.confidence = 0.7;
+      if (item.confidence != null && item.confidence > 0.7) item.confidence = 0.7;
     }
   }
 

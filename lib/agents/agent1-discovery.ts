@@ -11,6 +11,8 @@ const META_DOMAINS = new Set([
   'alternativeto.net', 'techcrunch.com', 'forbes.com',
   'linkedin.com', 'twitter.com', 'facebook.com', 'youtube.com',
   'reddit.com', 'quora.com',
+  // Corporate portals — multi-product ecosystems, never valid SaaS landing page competitors
+  'microsoft.com', 'google.com', 'amazon.com', 'apple.com', 'meta.com',
 ]);
 
 interface TavilyResult {
