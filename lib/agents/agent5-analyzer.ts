@@ -142,23 +142,31 @@ async function analyzePageBatch(
   }
 
   // ── Build structured sections input with scroll position hints ─────
-  // Sorted by scroll position (above-the-fold first), capped to MAX_SECTIONS_PER_PAGE.
+  // Priority sections (hero, pricing, cta) are always included if present —
+  // they directly drive conversion and often sit near the bottom of the page
+  // where a naive scroll-order cap would cut them. Remaining slots filled by
+  // scroll position (above-the-fold first).
+  const PRIORITY_SECTION_TYPES = new Set(["hero", "pricing", "cta"]);
   const allSorted = [...pageSections.sections]
     .sort((a, b) => a.scrollFraction - b.scrollFraction);
 
+  const priority = allSorted.filter((s) => PRIORITY_SECTION_TYPES.has(s.type));
+  const rest = allSorted.filter((s) => !PRIORITY_SECTION_TYPES.has(s.type));
+  const selected = [...priority, ...rest].slice(0, MAX_SECTIONS_PER_PAGE);
+  selected.sort((a, b) => a.scrollFraction - b.scrollFraction);
+
   if (allSorted.length > MAX_SECTIONS_PER_PAGE) {
+    const dropped = allSorted.filter((s) => !selected.includes(s));
     console.log(
-      `[agent5] Capped ${page.url} from ${allSorted.length} to ${MAX_SECTIONS_PER_PAGE} sections ` +
-      `(dropped: ${allSorted.slice(MAX_SECTIONS_PER_PAGE).map((s) => s.type).join(", ")})`
+      `[agent5] Capped ${page.url} from ${allSorted.length} to ${selected.length} sections ` +
+      `(dropped: ${dropped.map((s) => s.type).join(", ")})`
     );
   }
 
-  const limitedSections = allSorted
-    .slice(0, MAX_SECTIONS_PER_PAGE)
-    .map((s) => ({
-      ...s,
-      markdownSlice: stripBoilerplate(stripMarkdownLinks(s.markdownSlice)).slice(0, MAX_MARKDOWN_CHARS),
-    }));
+  const limitedSections = selected.map((s) => ({
+    ...s,
+    markdownSlice: stripBoilerplate(stripMarkdownLinks(s.markdownSlice)).slice(0, MAX_MARKDOWN_CHARS),
+  }));
 
   const sectionsInput = limitedSections
     .map(
