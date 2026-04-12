@@ -3,14 +3,9 @@
 import { motion } from "framer-motion";
 import type { AnalysisResult } from "@/lib/types/analysis";
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+import { getScoreColor } from "@/lib/utils/score";
 
-function getColor(score: number): string {
-  if (score >= 85) return "#10b981";
-  if (score >= 70) return "#06b6d4";
-  if (score >= 50) return "#f97316";
-  return "#f43f5e";
-}
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 function computeScore(result: AnalysisResult): number | null {
   if (result.overallScores?.input != null) {
@@ -34,7 +29,7 @@ function ArcGauge({ score }: { score: number }) {
   const angle = (Math.PI * score) / 100;
   const fillEndX = cx - r * Math.cos(angle);
   const fillEndY = cy - r * Math.sin(angle);
-  const color = getColor(score);
+  const color = getScoreColor(score);
 
   return (
     <svg viewBox="0 0 200 130" width={200} height={130}>

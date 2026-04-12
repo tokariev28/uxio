@@ -3,43 +3,11 @@
 import { InsightSlider } from "./InsightSlider";
 import type {
   SectionAnalysis,
-  SectionType,
   Competitor,
   Recommendation,
   Priority,
 } from "@/lib/types/analysis";
-
-// ── Constants ──────────────────────────────────────────────────────────────
-
-const SECTION_LABELS: Record<SectionType, string> = {
-  hero: "Hero",
-  navigation: "Navigation",
-  features: "Features",
-  benefits: "Benefits",
-  socialProof: "Social Proof",
-  testimonials: "Testimonials",
-  integrations: "Integrations",
-  howItWorks: "How It Works",
-  pricing: "Pricing",
-  faq: "FAQ",
-  cta: "Call to Action",
-  footer: "Footer",
-  videoDemo: "Video Demo",
-  comparison: "Comparison",
-  metrics: "Metrics",
-};
-
-const PRIORITY_ORDER: Record<Priority, number> = {
-  critical: 0,
-  high: 1,
-  medium: 2,
-};
-
-const PRIORITY_COLORS: Record<Priority, string> = {
-  critical: "#f43f5e",
-  high: "#f97316",
-  medium: "#10b981",
-};
+import { SECTION_LABELS, PRIORITY_ORDER, PRIORITY_COLORS } from "@/lib/constants";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -165,7 +133,7 @@ export function SectionCard({
                       flex: 1,
                       borderRadius: 12,
                       background: "rgba(16,185,129,0.09)",
-                      color: "#059669",
+                      color: "#047857",
                       padding: 12,
                     }}
                   >
@@ -175,7 +143,7 @@ export function SectionCard({
                         fontWeight: 500,
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
-                        color: "#059669",
+                        color: "#047857",
                         marginBottom: 6,
                       }}
                     >
@@ -198,7 +166,7 @@ export function SectionCard({
                       flex: 1,
                       borderRadius: 12,
                       background: "rgba(244,63,94,0.09)",
-                      color: "#e11d48",
+                      color: "#be123c",
                       padding: 12,
                     }}
                   >
@@ -208,7 +176,7 @@ export function SectionCard({
                         fontWeight: 500,
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
-                        color: "#e11d48",
+                        color: "#be123c",
                         marginBottom: 6,
                       }}
                     >

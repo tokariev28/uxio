@@ -3,6 +3,7 @@ import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerateStructured, CHAINS } from "@/lib/ai/gateway";
 import type { PipelineContext, Competitor } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
+import { getHostname, getHostnameOrEmpty } from "@/lib/utils/url";
 
 // ── Zod schema for structured output ─────────────────────────────────────
 const CompetitorResultSchema = z.object({
@@ -28,13 +29,7 @@ export async function runValidator(
   }
 
   // Emit candidate domains as chips (cap at 8 to avoid overflow)
-  const candidateDomains = candidates.slice(0, 8).map((c) => {
-    try {
-      return new URL(c.url).hostname.replace(/^www\./, "");
-    } catch {
-      return c.name;
-    }
-  });
+  const candidateDomains = candidates.slice(0, 8).map((c) => getHostname(c.url) || c.name);
   onActions?.(candidateDomains);
 
   // ── Step 1: Build user message ─────────────────────────────────
@@ -60,9 +55,7 @@ export async function runValidator(
 
   // Build candidate domain set for URL validation
   const candidateDomainSet = new Set(
-    candidates.map((c) => {
-      try { return new URL(c.url).hostname.replace(/^www\./, ""); } catch { return ""; }
-    }).filter(Boolean)
+    candidates.map((c) => getHostnameOrEmpty(c.url)).filter(Boolean)
   );
 
   const competitors: Competitor[] = validatedPool.map((c, i) => {
@@ -74,10 +67,8 @@ export async function runValidator(
     }
 
     // Validate that competitor URL exists among original candidates (by domain)
-    let competitorDomain: string;
-    try {
-      competitorDomain = new URL(c.url).hostname.replace(/^www\./, "");
-    } catch {
+    const competitorDomain = getHostnameOrEmpty(c.url);
+    if (!competitorDomain) {
       throw new AgentError("agent2", `competitors[${i}] has invalid URL: ${c.url}`);
     }
     if (!candidateDomainSet.has(competitorDomain)) {

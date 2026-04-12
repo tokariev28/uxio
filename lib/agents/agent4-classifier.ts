@@ -10,24 +10,8 @@ import type {
   SectionType,
 } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
-
-const VALID_SECTION_TYPES = new Set<SectionType>([
-  "hero",
-  "navigation",
-  "features",
-  "benefits",
-  "socialProof",
-  "testimonials",
-  "integrations",
-  "howItWorks",
-  "pricing",
-  "faq",
-  "cta",
-  "footer",
-  "videoDemo",
-  "comparison",
-  "metrics",
-]);
+import { getHostname } from "@/lib/utils/url";
+import { VALID_SECTION_TYPES } from "@/lib/constants";
 
 // ── Zod schema for structured output ─────────────────────────────────────
 const SectionClassificationSchema = z.object({
@@ -96,7 +80,6 @@ export async function runClassifier(
     throw new AgentError("agent4", "pages is missing from pipeline context");
   }
 
-  const getHostname = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } };
 
   // Emit each domain as its classification completes — progressive reveal.
   const emitted: string[] = [];

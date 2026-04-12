@@ -5,6 +5,8 @@ import { aiGenerateStructured, CHAINS } from "@/lib/ai/gateway";
 import type { ProductBrief } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 import { isUsableMarkdown } from "@/lib/utils/scrape-quality";
+import { getHostname } from "@/lib/utils/url";
+import { env } from "@/lib/env";
 
 // ── Zod schema for structured output ─────────────────────────────────────
 // AI SDK validates the LLM response against this schema automatically.
@@ -21,6 +23,15 @@ const ProductBriefSchema = z.object({
     "2-3 word search keyword for core value proposition category. Always infer from headline/CTA. Examples: 'AI models API', 'sales intelligence', 'project management', 'CRM', 'email marketing'"
   ),
   keyFeatures: z.array(z.string()).min(1),
+  productCategory: z.enum(["vcs", "modelHub", "consumerAI", "orchestration", "docsWiki", "other"]).describe(
+    "Which G2 primary category bucket best fits this product? " +
+    "vcs = version control / code hosting (GitHub, GitLab). " +
+    "modelHub = ML model sharing / dataset hub (Hugging Face, Kaggle). " +
+    "consumerAI = consumer-facing AI chatbot or AI search (Character.ai, Perplexity). " +
+    "orchestration = LLM orchestration framework / agent library (LangChain, LlamaIndex). " +
+    "docsWiki = documentation platform / team wiki / knowledge base (Notion, Confluence, Slab). " +
+    "other = everything else (CRM, PM, analytics, email, payments, design, etc.)."
+  ),
   pricingModel: z.string().optional(),
   primaryCTAText: z.string().optional(),
   pricingVisible: z.boolean().optional(),
@@ -32,15 +43,11 @@ export async function runAgent0(
   onActions?: (actions: string[]) => void
 ): Promise<ProductBrief> {
   // Emit the URL being scraped as a chip
-  try {
-    onActions?.([new URL(url).hostname.replace(/^www\./, "")]);
-  } catch {
-    onActions?.([url]);
-  }
+  onActions?.([getHostname(url)]);
 
   // ── Step 1: Firecrawl scrape ────────────────────────────────────
   const firecrawl = new FirecrawlApp({
-    apiKey: process.env.FIRECRAWL_API_KEY ?? "",
+    apiKey: env().FIRECRAWL_API_KEY,
   });
 
   const scraped = await firecrawl.scrape(url, { formats: ["markdown"] });

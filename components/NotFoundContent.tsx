@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
@@ -14,8 +15,17 @@ function fadeUp(delay: number) {
 }
 
 export function NotFoundContent() {
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  // Lock hero height to initial viewport so DevTools/keyboard don't compress the gradient.
+  useEffect(() => {
+    if (heroRef.current) {
+      heroRef.current.style.minHeight = `${window.innerHeight}px`;
+    }
+  }, []);
+
   return (
-    <div className="hero-wrapper" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div ref={heroRef} className="hero-wrapper" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
       {/* Ghost numerals */}
       <motion.p
         aria-hidden

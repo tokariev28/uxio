@@ -3,6 +3,7 @@ import type { PipelineContext, CompetitorCandidate, ProductBrief } from "@/lib/t
 import { AgentError } from "@/lib/agents/errors";
 import { aiGenerateStructured, CHAINS } from "@/lib/ai/gateway";
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
+import { env } from "@/lib/env";
 
 const META_DOMAINS = new Set([
   'g2.com', 'capterra.com', 'trustpilot.com', 'getapp.com',
@@ -107,7 +108,7 @@ export async function runDiscovery(
     throw new AgentError("agent1", "productBrief is missing from pipeline context");
   }
 
-  const apiKey = process.env.TAVILY_API_KEY ?? "";
+  const apiKey = env().TAVILY_API_KEY;
 
   const cvpKeyword = brief.cvpKeyword;
   const icpKeyword = brief.icpKeyword;
@@ -145,34 +146,26 @@ export async function runDiscovery(
 
   const inputDomain = rootDomain(ctx.inputUrl);
 
-  // ── Compute deterministic filter conditions BEFORE Tavily calls ───────────
-  // Moved up so we can include filtered domains in exclude_domains, freeing
-  // Tavily result slots for actual competitors.
-  const briefText = `${brief.industry} ${brief.coreValueProp}`.toLowerCase();
+  // ── Category-based domain filtering (LLM-detected, replaces fragile regexes) ──
+  // Agent 0 determines productCategory from full page context, which is far more
+  // robust than regex-matching 2 brief fields. Domain constants are unchanged.
+  const category = brief.productCategory;
 
   const VCS_PLATFORM_DOMAINS = new Set(['github.com', 'gitlab.com', 'bitbucket.org', 'sourcehut.org']);
-  const isVcsTool = /version.?control|code.?host|source.?code|git.*(platform|hosting)|repository|vcs/.test(briefText);
-
   const MODEL_HUB_DOMAINS = new Set(['huggingface.co', 'kaggle.com', 'paperswithcode.com']);
-  const isModelHub = /model.*(hub|registry|sharing)|dataset.*(hub|sharing)|ai.*(community|repository)/.test(briefText);
-
   const CONSUMER_AI_DOMAINS = new Set(['character.ai', 'perplexity.ai', 'poe.com', 'you.com']);
-  const isConsumerAI = /consumer.*(chat|assistant)|ai.*(search|companion)|personal.*(ai|assistant)/.test(briefText);
-
   const ORCHESTRATION_DOMAINS = new Set(['langchain.com', 'llamaindex.ai']);
-
   const DOCS_WIKI_DOMAINS = new Set(['notion.so', 'slab.com', 'slite.com', 'nuclino.com', 'tettra.com']);
-  const isDocsWikiTool = /wiki|knowledge.?base|documentation.*(platform|tool)|note.?taking|connected.?workspace|team.?docs/.test(briefText);
 
   // ── Build Tavily exclude_domains list ─────────────────────────────────────
   // Pre-filtering at the API level frees all 10 result slots for real competitors.
   // Post-fetch filtering is kept as a safety net below.
   const excludeDomains = [...META_DOMAINS, inputDomain];
-  if (!isVcsTool) excludeDomains.push(...VCS_PLATFORM_DOMAINS);
-  if (!isModelHub) excludeDomains.push(...MODEL_HUB_DOMAINS);
-  if (!isConsumerAI) excludeDomains.push(...CONSUMER_AI_DOMAINS);
-  excludeDomains.push(...ORCHESTRATION_DOMAINS);
-  if (!isDocsWikiTool) excludeDomains.push(...DOCS_WIKI_DOMAINS);
+  if (category !== "vcs") excludeDomains.push(...VCS_PLATFORM_DOMAINS);
+  if (category !== "modelHub") excludeDomains.push(...MODEL_HUB_DOMAINS);
+  if (category !== "consumerAI") excludeDomains.push(...CONSUMER_AI_DOMAINS);
+  excludeDomains.push(...ORCHESTRATION_DOMAINS); // always excluded (libraries, not SaaS)
+  if (category !== "docsWiki") excludeDomains.push(...DOCS_WIKI_DOMAINS);
 
   // ── Run Tavily searches and LLM discovery in parallel ─────────────────────
   // Emit each short label as its search completes — progressive reveal.
@@ -200,6 +193,17 @@ export async function runDiscovery(
 
   const map = new Map<string, CompetitorCandidate>();
 
+  // ── Weighted mention scoring ───────────────────────────────────────────────
+  // Different Tavily queries carry different signal strength. A direct "vs"
+  // comparison is a much stronger competitor signal than a generic category search.
+  const SOURCE_WEIGHT: Record<string, number> = {
+    alternatives: 1.0,
+    feature: 1.2,
+    leaders: 1.5,
+    vs: 1.8,
+    category: 1.0,
+  };
+
   // ── Process Tavily results ─────────────────────────────────────────────────
   for (const results of allTavilyResults) {
     for (const { url, label } of results) {
@@ -213,8 +217,10 @@ export async function runDiscovery(
       if (domain === inputDomain) continue;
       if (META_DOMAINS.has(domain)) continue;
 
+      const weight = SOURCE_WEIGHT[label] ?? 1.0;
+
       if (map.has(domain)) {
-        map.get(domain)!.mentions += 1;
+        map.get(domain)!.mentions += weight;
       } else {
         // Normalize to root homepage — prevents blog/deep-page URLs from
         // propagating through the scraping pipeline
@@ -223,15 +229,16 @@ export async function runDiscovery(
           url: `${protocol}//${hostname}`,
           name: nameFromDomain(domain),
           source: label,
-          mentions: 1,
+          mentions: weight,
         });
       }
     }
   }
 
   // ── Merge LLM-discovered competitors ──────────────────────────────────────
-  // LLM-only entries get mentions=2 (base knowledge signal).
-  // Entries confirmed by both Tavily and LLM get +2 boost — strongest signal.
+  // LLM-only entries get mentions=2.5 (base knowledge signal, highest weight).
+  // Entries confirmed by both Tavily and LLM get +2.5 boost — strongest signal.
+  const LLM_WEIGHT = 2.5;
   for (const { url, name } of llmCandidates) {
     let domain: string;
     try { domain = rootDomain(url); } catch { continue; }
@@ -239,14 +246,14 @@ export async function runDiscovery(
     if (domain === inputDomain || META_DOMAINS.has(domain)) continue;
 
     if (map.has(domain)) {
-      map.get(domain)!.mentions += 2;
+      map.get(domain)!.mentions += LLM_WEIGHT;
     } else {
       const { protocol, hostname } = new URL(url);
       map.set(domain, {
         url: `${protocol}//${hostname}`,
         name,
         source: "llm-knowledge",
-        mentions: 2,
+        mentions: LLM_WEIGHT,
       });
     }
   }
@@ -255,47 +262,31 @@ export async function runDiscovery(
   // These domains are also pre-excluded via Tavily's exclude_domains parameter.
   // The post-fetch filters below catch anything that slips through (e.g. from
   // LLM discovery or if Tavily's exclusion is imperfect).
+  // Uses subdomain-aware matching: about.gitlab.com matches gitlab.com filter.
+  const matchesFilterSet = (candidateDomain: string, filterDomains: Set<string>): boolean =>
+    filterDomains.has(candidateDomain) ||
+    [...filterDomains].some((fd) => candidateDomain.endsWith(`.${fd}`));
 
-  // VCS / code-hosting platforms — issue tracking is a bundled minor feature
-  if (!isVcsTool) {
-    for (const d of VCS_PLATFORM_DOMAINS) {
-      if (map.delete(d)) {
-        console.warn(`[agent1] Filtered VCS platform '${d}' — not a code-hosting product`);
+  const filterCategory = (domains: Set<string>, cat: string, label: string) => {
+    if (category === cat) return; // product IS in this category — don't filter
+    for (const [d] of map) {
+      if (matchesFilterSet(d, domains)) {
+        map.delete(d);
+        console.warn(`[agent1] Filtered ${label} '${d}' — product category is "${category}"`);
       }
     }
-  }
+  };
 
-  // Model hubs / AI community platforms — not commercial API competitors
-  if (!isModelHub) {
-    for (const d of MODEL_HUB_DOMAINS) {
-      if (map.delete(d)) {
-        console.warn(`[agent1] Filtered model hub '${d}' — not a model hub product`);
-      }
-    }
-  }
+  filterCategory(VCS_PLATFORM_DOMAINS, "vcs", "VCS platform");
+  filterCategory(MODEL_HUB_DOMAINS, "modelHub", "model hub");
+  filterCategory(CONSUMER_AI_DOMAINS, "consumerAI", "consumer AI product");
+  filterCategory(DOCS_WIKI_DOMAINS, "docsWiki", "docs/wiki platform");
 
-  // Consumer AI products — not API platform competitors
-  if (!isConsumerAI) {
-    for (const d of CONSUMER_AI_DOMAINS) {
-      if (map.delete(d)) {
-        console.warn(`[agent1] Filtered consumer AI product '${d}' — not a consumer AI product`);
-      }
-    }
-  }
-
-  // Orchestration frameworks — developer libraries, never direct SaaS competitors
-  for (const d of ORCHESTRATION_DOMAINS) {
-    if (map.delete(d)) {
+  // Orchestration frameworks — always excluded (libraries, not SaaS)
+  for (const [d] of map) {
+    if (matchesFilterSet(d, ORCHESTRATION_DOMAINS)) {
+      map.delete(d);
       console.warn(`[agent1] Filtered orchestration framework '${d}'`);
-    }
-  }
-
-  // Docs/wiki platforms — not PM/issue-tracking competitors
-  if (!isDocsWikiTool) {
-    for (const d of DOCS_WIKI_DOMAINS) {
-      if (map.delete(d)) {
-        console.warn(`[agent1] Filtered docs/wiki platform '${d}' — not a docs/wiki product`);
-      }
     }
   }
 

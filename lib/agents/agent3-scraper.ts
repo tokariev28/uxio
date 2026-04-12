@@ -2,12 +2,16 @@ import FirecrawlApp from "@mendable/firecrawl-js";
 import type { PipelineContext, PageData, Competitor } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 import { isUsableMarkdown } from "@/lib/utils/scrape-quality";
+import { getHostname } from "@/lib/utils/url";
+import { env } from "@/lib/env";
+import { isUnsafeUrl } from "@/lib/utils/ssrf";
 
 // ── Resolve a signed GCS URL to a stable base64 data URI ─────────────────
 // Firecrawl returns a signed GCS URL (~30–60 min TTL). We resolve it
 // immediately so Agent5 never faces an expired URL later in the pipeline.
 async function resolveScreenshot(url: string): Promise<string | undefined> {
   try {
+    if (isUnsafeUrl(url)) return undefined;
     const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
     if (!res.ok) return undefined;
     const buffer = await res.arrayBuffer();
@@ -77,14 +81,13 @@ export async function runScraper(
   }
 
   const firecrawl = new FirecrawlApp({
-    apiKey: process.env.FIRECRAWL_API_KEY ?? "",
+    apiKey: env().FIRECRAWL_API_KEY,
   });
 
   // Top 3 = primary; positions 4–5 (if present from agent2) = fallback pool
   const primaryCompetitors = competitors.slice(0, 3);
   const backupCompetitors = competitors.slice(3);
 
-  const getHostname = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } };
 
   // Emit input hostname immediately; competitor hostnames appear as each scrape completes.
   const emitted: string[] = [getHostname(inputUrl)];

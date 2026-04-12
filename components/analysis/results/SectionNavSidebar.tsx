@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { getScoreColor } from "@/lib/utils/score";
 
 export interface NavItem {
   sectionIndex: number;
@@ -6,19 +7,12 @@ export interface NavItem {
   score?: number; // 0–100
 }
 
-function getArcColor(score: number): string {
-  if (score >= 85) return "#10b981";
-  if (score >= 70) return "#06b6d4";
-  if (score >= 50) return "#f97316";
-  return "#f43f5e";
-}
-
 function MiniArc({ score }: { score: number }) {
   const cx = 14, cy = 14, r = 10, sw = 3;
   const angle = (Math.PI * score) / 100;
   const fillEndX = cx - r * Math.cos(angle);
   const fillEndY = cy - r * Math.sin(angle);
-  const color = getArcColor(score);
+  const color = getScoreColor(score);
 
   return (
     <svg viewBox="0 0 28 18" width={22} height={14} style={{ flexShrink: 0 }}>

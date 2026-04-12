@@ -18,7 +18,7 @@ Paste any SaaS URL → Uxio benchmarks it against your top competitors and deliv
 6. **Generates prioritized recommendations** — critical, high, and medium priority — each citing specific evidence from competitor pages
 7. **Caches results** for 2 hours — revisiting the same URL shows results instantly without re-running the pipeline
 8. **Exports a PDF** of the full analysis with one click
-9. **Notifies you** via browser notification when analysis finishes while the tab is in the background
+9. **Notifies you** via browser notification when analysis finishes while the tab is in the background (gracefully handles incognito/denied permissions with a fallback message)
 
 Results stream in real time via Server-Sent Events (SSE). The full analysis takes ~2–4 minutes.
 
@@ -30,15 +30,15 @@ A 7-agent sequential pipeline runs entirely on the server:
 
 | # | Agent | What it does | APIs |
 |---|-------|-------------|------|
-| 0 | Page Intelligence | Extracts a product brief from your URL | Firecrawl + AI Gateway (Gemini Flash-Lite) |
-| 1 | Multi-Signal Discovery | Finds competitors via search + LLM knowledge | Tavily + AI Gateway (Gemini Flash-Lite) |
+| 0 | Page Intelligence | Extracts product brief + category classification | Firecrawl + AI Gateway (Gemini Flash-Lite) |
+| 1 | Multi-Signal Discovery | Finds competitors via weighted search + LLM knowledge | Tavily + AI Gateway (Gemini Flash-Lite) |
 | 2 | Competitor Validator | Scores and ranks the top 3 | AI Gateway (Gemini Flash-Lite) |
 | 3 | Scraper | Two-pass scrape of all competitor pages (JS SPA retry) | Firecrawl |
 | 4 | Section Classifier | Identifies and deduplicates page sections | AI Gateway (Gemini Flash-Lite) |
 | 5 | Vision Analyzer | Analyzes screenshots + markdown per section | AI Gateway (Gemini Flash, multimodal) |
-| 6 | Synthesis | Produces 3 recommendations per section + executive summary | AI Gateway (Gemini Flash) |
+| 6 | Synthesis | Produces 2–3 recommendations per section + executive summary | AI Gateway (Gemini Flash, structured output) |
 
-All LLM calls go through **Vercel AI Gateway** with automatic fallback chains (Gemini 2.5 Flash → GPT-5.4-nano). Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result along with a quality validation report.
+All LLM calls go through **Vercel AI Gateway** with automatic fallback chains (Gemini 2.5 Flash → GPT-5.4-nano). Agent 6 uses **dynamic recommendation count** — 2 per section for sites with 10+ sections, 3 otherwise — to prevent output generation failures on large sites. Fatal pipeline errors are logged with full stack traces for debugging. Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result along with a quality validation report.
 
 ---
 
@@ -62,7 +62,7 @@ A **quality gate** scores each completed analysis across 5 signals: evidence gro
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - API keys for **Firecrawl**, **Tavily**, and **Google Gemini**
 
 ### 1. Clone the repo
@@ -155,15 +155,19 @@ uxio/
 ├── app/
 │   ├── api/
 │   │   ├── analyze/route.ts      # Main SSE endpoint — runs the pipeline
-│   │   └── validate-url/route.ts # Pre-flight URL reachability check
+│   │   ├── validate-url/route.ts # Pre-flight URL reachability check
+│   │   └── indexnow/route.ts     # IndexNow submission endpoint
+│   ├── error.tsx                  # Error boundary (retry UI)
+│   ├── global-error.tsx           # Root layout crash fallback
 │   ├── layout.tsx
 │   └── page.tsx
+├── proxy.ts                       # Security headers (CSP, HSTS, X-Frame-Options)
 ├── components/
 │   ├── analysis/
 │   │   ├── AnalysisForm.tsx       # Main form + state machine
 │   │   ├── ProgressPanel.tsx      # Real-time agent progress
 │   │   ├── ResultsPanel.tsx       # Final results view
-│   │   ├── InspirationGallery.tsx # Competitor screenshot gallery
+│   │   ├── InspirationGallery.tsx # Auto-scrolling 3D card gallery
 │   │   └── results/               # Sub-components (SectionCard, ScoreBadge…)
 │   ├── layout/
 │   └── ui/                        # shadcn/ui primitives
@@ -174,6 +178,9 @@ uxio/
 │   │   ├── prompts.ts             # All Gemini system prompts + AGENT_PROMPTS
 │   │   └── errors.ts
 │   ├── ai/gateway.ts              # Vercel AI Gateway + MODELS + CHAINS fallback
+│   ├── constants.ts               # SECTION_LABELS, VALID_SECTION_TYPES, PRIORITY_COLORS
+│   ├── env.ts                     # Zod env var validation (lazy)
+│   ├── site-url.ts                # Canonical SITE_URL from env vars
 │   ├── sse.ts                     # SSE stream helper
 │   ├── types/analysis.ts          # All TypeScript types
 │   ├── utils.ts                   # cn() class merge + toSentenceCase() helpers
@@ -182,7 +189,9 @@ uxio/
 │       ├── normalize-section-type.ts # Canonical SectionType normalization
 │       ├── scrape-quality.ts      # Markdown usability check
 │       ├── markdown-clean.ts      # stripMarkdownLinks() + stripInlineCode() + stripBoilerplate()
-│       ├── ssrf.ts                # isUnsafeUrl() — shared by both API routes
+│       ├── ssrf.ts                # isUnsafeUrl() — shared by API routes + agents
+│       ├── url.ts                 # getHostname() + getHostnameOrEmpty()
+│       ├── score.ts               # getScoreColor() + getGradeLabel()
 │       └── quality-scorer.ts      # Analysis quality gate (5-signal score)
 └── .env.local.example
 ```
@@ -218,6 +227,8 @@ The API route requires Node.js runtime (not Edge) — Vercel handles this automa
 ## API Security
 
 - **Rate limiting**: 2 requests per minute per IP (in-memory)
-- **SSRF protection**: HTTP and HTTPS; blocks private IP ranges (127.x, 10.x, 192.168.x, 172.16–31.x, 169.254.x) and non-standard ports
+- **SSRF protection**: HTTP and HTTPS; blocks private IP ranges (127.x, 10.x, 192.168.x, 172.16–31.x, 169.254.x) and non-standard ports — applied to user input URLs and Firecrawl-returned screenshot URLs
 - **CORS**: Origin header validated against host — cross-origin requests rejected
+- **Security headers**: CSP (with `*.gstatic.com` for Google favicon redirects), X-Frame-Options (DENY), X-Content-Type-Options, Referrer-Policy, Permissions-Policy, HSTS — via `proxy.ts`
+- **Env validation**: Required API keys validated via Zod on first use — clear error messages if missing
 - **Input validation**: hostname must contain `.`; any HTTP response (including 4xx/5xx) is treated as reachable — only network failures are rejected

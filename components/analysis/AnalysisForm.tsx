@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { track } from "@vercel/analytics";
 import { cn } from "@/lib/utils";
 import { ProgressPanel } from "./ProgressPanel";
 import { ResultsPanel } from "./ResultsPanel";
@@ -78,7 +79,8 @@ function getFriendlyError(msg: string | null): string {
 }
 
 // ── localStorage cache helpers ─────────────────────────────────────────────
-const CACHE_PREFIX = "uxio:cache:";
+const CACHE_VERSION = 1;
+const CACHE_PREFIX = `uxio:v${CACHE_VERSION}:cache:`;
 const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 function getCachedResult(url: string): AnalysisResult | null {
@@ -118,10 +120,24 @@ export function AnalysisForm() {
   const [urlError, setUrlError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Lock heights to initial viewport so DevTools/keyboard don't compress the gradient or shift the gallery.
+  useEffect(() => {
+    const vh = `${window.innerHeight}px`;
+    if (heroRef.current) heroRef.current.style.minHeight = vh;
+    if (wrapperRef.current) wrapperRef.current.style.minHeight = vh;
+  }, []);
 
   const prefersReducedMotion = useReducedMotion();
 
-  const { isGranted, showBanner, showConfirmation, requestPermission, dismissBanner } =
+  // Abort in-flight SSE stream on unmount
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
+  const { isGranted, isDenied, showBanner, showConfirmation, requestPermission, dismissBanner } =
     useNotification({
       isRunning: appState === "running",
       isComplete: appState === "done",
@@ -187,6 +203,9 @@ export function AnalysisForm() {
     setErrorMsg(null);
     setAppState("running");
 
+    const startTime = Date.now();
+    track("analysis_started", { domain: new URL(trimmed).hostname });
+
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -245,9 +264,16 @@ export function AnalysisForm() {
             setCachedResult(trimmed, event.data);
             setResult(event.data);
             setAppState("done");
+            track("analysis_completed", {
+              domain: new URL(trimmed).hostname,
+              score: event.data.overallScores?.input ?? -1,
+              sections: event.data.sections.length,
+              duration_s: Math.round((Date.now() - startTime) / 1000),
+            });
           } else if (event.type === "error") {
             setErrorMsg(event.message);
             setAppState("error");
+            track("analysis_failed", { domain: new URL(trimmed).hostname });
           }
         }
       }
@@ -259,13 +285,14 @@ export function AnalysisForm() {
   }
 
   return (
-    <>
+    <div ref={wrapperRef} className="relative flex flex-col" style={{ minHeight: '100dvh' }}>
     <AnimatePresence mode="wait">
       {appState === "idle" ? (
         <motion.section
+          ref={heroRef}
           key="hero"
           className="hero-wrapper"
-          exit={{ opacity: 0, y: -20 }}
+          exit={prefersReducedMotion ? undefined : { opacity: 0, y: -20 }}
           transition={{ duration: 0.35, ease: [0.76, 0, 0.24, 1] }}
         >
           <motion.div
@@ -275,8 +302,8 @@ export function AnalysisForm() {
             animate="visible"
           >
             <motion.div variants={heroItemVariants}>
-              <Link href="/">
-                <Image src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" />
+              <Link href="/" aria-label="Uxio homepage">
+                <Image src="/logo.svg" alt="Uxio" width={74} height={38} className="hero-logo" priority />
               </Link>
             </motion.div>
             <motion.h1 className="hero-heading" variants={heroItemVariants}>
@@ -288,23 +315,27 @@ export function AnalysisForm() {
             </motion.p>
             <motion.div className="hero-form-area" variants={heroItemVariants}>
               <form onSubmit={handleSubmit} className="hero-form-wrapper">
+                <label htmlFor="url-input" className="sr-only">Landing page URL</label>
                 <input
+                  id="url-input"
                   type="text"
                   className="hero-input"
                   placeholder="https://your-saas.com"
                   value={url}
                   onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
+                  aria-describedby={urlError ? "url-error" : undefined}
                 />
                 <button
                   type="submit"
                   disabled={validating}
                   className="hero-submit"
+                  aria-busy={validating}
                 >
                   {validating ? "Checking…" : "Analyze"}
                 </button>
               </form>
               {urlError && (
-                <p className="hero-url-error">
+                <p id="url-error" role="alert" className="hero-url-error">
                   <AlertCircle className="size-4 shrink-0" />
                   {urlError}
                 </p>
@@ -356,6 +387,7 @@ export function AnalysisForm() {
               stages={stages}
               notification={{
                 isGranted,
+                isDenied,
                 showBanner,
                 showConfirmation,
                 onEnable: requestPermission,
@@ -404,7 +436,7 @@ export function AnalysisForm() {
       {appState === "running" && (
         <motion.div
           key="gallery"
-          className="fixed bottom-0 left-0 right-0 z-10 pointer-events-none"
+          className="mt-auto z-10 pointer-events-none"
           initial={{ y: 48, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 48, opacity: 0 }}
@@ -416,6 +448,6 @@ export function AnalysisForm() {
         </motion.div>
       )}
     </AnimatePresence>
-    </>
+    </div>
   );
 }

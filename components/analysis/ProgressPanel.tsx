@@ -33,6 +33,7 @@ const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 interface NotificationProps {
   isGranted: boolean;
+  isDenied: boolean;
   showBanner: boolean;
   showConfirmation: boolean;
   onEnable: () => Promise<void>;
@@ -81,17 +82,28 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
   return (
     <div className="progress-container relative w-full max-w-md mx-auto py-6">
         {anyRunning && (
-          <p className="mb-5" style={{ fontSize: 13, color: "rgba(0,0,0,0.45)", lineHeight: 1.55 }}>
+          <p className="mb-5" style={{ fontSize: 13, color: "#525252", lineHeight: 1.55 }}>
             Analysis typically takes 2–4 minutes.
-            {notification?.showConfirmation ? (
+            {notification?.showConfirmation && notification?.isGranted ? (
               <AnimatePresence>
                 <motion.span
                   key="confirmed"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  style={{ color: "#16a34a", marginLeft: 4 }}
+                  style={{ color: "#15803d", marginLeft: 4 }}
                 >
                   ✓ You&apos;ll be notified.
+                </motion.span>
+              </AnimatePresence>
+            ) : notification?.showConfirmation && notification?.isDenied ? (
+              <AnimatePresence>
+                <motion.span
+                  key="denied"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  style={{ color: "#737373", marginLeft: 4 }}
+                >
+                  Notifications blocked. We&apos;ll update the tab title instead.
                 </motion.span>
               </AnimatePresence>
             ) : notification?.isGranted ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, RefObject } from "react";
+import { useRef, useEffect, useState, memo, RefObject } from "react";
 import Image from "next/image";
 import {
   motion,
@@ -67,7 +67,7 @@ interface GalleryCardProps {
   onCardMouseLeave: () => void;
 }
 
-function GalleryCard({
+const GalleryCard = memo(function GalleryCard({
   item,
   instanceKey,
   scrollXMV,
@@ -162,6 +162,7 @@ function GalleryCard({
         src={item.image}
         alt={item.name}
         fill
+        sizes="384px"
         className="object-cover object-top"
         draggable={false}
       />
@@ -186,7 +187,7 @@ function GalleryCard({
       </div>
     </motion.div>
   );
-}
+});
 
 /* ── InspirationGallery ─────────────────────────────────────────────────── */
 
@@ -206,18 +207,32 @@ export function InspirationGallery() {
     return () => el.removeEventListener("scroll", onScroll);
   }, [scrollXMV]);
 
-  /* Auto-scroll RAF loop */
+  /* Auto-scroll RAF loop — pauses when tab is hidden */
   useEffect(() => {
     if (reducedMotion || isTouch) return;
     const el = containerRef.current;
     if (!el) return;
 
     let rafId: number;
+    let running = true;
+
+    function onVisibility() {
+      if (document.hidden) {
+        // Tab hidden — stop the loop. cancelAnimationFrame prevents the
+        // pending tick from firing; setting running=false is a safety net.
+        running = false;
+        cancelAnimationFrame(rafId);
+      } else {
+        // Tab visible again — restart exactly one loop.
+        running = true;
+        rafId = requestAnimationFrame(tick);
+      }
+    }
 
     function tick() {
+      if (!running) return;
       if (!isHovered.current && el) {
         el.scrollLeft += SCROLL_SPEED;
-        // When we've scrolled past the first copy, jump back seamlessly
         const oneThird = el.scrollWidth / 3;
         if (el.scrollLeft >= oneThird) {
           el.scrollLeft -= oneThird;
@@ -226,8 +241,13 @@ export function InspirationGallery() {
       rafId = requestAnimationFrame(tick);
     }
 
+    document.addEventListener("visibilitychange", onVisibility);
     rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
+    return () => {
+      running = false;
+      cancelAnimationFrame(rafId);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [reducedMotion, isTouch]);
 
   return (

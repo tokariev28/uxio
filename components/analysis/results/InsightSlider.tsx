@@ -3,20 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { Recommendation, Priority, Competitor } from "@/lib/types/analysis";
+import type { Recommendation, Competitor } from "@/lib/types/analysis";
 import { toSentenceCase } from "@/lib/utils";
+import { getHostnameOrEmpty } from "@/lib/utils/url";
+import { PRIORITY_COLORS } from "@/lib/constants";
 
 interface InsightSliderProps {
   insights: Recommendation[];
   competitors?: Competitor[];
-}
-
-function getDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
 }
 
 function renderReasoningText(text: string, competitors: Competitor[]) {
@@ -34,7 +28,7 @@ function renderReasoningText(text: string, competitors: Competitor[]) {
 
     const isFirst = !seen.has(comp.name);
     seen.add(comp.name);
-    const domain = getDomain(comp.url);
+    const domain = getHostnameOrEmpty(comp.url);
 
     return (
       <a
@@ -67,12 +61,6 @@ function renderReasoningText(text: string, competitors: Competitor[]) {
     );
   });
 }
-
-const PRIORITY_COLORS: Record<Priority, string> = {
-  critical: "#dc2626",
-  high: "#d97706",
-  medium: "#16a34a",
-};
 
 const variants = {
   enter: (direction: number) => ({

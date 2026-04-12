@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { track } from "@vercel/analytics";
 import type { AnalysisResult } from "@/lib/types/analysis";
 
 interface ExportPDFButtonProps {
@@ -31,6 +32,7 @@ export function ExportPDFButton({ result }: ExportPDFButtonProps) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      track("pdf_exported", { company: result.productBrief.company });
     } catch (err) {
       console.error("[ExportPDF] Failed:", err);
     } finally {
