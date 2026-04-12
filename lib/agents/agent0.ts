@@ -2,7 +2,7 @@ import FirecrawlApp from "@mendable/firecrawl-js";
 import { z } from "zod";
 import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerateStructured, CHAINS } from "@/lib/ai/gateway";
-import type { ProductBrief } from "@/lib/types/analysis";
+import type { ProductBrief, PageData } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 import { isUsableMarkdown } from "@/lib/utils/scrape-quality";
 import { getHostname } from "@/lib/utils/url";
@@ -41,7 +41,7 @@ const ProductBriefSchema = z.object({
 export async function runAgent0(
   url: string,
   onActions?: (actions: string[]) => void
-): Promise<ProductBrief> {
+): Promise<{ brief: ProductBrief; pageData: PageData }> {
   // Emit the URL being scraped as a chip
   onActions?.([getHostname(url)]);
 
@@ -50,7 +50,8 @@ export async function runAgent0(
     apiKey: env().FIRECRAWL_API_KEY,
   });
 
-  const scraped = await firecrawl.scrape(url, { formats: ["markdown"] });
+  // Request screenshot too — Agent 3 reuses this scrape data to avoid a duplicate Firecrawl call.
+  const scraped = await firecrawl.scrape(url, { formats: ["markdown", "screenshot"] });
 
   if (!isUsableMarkdown(scraped.markdown ?? "")) {
     throw new AgentError(
@@ -88,12 +89,20 @@ export async function runAgent0(
       cvpKeyword = brief.industry.toLowerCase();
     }
 
-    return {
+    const productBrief: ProductBrief = {
       ...brief,
       keyFeatures: validFeatures,
       icpKeyword,
       cvpKeyword,
     };
+
+    const pageData: PageData = {
+      url,
+      markdown: scraped.markdown!,
+      screenshotBase64: scraped.screenshot,
+    };
+
+    return { brief: productBrief, pageData };
   } catch (err) {
     if (err instanceof AgentError) throw err;
     throw new AgentError(

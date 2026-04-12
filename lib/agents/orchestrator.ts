@@ -49,7 +49,9 @@ export async function runPipeline(
       run: async (ctx) => {
         const onActions = (actions: string[]) =>
           writer.send({ type: "progress", stage: "page-intelligence", status: "running", message: "Understanding your product…", actions });
-        ctx.productBrief = await runAgent0(ctx.inputUrl, onActions);
+        const { brief, pageData } = await runAgent0(ctx.inputUrl, onActions);
+        ctx.productBrief = brief;
+        ctx.inputPageData = pageData;
       },
     },
     {

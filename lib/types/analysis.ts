@@ -207,6 +207,7 @@ export type SSEEvent = SSEProgressEvent | SSECompleteEvent | SSEErrorEvent;
 export interface PipelineContext {
   inputUrl: string;
   productBrief?: ProductBrief;
+  inputPageData?: PageData; // Reused from Agent 0 scrape — avoids duplicate Firecrawl call in Agent 3
   candidates?: CompetitorCandidate[];
   competitors?: Competitor[];
   pages?: PageData[];

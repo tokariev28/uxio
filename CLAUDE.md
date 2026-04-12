@@ -47,19 +47,23 @@ All Gemini system prompts live in `lib/agents/prompts.ts` (key: `AGENT_PROMPTS`)
 
 Domain filtering is **subdomain-aware**: `about.gitlab.com` matches the `gitlab.com` filter, `docs.github.com` matches `github.com`, etc. The `matchesFilterSet()` helper checks both exact match and `.endsWith('.'+domain)`.
 
-**Weighted mention scoring**: Tavily queries carry different signal strengths — `"vs"` queries (1.8x) are stronger than generic `"category"` queries (1.0x). LLM knowledge entries get 2.5x weight. This gives Agent 2's validator better differentiation when ranking candidates by market recognition.
+**Tavily queries**: Agent 1 runs 3 Tavily searches in parallel: `"X alternatives"` (1.0x weight), `"best Y software for Z"` (1.2x), and `"X vs"` (1.8x — strongest signal). Previous 5-query setup had "industry leaders" and "best tools for Z" which overlapped 50-70% with the kept queries. LLM knowledge entries get 2.5x weight. This gives Agent 2's validator better differentiation when ranking candidates by market recognition.
 
 Both `competitorDiscovery` and `competitorValidator` contain extensive **negative examples** (invalid competitor patterns — GitHub for Linear, LinkedIn for Apollo, Hugging Face for Anthropic, Intercom/Zendesk for HubSpot, etc.). Do not remove or shorten these sections — they exist because the LLM reliably hallucinates these false positives without them.
 
 **Agent 0 keyword fallback**: If the LLM returns an empty `icpKeyword`, the code derives one by taking the first 3 substantive words from the `icp` field (filtering a common stopword set). If `cvpKeyword` is empty, it falls back to `brief.industry.toLowerCase()`. The Zod schema's `.describe()` annotations instruct the LLM inline to always infer these fields — the code fallback is a last resort.
 
-**Agent 3 two-pass scraping**: `scrapePageWithRetry()` first scrapes without delay; if `isUsableMarkdown()` returns false (< 300 chars or JS-error signals), it retries with `waitFor: 8000ms` to allow client-side hydration. Returns whichever pass had more content.
+**Agent 0 scrape reuse**: Agent 0 scrapes the input URL with `["markdown", "screenshot"]` and stores the result in `ctx.inputPageData`. Agent 3 checks for this cached data first — if usable markdown exists, it skips re-scraping the input URL entirely, saving one Firecrawl API call (~5-10s). The screenshot URL is resolved to base64 in Agent 3 if needed.
 
-**Agent 5 active prompt**: uses `AGENT_PROMPTS.sectionAnalyzerBatch` — batches all sections in a single LLM call. The `AGENT_PROMPTS.visionAnalyzer` key in `prompts.ts` is legacy and kept for reference only; it is not in the active code path.
+**Agent 3 two-pass scraping**: `scrapePageWithRetry()` first scrapes without delay; if `isUsableMarkdown()` returns false (< 300 chars or JS-error signals), it retries with `waitFor: 8000ms` to allow client-side hydration. Returns whichever pass had more content. Logs a warning if both passes return thin content.
+
+**Agent 5 section caps**: `MAX_SECTIONS_PER_PAGE = 8` caps sections per page by `scrollFraction` (above-the-fold priority). For competitor pages, sections are additionally filtered to only types present on the input page — Agent 6 would discard non-matching competitor sections anyway, so analyzing them is pure waste. After input page analysis, `inputSectionTypes` is collected and passed to competitor `makeJob()` calls. If input analysis fails, competitors analyze all their sections (graceful degradation).
+
+**Agent 5 active prompt**: uses `AGENT_PROMPTS.sectionAnalyzerBatch` — batches all sections in a single LLM call. Requests exactly 1 strength and 1 weakness per section (the single most impactful observation). The Zod schema enforces `.max(3)` with `.slice(0, 1)` transform as a safeguard. The `AGENT_PROMPTS.visionAnalyzer` key in `prompts.ts` is legacy and kept for reference only; it is not in the active code path.
 
 **Agent 6 synthesis prompt** (`AGENT_PROMPTS.synthesis`) enforces a two-part recommendation structure: `reasoning` must be a direct comparison (minimum 2 sentences — what the competitor does vs what the input page does, then the concrete consequence for visitors), and `competitorExample` is the evidence anchor — the exact quote, metric, or visual detail that proves the point. The Zod schema uses `competitorExample` internally; Agent 6 maps it to `exampleFromCompetitor` in the TypeScript `Recommendation` type. Forbidden openers in `suggestedAction` are validated at runtime (logged warning, not hard fail).
 
-**Agent 6 section cap (MVP)**: Before synthesis, Agent 6 filters out sections without input-page findings (MVP: only analyze what the user's site has), then caps to `MAX_SYNTHESIS_SECTIONS = 8` by ranking sections on competitive gap magnitude (sum of score deltas where competitors outperform the input). Tiebreak: lower `scrollFraction` wins (above-the-fold priority). After selecting top 8, sections are re-sorted by `scrollFraction` so the UI preserves natural page order. `ctx.sectionAnalyses` is updated to the capped set — the SSE result and UI only show sections with full analysis and recommendations. `overallScores` (arc gauge) is computed from ALL sections with input findings (not just the capped 8) so the score reflects the whole page.
+**Agent 6 section cap (MVP)**: Before synthesis, Agent 6 filters out sections without input-page findings (MVP: only analyze what the user's site has), then caps to `MAX_SYNTHESIS_SECTIONS = 5` by ranking sections on competitive gap magnitude (sum of score deltas where competitors outperform the input). Tiebreak: lower `scrollFraction` wins (above-the-fold priority). After selecting top 5, sections are re-sorted by `scrollFraction` so the UI preserves natural page order. `ctx.sectionAnalyses` is updated to the capped set — the SSE result and UI only show sections with full analysis and recommendations. `overallScores` (arc gauge) is computed from ALL sections with input findings (not just the capped 5) so the score reflects the whole page.
 
 **Agent 6 recommendation count**: `recsPerSection` is fixed at 2 for all sites. The value is passed to the LLM via `RECOMMENDATIONS_PER_SECTION` in the user message; the system prompt references this variable instead of a hardcoded number.
 
@@ -84,7 +88,7 @@ All three wrap calls in `withRetry()` — up to 2 retries on transient errors (4
 
 ### SSE Streaming (`/lib/sse.ts`)
 
-`createSSEStream()` returns `{ stream, writer }`. Use `writer.send(event)` and `writer.close()`. The API route sets `maxDuration = 300`.
+`createSSEStream()` returns `{ stream, writer }`. Use `writer.send(event)` and `writer.close()`. The writer has a `_closed` guard — if the client disconnects mid-stream, `send()` silently stops instead of throwing, and `close()` is idempotent. The API route sets `maxDuration = 300`.
 
 ### Types (`/lib/types/analysis.ts`)
 

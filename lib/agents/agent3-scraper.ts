@@ -66,8 +66,12 @@ async function scrapePageWithRetry(
     `[agent3] ${url}: thin content (${first.markdown.length} chars) — retrying with waitFor: 8000ms`
   );
   const second = await scrapePage(firecrawl, url, 8000);
-  // If the retry also fails, return whichever had more content
-  return second.markdown.length >= first.markdown.length ? second : first;
+  // Return whichever had more content; warn if both are thin
+  const best = second.markdown.length >= first.markdown.length ? second : first;
+  if (!isUsableMarkdown(best.markdown)) {
+    console.warn(`[agent3] ${url}: still thin after retry (${best.markdown.length} chars)`);
+  }
+  return best;
 }
 
 export async function runScraper(
@@ -93,15 +97,27 @@ export async function runScraper(
   const emitted: string[] = [getHostname(inputUrl)];
   onActions?.([...emitted]);
 
-  // ── Always scrape input page (two-pass for JS SPAs) ─────────────
+  // ── Reuse Agent 0 scrape or scrape input page fresh ─────────────
+  // Agent 0 already scraped the input URL (markdown + screenshot).
+  // Reusing it saves one Firecrawl API call (~5-10s).
   let inputPage: PageData;
-  try {
-    inputPage = await scrapePageWithRetry(firecrawl, inputUrl);
-  } catch (err) {
-    throw new AgentError(
-      "agent3",
-      `Failed to scrape input URL ${inputUrl}: ${err instanceof Error ? err.message : String(err)}`
-    );
+  if (ctx.inputPageData?.markdown && isUsableMarkdown(ctx.inputPageData.markdown)) {
+    inputPage = { ...ctx.inputPageData };
+    // Resolve screenshot URL to base64 if needed (Agent 0 passes raw Firecrawl response)
+    if (inputPage.screenshotBase64?.startsWith("http")) {
+      const resolved = await resolveScreenshot(inputPage.screenshotBase64);
+      inputPage.screenshotBase64 = resolved ?? inputPage.screenshotBase64;
+    }
+    console.log(`[agent3] Reusing Agent 0 scrape for ${inputUrl} (${inputPage.markdown.length} chars)`);
+  } else {
+    try {
+      inputPage = await scrapePageWithRetry(firecrawl, inputUrl);
+    } catch (err) {
+      throw new AgentError(
+        "agent3",
+        `Failed to scrape input URL ${inputUrl}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 
   const pages: PageData[] = [inputPage];

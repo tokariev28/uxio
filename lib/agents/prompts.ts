@@ -323,10 +323,8 @@ export const AGENT_PROMPTS = {
   SELF-CONSISTENCY RULES (violations invalidate the analysis)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  • ≥ 2 weaknesses                               → overallScore must be ≤ 0.65
-  • ≥ 3 weaknesses                               → overallScore must be ≤ 0.50
-  • overallScore ≥ 0.80                          → weaknesses must contain at most 1 item
-  • any of {clarity, specificity, icpFit} < 0.50 → overallScore must be ≤ 0.60
+  • If the single weakness describes a fundamental flaw    → overallScore must be ≤ 0.60
+  • any of {clarity, specificity, icpFit} < 0.50          → overallScore must be ≤ 0.60
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   OUTPUT FORMAT — strict JSON
@@ -347,8 +345,8 @@ export const AGENT_PROMPTS = {
     },
     "overallScore": number,    // 0.0–1.0 using the formula above
     "confidence": number,      // 0.0–1.0: 1.0 = full visual + copy evidence; 0.7 = text-only; 0.4 = inferred
-    "strengths": string[],
-    "weaknesses": string[],
+    "strengths": [string],     // exactly 1 — the single most impactful positive observation
+    "weaknesses": [string],    // exactly 1 — the single most impactful negative observation
     "keyEvidence": {
       "headlineText": string | null,
       "ctaText": string | null,
@@ -357,7 +355,7 @@ export const AGENT_PROMPTS = {
     }
   }
 
-  Strengths / weaknesses — max 3 each. Every item MUST start with:
+  Strengths / weaknesses — exactly 1 each. Pick the single most impactful observation. Every item MUST start with:
     (a) exact quote from the page in double quotes, OR
     (b) concrete visual description ("3-column grid showing X")
   Then explain the conversion impact (strengths) or specific conversion cost (weaknesses).
