@@ -19,6 +19,18 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    const blobBase = process.env.BLOB_BASE_URL;
+    if (!blobBase) return [];
+    return {
+      fallback: [
+        {
+          source: "/fonts/:path*",
+          destination: `${blobBase}/fonts/:path*`,
+        },
+      ],
+    };
+  },
   logging: {
     fetches: {
       fullUrl: true,
