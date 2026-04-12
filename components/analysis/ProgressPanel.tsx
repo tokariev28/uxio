@@ -33,6 +33,7 @@ const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 interface NotificationProps {
   isGranted: boolean;
+  isDenied: boolean;
   showBanner: boolean;
   showConfirmation: boolean;
   onEnable: () => Promise<void>;

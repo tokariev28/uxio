@@ -137,7 +137,7 @@ export function AnalysisForm() {
     return () => abortRef.current?.abort();
   }, []);
 
-  const { isGranted, showBanner, showConfirmation, requestPermission, dismissBanner } =
+  const { isGranted, isDenied, showBanner, showConfirmation, requestPermission, dismissBanner } =
     useNotification({
       isRunning: appState === "running",
       isComplete: appState === "done",
@@ -387,6 +387,7 @@ export function AnalysisForm() {
               stages={stages}
               notification={{
                 isGranted,
+                isDenied,
                 showBanner,
                 showConfirmation,
                 onEnable: requestPermission,
