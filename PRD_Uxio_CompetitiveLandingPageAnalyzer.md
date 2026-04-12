@@ -60,7 +60,7 @@ This matters because a generic "alternatives list" will surface tools that share
 
 Two independent sources run in parallel and cross-validate each other.
 
-**Web search** runs 5 parallel queries built from the product brief: alternatives searches, category leader lists, feature comparison queries, "X vs" pages, and "best tools for [buyer type]" searches. Each match increments a confidence count.
+**Web search** runs 3 parallel queries built from the product brief — alternatives searches, feature comparison queries, and "X vs" pages — each with calibrated signal weights (1.0×, 1.2×, and 1.8× respectively). These three query types cover the core discovery signals without redundancy; "vs" comparisons carry the highest weight because they directly name head-to-head competitors. Each match increments a weighted confidence count.
 
 **LLM knowledge discovery** runs simultaneously — the model surfaces the most likely direct competitors based on its training data. These results get a higher base weight than single-search matches, because they represent a stronger prior signal anchored to real market knowledge.
 
@@ -103,7 +103,7 @@ Every insight must reference specific copy or a named visual element. "Add socia
 
 But completely separate calls per section lose spatial context — a model analyzing the hero in isolation doesn't know that the social proof is buried below the fold, which is directly relevant to evaluating trust signal placement.
 
-**The solution: batch analysis per page.** Each page is sent to the vision model as one call — full screenshot plus all section content together. The screenshot provides spatial awareness; the structured markdown enables precision per section. One call per page, not one per section and not one for the whole pipeline.
+**The solution: batch analysis per page.** Each page is sent to the vision model as one call — full screenshot plus all section content together. The screenshot provides spatial awareness; the structured markdown enables precision per section. One call per page, not one per section and not one for the whole pipeline. For the MVP, each page is capped at 8 sections (prioritized by scroll position — above-the-fold content first) and competitor pages are filtered to only section types that exist on the input page. This keeps multimodal calls focused, fast, and cost-efficient while covering the sections that matter most for conversion. As model capabilities grow and costs decrease, these caps can expand to cover full-page depth.
 
 **Multiple specialized agents, not one general agent.** A single "analyze this page" prompt would need to understand product markets, run web searches, evaluate design quality, synthesize cross-competitor patterns, and generate recommendations — all in one context window, with no separation of concerns. Quality degrades across every dimension when a prompt tries to do too many things.
 
@@ -116,8 +116,8 @@ Instead, each agent does one job:
 | 2 — Validator | Scores each candidate on 4 alignment axes; selects the top 3 |
 | 3 — Scraper | Captures full-page screenshots and content for all 4 pages in parallel |
 | 4 — Classifier | Identifies which sections are present and where they sit in scroll order |
-| 5 — Vision Analyzer | Analyzes each page: screenshot + section content in a single batch call |
-| 6 — Synthesis | Generates 3 prioritized recommendations per section with named competitor examples |
+| 5 — Vision Analyzer | Analyzes each page: screenshot + top 8 sections in a single batch call; competitors filtered to input section types |
+| 6 — Synthesis | Selects the top 5 sections by competitive gap; generates 2 prioritized recommendations per section with named competitor examples |
 
 Failures are isolated. Each agent's output is inspectable. Prompts can be refined per task without affecting others.
 
@@ -170,7 +170,7 @@ This was a deliberate choice, not an omission. The product's core value is *inst
 
 Uxio runs a **7-agent sequential pipeline** entirely on the server, orchestrated as a single request/response cycle with Server-Sent Events for real-time streaming. No database — all intermediate data lives in memory for the duration of one analysis. The pipeline calls three external services: Firecrawl (scraping + screenshots), Tavily (web search), and Gemini (LLM + vision), all routed through Vercel AI Gateway with automatic model fallbacks.
 
-The architecture is deliberately simple for the MVP: no background jobs, no queues, no persistent storage. The 5-minute execution ceiling covers the full pipeline with room to spare, and SSE keeps the connection alive throughout.
+The architecture is deliberately simple for the MVP: no background jobs, no queues, no persistent storage. Section-level caps (8 per page, 5 for synthesis) keep the pipeline within a ~2–3 minute window while focusing analysis on the highest-impact above-the-fold content. SSE streams progress events throughout, and the writer is hardened against client disconnects with a `_closed` guard.
 
 **Model routing:** Gemini 2.5 Flash-Lite handles extraction, scoring, and classification (faster, cheaper, sufficient for structured tasks); Gemini 2.5 Flash handles vision analysis and synthesis (stronger reasoning). GPT-5.4-nano serves as automatic fallback for both when primary models are unavailable.
 
@@ -282,15 +282,17 @@ Individual contributors discover Uxio for free and bring it into their team. The
 
 ### Unit economics and cost optimizations
 
-Each pipeline run calls three external services: Firecrawl (scraping 4 pages with screenshots), Tavily (search queries for competitor discovery), and Gemini (7 agent calls). Unoptimized, this costs approximately $0.40 per analysis. Three targeted optimizations bring this to ~$0.18:
+Each pipeline run calls three external services: Firecrawl (scraping), Tavily (search), and Gemini (LLM calls). The MVP pipeline is tuned for cost efficiency at every stage:
 
-1. **Shared scrape cache** — the single biggest lever. Popular competitor pages (Stripe, Notion, Linear, HubSpot) are scraped by many users independently. A 12–24 hour server-side cache means the Firecrawl cost is paid once and amortized across all users who analyze the same URL that day. This alone cuts Firecrawl costs by 60–70% in aggregate.
+- **Scrape reuse** — Agent 0 captures both markdown and screenshot from the input URL. Agent 3 reuses this cached data instead of scraping the same URL again, eliminating one Firecrawl call per analysis.
+- **3 Tavily queries** — three query types (alternatives, feature match, and "vs" comparisons) cover the core discovery signals with calibrated weights. Additional queries showed 50–70% result overlap with diminishing returns.
+- **Section-level caps** — Agent 5 caps at 8 sections per page and only analyzes competitor sections matching the input page's types. This cuts multimodal token usage by ~30% without losing signal — Agent 6 would discard non-matching competitor sections anyway.
+- **Focused synthesis** — Agent 6 selects the top 5 sections by competitive gap for recommendations (2 per section = 10 total). The overall score still reflects all analyzed sections.
+- **Flash-Lite routing** — Gemini 2.5 Flash-Lite handles extraction, scoring, and classification (Agents 0, 1, 2, 4). Only vision analysis and synthesis (Agents 5, 6) use the more expensive Flash model.
 
-2. **Reduced Tavily queries** — Agent 1 runs parallel search queries to discover competitors. Trimming from 5 to 3 queries retains sufficient discovery signal while reducing search API spend.
+Current cost per analysis: **~$0.08–0.20** depending on page complexity. Future optimizations include shared scrape caching for popular competitor pages and Flash-Lite routing for synthesis.
 
-3. **Aggressive Flash-Lite routing** — Gemini 2.5 Flash-Lite already handles extraction, scoring, and classification. Extending this to synthesis (Agent 6), which produces structured text rather than complex reasoning, reduces LLM costs without meaningful quality loss.
-
-At ~$0.18/analysis average cost, the free tier (3 analyses/month) costs roughly $0.54/month per free user — a sustainable lead-gen investment. Break-even on the free tier requires roughly a 7% free-to-Pro conversion rate, which is achievable for a B2B tool that delivers tangible value in the first session.
+At ~$0.15/analysis average cost, the free tier (3 analyses/month) costs roughly $0.45/month per free user — a sustainable lead-gen investment. Break-even on the free tier requires roughly a 5% free-to-Pro conversion rate, which is achievable for a B2B tool that delivers tangible value in the first session. As model costs continue to decline and next-generation models offer faster inference, the pipeline can expand to analyze more sections per page and generate deeper recommendations without impacting unit economics.
 
 ### The growth loop
 

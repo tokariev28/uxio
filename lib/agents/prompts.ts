@@ -153,12 +153,13 @@ export const AGENT_PROMPTS = {
   - If fewer than 5 score ≥ 0.75, take the top available regardless.
   - DIVERSITY: At most 2 selected competitors may share the same primary sub-category. Prefer breadth of coverage over clustering similar tools.
   - EXCLUDE: Any candidate whose domain is a review aggregator, comparison site, or media outlet (e.g. g2.com, capterra.com, techcrunch.com, alternativeto.net). These are not product competitors.
+  - EXCLUDE CORPORATE PORTALS: Do not select corporate ecosystem domains that aggregate many unrelated products under one roof. Their homepage is a navigation hub, not a focused product landing page. Examples: microsoft.com (bundles 365, Azure, Teams, Dynamics under one portal), google.com (Search, Workspace, Cloud, AI under one brand), amazon.com (retail + AWS + devices). A valid competitor must have a distinct product homepage describing a single focused offering.
   - EXCLUDE INFRASTRUCTURE: Do not select generic cloud infrastructure providers (AWS, Azure, Google Cloud Platform, DigitalOcean, Heroku) as competitors for companies that sell AI models, AI APIs, or AI research services. Infrastructure platforms are deployment venues, not product competitors. This includes managed AI services that are sub-products of a cloud provider under the same billing and brand umbrella — Vertex AI (GCP), Amazon Bedrock (AWS), and Azure OpenAI Service all count as infrastructure and must be excluded. An acceptable exception: a standalone AI product with its own independent brand, pricing page, and direct signup flow that is not co-billed under the parent cloud platform (e.g. OpenAI, Mistral, Cohere).
   - EXCLUDE FEATURE-BUNDLERS: Do not select a platform whose PRIMARY purpose is unrelated to the input product, even if it bundles the input's core feature as a minor add-on. A valid competitor's homepage headline must describe the same primary job-to-be-done as the input product. INVALID EXAMPLES BY CATEGORY:
     · Issue tracking: github.com / gitlab.com / bitbucket.org — code-hosting platforms, issue tracker is incidental. notion.so / confluence.atlassian.com — docs/wiki tools. trello.com — generic visual kanban, not engineering PM.
     · Sales intelligence/outreach: linkedin.com / linkedin.com/sales — social network; Sales Navigator lacks email sequencing and bulk contact export. salesforce.com without "outreach" qualifier — CRM, not engagement platform.
     · AI / LLM API: huggingface.co — model hub/community repository, not a commercial API competitor. character.ai / perplexity.ai — consumer products, not API platforms. langchain.com / llamaindex.ai — orchestration frameworks, not model providers.
-    · CRM + marketing automation: intercom.com — customer messaging/support, leads with "customer service" not CRM. zendesk.com — help-desk ticketing, not CRM. monday.com — project management, not CRM.
+    · CRM + marketing automation: intercom.com — customer messaging/support, leads with "customer service" not CRM. zendesk.com — help-desk ticketing, not CRM. monday.com — project management, not CRM. microsoft.com — corporate ecosystem portal bundling Office 365, Azure, Teams; Dynamics 365 is a sub-product, not a focused CRM landing page.
     · Website builder: figma.com / sketch.com — design/prototyping tools that output design files, not live websites. shopify.com — e-commerce platform, not general website builder. github.io / netlify.com — developer hosting, not visual builders.
     · Scheduling / booking: calendar.google.com / outlook.com — calendar apps for viewing your own schedule, not booking-link tools. zoom.us — video conferencing, not scheduling.
     · Productivity launcher: spotlight (macOS) — OS built-in, not a product. code.visualstudio.com — code editor, not a launcher. notion.so / obsidian.md — knowledge management, not a launcher.
@@ -322,10 +323,8 @@ export const AGENT_PROMPTS = {
   SELF-CONSISTENCY RULES (violations invalidate the analysis)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  • ≥ 2 weaknesses                               → overallScore must be ≤ 0.65
-  • ≥ 3 weaknesses                               → overallScore must be ≤ 0.50
-  • overallScore ≥ 0.80                          → weaknesses must contain at most 1 item
-  • any of {clarity, specificity, icpFit} < 0.50 → overallScore must be ≤ 0.60
+  • If the single weakness describes a fundamental flaw    → overallScore must be ≤ 0.60
+  • any of {clarity, specificity, icpFit} < 0.50          → overallScore must be ≤ 0.60
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   OUTPUT FORMAT — strict JSON
@@ -346,8 +345,8 @@ export const AGENT_PROMPTS = {
     },
     "overallScore": number,    // 0.0–1.0 using the formula above
     "confidence": number,      // 0.0–1.0: 1.0 = full visual + copy evidence; 0.7 = text-only; 0.4 = inferred
-    "strengths": string[],
-    "weaknesses": string[],
+    "strengths": [string],     // exactly 1 — the single most impactful positive observation
+    "weaknesses": [string],    // exactly 1 — the single most impactful negative observation
     "keyEvidence": {
       "headlineText": string | null,
       "ctaText": string | null,
@@ -356,7 +355,7 @@ export const AGENT_PROMPTS = {
     }
   }
 
-  Strengths / weaknesses — max 3 each. Every item MUST start with:
+  Strengths / weaknesses — exactly 1 each. Pick the single most impactful observation. Every item MUST start with:
     (a) exact quote from the page in double quotes, OR
     (b) concrete visual description ("3-column grid showing X")
   Then explain the conversion impact (strengths) or specific conversion cost (weaknesses).
@@ -471,8 +470,7 @@ export const AGENT_PROMPTS = {
 
   Score each axis independently and honestly based on the evidence you observe.
   Do NOT adjust sub-scores to fit a preconceived overallScore.
-  Do NOT lower scores because you listed weaknesses — weaknesses describe what could be better, not that everything is bad.
-  A section can have 2 weaknesses and still score 0.75 if most axes are strong.
+  Do NOT default to 0.7 for most axes — use the FULL range (0.3–0.95). A section with generic copy and no metrics should get specificity ≤ 0.5. A section with 3+ measurable claims should get specificity ≥ 0.85. Score what you actually see, not a safe middle ground.
   Score consistency is enforced automatically after generation — your job is to be accurate, not to balance numbers.
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -532,10 +530,13 @@ export const AGENT_PROMPTS = {
 
   Exactly 1 strength and 1 weakness per section. Pick the single most impactful observation for each — the one that would change a product manager's next decision.
 
-  Every item MUST start with:
-    (a) exact quote from this section's copy in double quotes, OR
-    (b) precise visual description from the screenshot ("3-column icon grid", "full-width red CTA button", "monochrome icon set with 2px stroke")
-  Then explain the conversion lever or design mechanism — not just what you see, but why it matters.
+  MANDATORY EVIDENCE ANCHOR — every strength and weakness MUST contain at least one of:
+    (a) an exact quote from the section's copy wrapped in double quotes (e.g. "Start free — no credit card"), OR
+    (b) a specific number or measurement (e.g. "3-column", "60%", "12 logos", "24px gap", "4.8 on G2"), OR
+    (c) a named competitor for comparison context
+  Items WITHOUT a quote, number, or competitor name are considered ungrounded and will be flagged as low quality.
+
+  After the evidence anchor, explain the conversion lever or design mechanism — not just what you see, but why it matters for a first-time visitor.
 
   FORBIDDEN first words: Improve, Enhance, Optimize, Consider, Update, Refine, Redesign, Better, Cleaner, Clearer, Could, Should, Would, Arguably, Might, May, Can, Possibly, Potentially, Relatively, Somewhat, Actually, Interesting, Notable.
   FORBIDDEN phrases: "Clean layout", "Good visual hierarchy", "Effective design", "Vague copy", "Lacks specificity", "Visually appealing", "Could be stronger", "Might help", "Worth noting", "Has been shown to", "Tends to", "Appears to", "Seems to".
@@ -633,8 +634,8 @@ export const AGENT_PROMPTS = {
       },
       "overallScore": number,    // 0.0–1.0 using the formula above
       "confidence": number,      // 0.0–1.0: 1.0 = screenshot + full copy available; 0.7 = text-only analysis; 0.4 = inferred from sparse markdown
-      "strengths": [string],     // exactly 1
-      "weaknesses": [string],    // exactly 1
+      "strengths": [string],     // exactly 1 — MUST contain a "quoted phrase" or number
+      "weaknesses": [string],    // exactly 1 — MUST contain a "quoted phrase" or number
       "keyEvidence": {
         "headlineText": string | null,
         "ctaText": string | null,

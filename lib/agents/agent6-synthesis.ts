@@ -10,7 +10,7 @@ import { VALID_SECTION_TYPES } from "@/lib/constants";
 const VALID_PRIORITIES = new Set<Priority>(["critical", "high", "medium"]);
 
 // MVP: analyze only the most impactful sections to keep pipeline fast.
-const MAX_SYNTHESIS_SECTIONS = 8;
+const MAX_SYNTHESIS_SECTIONS = 5;
 
 // ── Section prioritization ───────────────────────────────────────────────
 // Compute total competitive gap for a section (higher = more room for improvement).

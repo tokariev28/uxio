@@ -22,26 +22,26 @@ import { isUnsafeUrl } from "@/lib/utils/ssrf";
 const BatchSectionResultSchema = z.object({
   sectionType: z.string(),
   scores: z.object({
-    clarity: z.number(),
-    specificity: z.number(),
-    icpFit: z.number(),
-    attentionRatio: z.number(),
-    ctaQuality: z.number(),
-    trustSignals: z.number(),
-    visualHierarchy: z.number(),
-    cognitiveEase: z.number(),
-    typographyReadability: z.number(),
-    densityBalance: z.number(),
-  }).optional(),
-  overallScore: z.number(),
-  confidence: z.number().optional(),
-  strengths: z.array(z.string()),
-  weaknesses: z.array(z.string()),
+    clarity: z.coerce.number(),
+    specificity: z.coerce.number(),
+    icpFit: z.coerce.number(),
+    attentionRatio: z.coerce.number(),
+    ctaQuality: z.coerce.number(),
+    trustSignals: z.coerce.number(),
+    visualHierarchy: z.coerce.number(),
+    cognitiveEase: z.coerce.number(),
+    typographyReadability: z.coerce.number(),
+    densityBalance: z.coerce.number(),
+  }).nullable().optional(),
+  overallScore: z.coerce.number(),
+  confidence: z.coerce.number().nullable().optional(),
+  strengths: z.array(z.string()).max(3).nullable().transform(v => (v ?? []).slice(0, 1)),
+  weaknesses: z.array(z.string()).max(3).nullable().transform(v => (v ?? []).slice(0, 1)),
   keyEvidence: z.object({
     headlineText: z.string().nullable(),
     ctaText: z.string().nullable(),
     copyQuote: z.string().nullable(),
-    visualObservation: z.string(),
+    visualObservation: z.string().nullable().transform(v => v ?? ""),
   }),
 });
 
@@ -101,11 +101,12 @@ function computeWeightedScore(scores: BatchSectionResult['scores']): number {
 }
 
 // ── Section content truncation ─────────────────────────────────────────────
-// All sections detected by Agent 4 are analyzed — no sections are dropped.
-// Agent 4's VALID_SECTION_TYPES filter already prevents hallucinated types.
-// Each section's markdown is truncated to stay within reasonable token bounds;
-// 12 sections × 2500 chars ≈ 7,500 tokens, well within Gemini 2.5 Flash's 1M limit.
+// Each section's markdown is truncated to stay within reasonable token bounds.
+// MAX_SECTIONS_PER_PAGE caps sections per page to reduce multimodal call size
+// and improve LLM attention quality (fewer sections → more focused analysis).
+// 8 sections × 2500 chars ≈ 5,000 tokens, well within Gemini 2.5 Flash's 1M limit.
 const MAX_MARKDOWN_CHARS = 2500;
+const MAX_SECTIONS_PER_PAGE = 8;
 
 // ── Batch analysis: ONE call per page ─────────────────────────────────────
 // Sends the full-page screenshot ONCE + all section markdowns.
@@ -141,13 +142,31 @@ async function analyzePageBatch(
   }
 
   // ── Build structured sections input with scroll position hints ─────
-  // All sections in natural page order (scroll position 0% → 100%).
-  const limitedSections = [...pageSections.sections]
-    .sort((a, b) => a.scrollFraction - b.scrollFraction)
-    .map((s) => ({
-      ...s,
-      markdownSlice: stripBoilerplate(stripMarkdownLinks(s.markdownSlice)).slice(0, MAX_MARKDOWN_CHARS),
-    }));
+  // Priority sections (hero, pricing, cta) are always included if present —
+  // they directly drive conversion and often sit near the bottom of the page
+  // where a naive scroll-order cap would cut them. Remaining slots filled by
+  // scroll position (above-the-fold first).
+  const PRIORITY_SECTION_TYPES = new Set(["hero", "pricing", "cta"]);
+  const allSorted = [...pageSections.sections]
+    .sort((a, b) => a.scrollFraction - b.scrollFraction);
+
+  const priority = allSorted.filter((s) => PRIORITY_SECTION_TYPES.has(s.type));
+  const rest = allSorted.filter((s) => !PRIORITY_SECTION_TYPES.has(s.type));
+  const selected = [...priority, ...rest].slice(0, MAX_SECTIONS_PER_PAGE);
+  selected.sort((a, b) => a.scrollFraction - b.scrollFraction);
+
+  if (allSorted.length > MAX_SECTIONS_PER_PAGE) {
+    const dropped = allSorted.filter((s) => !selected.includes(s));
+    console.log(
+      `[agent5] Capped ${page.url} from ${allSorted.length} to ${selected.length} sections ` +
+      `(dropped: ${dropped.map((s) => s.type).join(", ")})`
+    );
+  }
+
+  const limitedSections = selected.map((s) => ({
+    ...s,
+    markdownSlice: stripBoilerplate(stripMarkdownLinks(s.markdownSlice)).slice(0, MAX_MARKDOWN_CHARS),
+  }));
 
   const sectionsInput = limitedSections
     .map(
@@ -219,7 +238,7 @@ async function analyzePageBatch(
   // Cap confidence at 0.7 for text-only analysis (no screenshot available)
   if (!screenshotData) {
     for (const item of parsed) {
-      if (item.confidence !== undefined && item.confidence > 0.7) item.confidence = 0.7;
+      if (item.confidence != null && item.confidence > 0.7) item.confidence = 0.7;
     }
   }
 
@@ -243,13 +262,30 @@ export async function runAnalyzer(
   const competitors = ctx.competitors ?? [];
 
   // ── Build analysis job for a single page ──────────────────────────────────
-  const makeJob = (page: PageData): Promise<BatchSectionResult[]> => {
+  // filterTypes: if provided, only analyze sections whose type is in the set.
+  // Used for competitor pages to skip sections that don't exist on the input page
+  // (Agent 6 would discard them anyway — analyzing them is pure waste).
+  const makeJob = (page: PageData, filterTypes?: Set<string>): Promise<BatchSectionResult[]> => {
     // Match pageSections by URL to prevent misalignment when Agent4 skips a page
-    const pageSections = ctx.pageSections!.find((ps) => ps.url === page.url);
-    if (!pageSections?.sections.length) {
+    const rawSections = ctx.pageSections!.find((ps) => ps.url === page.url);
+    if (!rawSections?.sections.length) {
       console.warn(
         `[agent5] Skipping ${page.url} — no sections from classifier (empty scrape or classification failure)`
       );
+      return Promise.resolve<BatchSectionResult[]>([]);
+    }
+    // Filter to matching input section types for competitor pages
+    const pageSections = filterTypes
+      ? { ...rawSections, sections: rawSections.sections.filter((s) => filterTypes.has(s.type)) }
+      : rawSections;
+    if (filterTypes && pageSections.sections.length < rawSections.sections.length) {
+      console.log(
+        `[agent5] Filtered ${page.url}: ${rawSections.sections.length} → ${pageSections.sections.length} sections ` +
+        `(kept: ${pageSections.sections.map((s) => s.type).join(", ")})`
+      );
+    }
+    if (!pageSections.sections.length) {
+      console.warn(`[agent5] Skipping ${page.url} — no matching input section types`);
       return Promise.resolve<BatchSectionResult[]>([]);
     }
     // Analyze even without screenshot (text-only fallback) — lower quality
@@ -272,6 +308,16 @@ export async function runAnalyzer(
     (reason): PromiseSettledResult<BatchSectionResult[]> => ({ status: "rejected", reason })
   );
 
+  // Collect input page section types so competitors only analyze matching sections.
+  // Agent 6 already discards competitor findings for sections absent on input —
+  // filtering here avoids wasting tokens on analyses that would be thrown away.
+  const inputSectionTypes = new Set<string>();
+  if (inputResult.status === "fulfilled") {
+    for (const item of inputResult.value) {
+      inputSectionTypes.add(normalizeSectionType(item.sectionType));
+    }
+  }
+
   // Stagger competitor calls by 600 ms each to spread gateway burst load.
   // Adds at most 1.2 s of wall time for 3 competitors, but avoids simultaneous
   // multimodal calls that can trigger rate limits even after the input-first fix.
@@ -282,7 +328,7 @@ export async function runAnalyzer(
           setTimeout(() => {
             emitted.push(getHostname(page.url));
             onActions?.([...emitted]);
-            makeJob(page).then(resolve, reject);
+            makeJob(page, inputSectionTypes.size > 0 ? inputSectionTypes : undefined).then(resolve, reject);
           }, i * 600);
         })
     )

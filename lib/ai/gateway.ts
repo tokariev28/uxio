@@ -99,7 +99,7 @@ export async function aiGenerateMultimodal(
       system: params.system,
       messages: [{ role: "user", content }],
       maxRetries: 0,
-      timeout: 90_000,
+      timeout: 180_000,
       providerOptions: {
         gateway: { models: chain.fallbacks },
         ...(params.json && { google: { generationConfig: { responseMimeType: 'application/json' } } }),

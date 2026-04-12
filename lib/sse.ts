@@ -15,12 +15,20 @@ export function createSSEStream() {
   });
 
   const writer = {
+    _closed: false,
     send(event: SSEEvent) {
-      const data = JSON.stringify(event);
-      controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+      if (this._closed) return;
+      try {
+        const data = JSON.stringify(event);
+        controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+      } catch {
+        this._closed = true;
+      }
     },
     close() {
-      controller.close();
+      if (this._closed) return;
+      this._closed = true;
+      try { controller.close(); } catch { /* already closed */ }
     },
   };
 
