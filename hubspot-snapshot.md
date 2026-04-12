@@ -1,0 +1,797 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - link "Skip to content" [ref=e4] [cursor=pointer]:
+        - /url: "#global-nav-main-content"
+      - navigation "Utility Navigation" [ref=e5]:
+        - generic [ref=e7]:
+          - list [ref=e8]:
+            - listitem [ref=e9]:
+              - generic [ref=e10]:
+                - generic [ref=e11] [cursor=pointer]:
+                  - img [ref=e12]
+                  - text: English
+                - button "Select a language" [ref=e14] [cursor=pointer]:
+                  - generic [ref=e15]: Select a language
+                  - img [ref=e16]
+            - listitem [ref=e18]:
+              - switch "High Contrast" [ref=e19] [cursor=pointer]:
+                - generic [ref=e22]: High Contrast
+            - listitem [ref=e23]:
+              - link "Customer Support" [ref=e25] [cursor=pointer]:
+                - /url: https://help.hubspot.com/?hubs_content=www.hubspot.com/&hubs_content-cta=nav-utility-support
+                - img [ref=e26]
+                - text: Customer Support
+            - listitem [ref=e29]:
+              - link "Contact Sales" [ref=e31] [cursor=pointer]:
+                - /url: https://offers.hubspot.com/contact-sales?hubs_signup-url=www.hubspot.com/&hubs_signup-cta=nav-utility-contactsales&hubs_content=www.hubspot.com/&hubs_content-cta=nav-utility-contactsales
+                - img [ref=e32]
+                - text: Contact Sales
+          - list [ref=e35]:
+            - listitem [ref=e36]:
+              - generic [ref=e39]:
+                - searchbox [ref=e40]
+                - img [ref=e41] [cursor=pointer]
+            - listitem [ref=e43]:
+              - link "Log in" [ref=e45] [cursor=pointer]:
+                - /url: https://app.hubspot.com/login?hubs_signup-url=www.hubspot.com%2F&hubs_signup-cta=nav-utility-login&hubs_content=www.hubspot.com%2F&hubs_content-cta=nav-utility-login&uuid=anon64d2de41c59d9e115a0ce22478c6
+            - listitem [ref=e46]:
+              - generic [ref=e47]:
+                - generic [ref=e48] [cursor=pointer]: About
+                - button "About" [ref=e49] [cursor=pointer]:
+                  - generic [ref=e50]: About
+                  - img [ref=e51]
+      - navigation "Primary Navigation" [ref=e54]:
+        - generic [ref=e56]:
+          - link "HubSpot" [ref=e57] [cursor=pointer]:
+            - /url: https://www.hubspot.com
+            - img "HubSpot" [ref=e58]
+          - generic [ref=e59]:
+            - list [ref=e60]:
+              - listitem [ref=e61]:
+                - generic [ref=e63]:
+                  - generic [ref=e64] [cursor=pointer]: Products
+                  - button "Products" [ref=e65] [cursor=pointer]:
+                    - generic [ref=e66]: Products
+                    - img [ref=e67]
+              - listitem [ref=e69]:
+                - generic [ref=e71]:
+                  - generic [ref=e72] [cursor=pointer]: Solutions
+                  - button "Solutions" [ref=e73] [cursor=pointer]:
+                    - generic [ref=e74]: Solutions
+                    - img [ref=e75]
+              - listitem [ref=e77]:
+                - link "Pricing" [ref=e80] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/pricing/marketing?hubs_content=www.hubspot.com/&hubs_content-cta=nav-pricing
+              - listitem [ref=e81]:
+                - generic [ref=e83]:
+                  - generic [ref=e84] [cursor=pointer]: Resources
+                  - button "Resources" [ref=e85] [cursor=pointer]:
+                    - generic [ref=e86]: Resources
+                    - img [ref=e87]
+            - generic [ref=e91]:
+              - link "Get a demo of HubSpot's premium software" [ref=e92] [cursor=pointer]:
+                - /url: https://offers.hubspot.com/crm-platform-demo?hubs_signup-url=www.hubspot.com&hubs_signup-cta=homepage-hp-nav
+                - text: Get a demo
+                - generic [ref=e93]: of HubSpot's premium software
+              - link "Get started free with HubSpot's free tools" [ref=e94] [cursor=pointer]:
+                - /url: https://app.hubspot.com/signup-hubspot/crm?hubs_signup-url=www.hubspot.com&hubs_signup-cta=homepage-hp-nav2&uuid=anon64d2de41c59d9e115a0ce22478c6
+                - text: Get started free
+                - generic [ref=e95]: with HubSpot's free tools
+    - main [ref=e96]:
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - paragraph [ref=e103]: HubSpot Customer Platform
+          - heading "Where go-to-market teams go to grow scale close retain grow" [level=1] [ref=e104]:
+            - text: Where go-to-market
+            - text: teams go to
+            - list [ref=e106]:
+              - listitem [ref=e107]: grow
+              - listitem [ref=e108]: scale
+              - listitem [ref=e109]: close
+              - listitem [ref=e110]: retain
+              - listitem [ref=e111]: grow
+          - paragraph [ref=e112]:
+            - text: Unite marketing, sales, and customer service on one AI-powered
+            - text: customer platform that delivers results fast.
+        - generic [ref=e113]:
+          - link "Get a demo of HubSpot's premium software" [ref=e114] [cursor=pointer]:
+            - /url: https://offers.hubspot.com/crm-platform-demo?hubs_signup-url=www.hubspot.com&hubs_signup-cta=homepage-hero-cta
+            - text: Get a demo
+            - generic [ref=e115]: of HubSpot's premium software
+          - link "Get started free with HubSpot's free tools" [ref=e116] [cursor=pointer]:
+            - /url: https://app.hubspot.com/signup-hubspot/crm?hubs_signup-url=www.hubspot.com&hubs_signup-cta=homepage-hero2-cta&uuid=anon64d2de41c59d9e115a0ce22478c6
+            - text: Get started free
+            - generic [ref=e117]: with HubSpot's free tools
+      - generic [ref=e118]:
+        - generic [ref=e121]:
+          - heading "288,000+ customers in over 135 countries grow their businesses with HubSpot." [level=2] [ref=e122]
+          - list [ref=e125]:
+            - listitem "1 of 5" [ref=e126]:
+              - generic [ref=e127]:
+                - img "ebay-logo"
+            - listitem "2 of 5" [ref=e128]:
+              - generic [ref=e129]:
+                - img "doordash-logo"
+            - listitem "3 of 5" [ref=e130]:
+              - generic [ref=e131]:
+                - img "reddit-logo"
+            - listitem "4 of 5" [ref=e132]:
+              - generic [ref=e133]:
+                - img "tripadvisor-logo"
+            - listitem "5 of 5" [ref=e134]:
+              - generic [ref=e135]:
+                - img "eventbrite-logo"
+        - generic [ref=e140]:
+          - generic [ref=e141]:
+            - heading "The HubSpot Customer Platform" [level=2] [ref=e142]
+            - paragraph [ref=e143]: Connected data and tools make it easier to know, do, and connect everything across your business.
+          - group [ref=e147]:
+            - generic [ref=e148]:
+              - button "Previous" [disabled] [ref=e149]:
+                - generic [ref=e150]: Previous
+                - img
+              - button "Next" [ref=e151] [cursor=pointer]:
+                - generic [ref=e152]: Next
+                - img
+            - list [ref=e154]:
+              - group "1 of 3" [ref=e155]:
+                - generic [ref=e156]:
+                  - img "Shows the products that make up the HubSpot customer platform, starting with Smart CRM (highlighted in this image), then the hub engagement products, then Breeze, HubSpot's AI." [ref=e158]
+                  - generic [ref=e161]:
+                    - heading "A CRM that’s really smart." [level=3] [ref=e162]
+                    - paragraph [ref=e163]: HubSpot’s Smart CRM is the single source of truth that connects all your business data.
+              - group [ref=e164]:
+                - generic [ref=e165]:
+                  - img [ref=e167]
+                  - generic [ref=e170]:
+                    - heading [level=3] [ref=e171]: Products that connect to everything.
+                    - paragraph [ref=e172]: Unify your teams to create content, find leads, close deals, and grow revenue.
+              - group [ref=e173]:
+                - generic [ref=e174]:
+                  - img [ref=e176]
+                  - generic [ref=e179]:
+                    - heading [level=3] [ref=e180]: "Breeze: AI that gets your work done."
+                    - paragraph [ref=e181]: Built-in AI tools boost productivity, scale growth, and unlock insights.
+            - list [ref=e185]:
+              - listitem [ref=e186]
+              - listitem [ref=e187]
+              - listitem [ref=e188]
+        - generic [ref=e192]:
+          - generic [ref=e194]:
+            - generic [ref=e197]: Powered by AI
+            - generic [ref=e199]:
+              - heading "Growing a business is hard. HubSpot makes it easier." [level=2] [ref=e200]
+              - paragraph [ref=e201]: Disconnected tools and data slow you down. HubSpot connects everything — and everyone — in one place to make growing a business easier than you think.
+              - generic [ref=e202]:
+                - link "Get a demo of HubSpot's software" [ref=e203] [cursor=pointer]:
+                  - /url: https://offers.hubspot.com/crm-platform-demo?hubs_signup-url=www.hubspot.com&hubs_signup-cta=homepage-products-demo
+                  - text: Get a demo
+                  - generic [ref=e204]: of HubSpot's software
+                - link "Get started free with HubSpot's free tools" [ref=e205] [cursor=pointer]:
+                  - /url: https://app.hubspot.com/signup-hubspot/crm?hubs_signup-url=www.hubspot.com&hubs_signup-cta=homepage-products-free&uuid=anon64d2de41c59d9e115a0ce22478c6
+                  - text: Get started free
+                  - generic [ref=e206]: with HubSpot's free tools
+          - generic [ref=e208]:
+            - generic [ref=e209] [cursor=pointer]:
+              - heading "Marketing Hub®" [level=3] [ref=e212]
+              - separator [ref=e213]
+              - list [ref=e214]:
+                - listitem [ref=e215]:
+                  - img [ref=e216]
+                  - text: Attract and convert the right leads.
+                - listitem [ref=e218]:
+                  - img [ref=e219]
+                  - text: Run campaigns, personalize content, and track it all.
+              - generic [ref=e221]:
+                - separator [ref=e222]
+                - link "Learn more about Marketing Hub software" [ref=e223]:
+                  - /url: https://www.hubspot.com/products/marketing?hubs_content=www.hubspot.com&hubs_content-cta=homepage-marketing
+                  - text: Learn more
+                  - img [ref=e224]
+                  - generic [ref=e226]: about Marketing Hub software
+            - generic [ref=e227] [cursor=pointer]:
+              - heading "Sales Hub®" [level=3] [ref=e230]
+              - separator [ref=e231]
+              - list [ref=e232]:
+                - listitem [ref=e233]:
+                  - img [ref=e234]
+                  - text: Generate quality leads and close deals, faster.
+                - listitem [ref=e236]:
+                  - img [ref=e237]
+                  - text: Automate prospecting, manage pipeline, and accelerate revenue growth.
+              - generic [ref=e239]:
+                - separator [ref=e240]
+                - link "Learn more about Sales Hubs software" [ref=e241]:
+                  - /url: https://www.hubspot.com/products/sales?hubs_content=www.hubspot.com&hubs_content-cta=homepage-sales
+                  - text: Learn more
+                  - img [ref=e242]
+                  - generic [ref=e244]: about Sales Hubs software
+            - generic [ref=e245] [cursor=pointer]:
+              - heading "Service Hub®" [level=3] [ref=e248]
+              - separator [ref=e249]
+              - list [ref=e250]:
+                - listitem [ref=e251]:
+                  - img [ref=e252]
+                  - text: Streamline and scale support to serve customers faster.
+                - listitem [ref=e254]:
+                  - img [ref=e255]
+                  - text: Drive retention with actionable insights, customer health scores, and real-time usage data.
+              - generic [ref=e257]:
+                - separator [ref=e258]
+                - link "Learn more about Service Hub software" [ref=e259]:
+                  - /url: https://www.hubspot.com/products/service?hubs_content=www.hubspot.com&hubs_content-cta=homepage-service
+                  - text: Learn more
+                  - img [ref=e260]
+                  - generic [ref=e262]: about Service Hub software
+            - generic [ref=e263] [cursor=pointer]:
+              - heading "Content Hub™" [level=3] [ref=e266]
+              - separator [ref=e267]
+              - list [ref=e268]:
+                - listitem [ref=e269]:
+                  - img [ref=e270]
+                  - text: Create content that clicks with your audience.
+                - listitem [ref=e272]:
+                  - img [ref=e273]
+                  - text: Build pages, publish content across channels, and stay on brand.
+              - generic [ref=e275]:
+                - separator [ref=e276]
+                - link "Learn more about Content Hub software" [ref=e277]:
+                  - /url: https://www.hubspot.com/products/content?hubs_content=www.hubspot.com&hubs_content-cta=homepage-content
+                  - text: Learn more
+                  - img [ref=e278]
+                  - generic [ref=e280]: about Content Hub software
+            - generic [ref=e281] [cursor=pointer]:
+              - heading "Data Hub™" [level=3] [ref=e284]
+              - separator [ref=e285]
+              - list [ref=e286]:
+                - listitem [ref=e287]:
+                  - img [ref=e288]
+                  - text: Turn scattered data into unified intelligence.
+                - listitem [ref=e290]:
+                  - img [ref=e291]
+                  - text: Combine, clean, and activate your customer data across every team and tool.
+              - generic [ref=e293]:
+                - separator [ref=e294]
+                - link "Learn more about Data Hub software" [ref=e295]:
+                  - /url: https://www.hubspot.com/products/data?hubs_content=www.hubspot.com&hubs_content-cta=homepage-data
+                  - text: Learn more
+                  - img [ref=e296]
+                  - generic [ref=e298]: about Data Hub software
+            - generic [ref=e299] [cursor=pointer]:
+              - heading "Commerce Hub™" [level=3] [ref=e302]
+              - separator [ref=e303]
+              - list [ref=e304]:
+                - listitem [ref=e305]:
+                  - img [ref=e306]
+                  - text: Make it easy for customers to pay you.
+                - listitem [ref=e308]:
+                  - img [ref=e309]
+                  - text: Send quotes, collect payments, and manage subscriptions.
+              - generic [ref=e311]:
+                - separator [ref=e312]
+                - link "Learn more about Commerce Hub software" [ref=e313]:
+                  - /url: https://www.hubspot.com/products/commerce?hubs_content=www.hubspot.com&hubs_content-cta=homepage-commerce
+                  - text: Learn more
+                  - img [ref=e314]
+                  - generic [ref=e316]: about Commerce Hub software
+            - generic [ref=e317] [cursor=pointer]:
+              - heading "Smart CRM™" [level=3] [ref=e320]
+              - separator [ref=e321]
+              - list [ref=e322]:
+                - listitem [ref=e323]:
+                  - img [ref=e324]
+                  - text: All your customer data in one place.
+                - listitem [ref=e326]:
+                  - img [ref=e327]
+                  - text: Keep your data clean, connected, and actionable.
+              - generic [ref=e329]:
+                - separator [ref=e330]
+                - link "Learn more about HubSpot's Smart CRM" [ref=e331]:
+                  - /url: https://www.hubspot.com/products/crm/ai-crm?hubs_content=www.hubspot.com&hubs_content-cta=homepage-smartcrm
+                  - text: Learn more
+                  - img [ref=e332]
+                  - generic [ref=e334]: about HubSpot's Smart CRM
+            - generic [ref=e335] [cursor=pointer]:
+              - heading "Breeze™" [level=3] [ref=e338]
+              - separator [ref=e339]
+              - list [ref=e340]:
+                - listitem [ref=e341]:
+                  - img [ref=e342]
+                  - text: AI that works with you, and for you.
+                - listitem [ref=e344]:
+                  - img [ref=e345]
+                  - text: Agents & assistants everywhere you need them.
+              - generic [ref=e347]:
+                - separator [ref=e348]
+                - link "Learn more about Breeze, HubSpot's AI tools" [ref=e349]:
+                  - /url: https://www.hubspot.com/products/artificial-intelligence?hubs_content-cta=homepage-breeze&hubs_content=www.hubspot.com
+                  - text: Learn more
+                  - img [ref=e350]
+                  - generic [ref=e352]: about Breeze, HubSpot's AI tools
+            - generic [ref=e353] [cursor=pointer]:
+              - heading "Small Business Bundle" [level=3] [ref=e355]
+              - separator [ref=e356]
+              - list [ref=e357]:
+                - listitem [ref=e358]:
+                  - img [ref=e359]
+                  - text: The Starter edition of each product, at one low price.
+              - generic [ref=e361]:
+                - separator [ref=e362]
+                - link "Learn more about the HubSpot Small Business Bundle of tools" [ref=e363]:
+                  - /url: https://www.hubspot.com/products/crm/starter?hubs_content=www.hubspot.com&hubs_content-cta=homepage-starter
+                  - text: Learn more
+                  - img [ref=e364]
+                  - generic [ref=e366]: about the HubSpot Small Business Bundle of tools
+        - generic [ref=e370]:
+          - generic [ref=e371]:
+            - link "Explore Breeze Agents built-in AI that do work for you" [ref=e376] [cursor=pointer]:
+              - /url: https://www.hubspot.com/products/artificial-intelligence/breeze-ai-agents?hubs_content=www.hubspot.com&hubs_content-cta=homepage-breezeagents
+              - text: Explore Breeze Agents
+              - generic [ref=e377]: built-in AI that do work for you
+            - generic [ref=e378]:
+              - heading "Built-in AI agents that work for you 24/7." [level=2] [ref=e379]
+              - paragraph [ref=e380]: Breeze Agents are your always-on teammates. They can resolve over 65% of customer inquiries, accelerate your sales pipeline, and whip up quality content in no time.
+          - group [ref=e381]:
+            - generic [ref=e382]:
+              - button "Previous slide" [ref=e383] [cursor=pointer]:
+                - generic [ref=e384]: Previous slide
+                - img
+              - button "Next slide" [ref=e385] [cursor=pointer]:
+                - generic [ref=e386]: Next slide
+                - img
+            - list [ref=e388]:
+              - group [ref=e389]:
+                - generic [ref=e390]:
+                  - img [ref=e391]
+                  - heading [level=3] [ref=e392]: Customer Agent
+                  - paragraph [ref=e393]: Resolve 65% of your customer inquiries automatically.
+              - group [ref=e394]:
+                - generic [ref=e395]:
+                  - img [ref=e396]
+                  - heading [level=3] [ref=e397]: Prospecting Agent
+                  - paragraph [ref=e398]: Research, personalize, and execute sales outreach at scale — instantly.
+                  - link [ref=e399] [cursor=pointer]:
+                    - /url: //www.hubspot.com/products/sales/ai-prospecting-agent?hubs_content-cta=homepage-agents2&hubs_content=www.hubspot.com
+                    - text: Learn More
+                    - generic [ref=e400]: about prospecting agent
+              - group [ref=e401]:
+                - generic [ref=e402]:
+                  - img [ref=e403]
+                  - heading [level=3] [ref=e404]: Data Agent
+                  - paragraph [ref=e405]: Get instant answers to custom questions about your customers.
+              - group "1 of 3" [ref=e406]:
+                - generic [ref=e407]:
+                  - img "Shows HubSpot's customer agent asking a HubSpot user how it can help today." [ref=e408]
+                  - heading "Customer Agent" [level=3] [ref=e409]
+                  - paragraph [ref=e410]: Resolve 65% of your customer inquiries automatically.
+              - group "2 of 3" [ref=e411]:
+                - generic [ref=e412]:
+                  - img "Shows HubSpot's prospecting agent introducing itself to a HubSpot user, letting them know it's there to help put their prospecting efforts on auto-pilot, and giving them the option to view automations." [ref=e413]
+                  - heading "Prospecting Agent" [level=3] [ref=e414]
+                  - paragraph [ref=e415]: Research, personalize, and execute sales outreach at scale — instantly.
+                  - link "Learn More about prospecting agent" [ref=e416] [cursor=pointer]:
+                    - /url: //www.hubspot.com/products/sales/ai-prospecting-agent?hubs_content-cta=homepage-agents2&hubs_content=www.hubspot.com
+                    - text: Learn More
+                    - generic [ref=e417]: about prospecting agent
+              - group "3 of 3" [ref=e418]:
+                - generic [ref=e419]:
+                  - img "Shows a HubSpot user requesting Data Agent to generate a smart property." [ref=e420]
+                  - heading "Data Agent" [level=3] [ref=e421]
+                  - paragraph [ref=e422]: Get instant answers to custom questions about your customers.
+              - group [ref=e423]:
+                - generic [ref=e424]:
+                  - img [ref=e425]
+                  - heading [level=3] [ref=e426]: Customer Agent
+                  - paragraph [ref=e427]: Resolve 65% of your customer inquiries automatically.
+              - group [ref=e428]:
+                - generic [ref=e429]:
+                  - img [ref=e430]
+                  - heading [level=3] [ref=e431]: Prospecting Agent
+                  - paragraph [ref=e432]: Research, personalize, and execute sales outreach at scale — instantly.
+                  - link [ref=e433] [cursor=pointer]:
+                    - /url: //www.hubspot.com/products/sales/ai-prospecting-agent?hubs_content-cta=homepage-agents2&hubs_content=www.hubspot.com
+                    - text: Learn More
+                    - generic [ref=e434]: about prospecting agent
+              - group [ref=e435]:
+                - generic [ref=e436]:
+                  - img [ref=e437]
+                  - heading [level=3] [ref=e438]: Data Agent
+                  - paragraph [ref=e439]: Get instant answers to custom questions about your customers.
+            - button "Pause Carousel" [ref=e441] [cursor=pointer]:
+              - generic [ref=e442]: Pause Carousel
+              - img
+        - generic [ref=e446]:
+          - generic [ref=e447]:
+            - heading "Works with the tools you already use. 2,000+ integrations." [level=3] [ref=e448]
+            - link "See all app integrations" [ref=e449] [cursor=pointer]:
+              - /url: https://ecosystem.hubspot.com/marketplace/apps?hubs_content-cta=homepage-apps&hubs_content=www.hubspot.com
+          - generic [ref=e451]:
+            - list [ref=e452]:
+              - listitem [ref=e453]:
+                - img "Gmail" [ref=e454]
+              - listitem [ref=e455]:
+                - img "Shopify" [ref=e456]
+              - listitem [ref=e457]:
+                - img "Mailchimp" [ref=e458]
+              - listitem [ref=e459]:
+                - img "Zapier" [ref=e460]
+              - listitem [ref=e461]:
+                - img "Google Ads" [ref=e462]
+              - listitem [ref=e463]:
+                - img "Slack" [ref=e464]
+              - listitem [ref=e465]:
+                - img [ref=e466]
+              - listitem [ref=e467]:
+                - img [ref=e468]
+              - listitem [ref=e469]:
+                - img [ref=e470]
+            - list [ref=e471]:
+              - listitem [ref=e472]:
+                - img [ref=e473]
+              - listitem [ref=e474]:
+                - img [ref=e475]
+              - listitem [ref=e476]:
+                - img [ref=e477]
+              - listitem [ref=e478]:
+                - img [ref=e479]
+              - listitem [ref=e480]:
+                - img [ref=e481]
+              - listitem [ref=e482]:
+                - img [ref=e483]
+              - listitem [ref=e484]:
+                - img [ref=e485]
+              - listitem [ref=e486]:
+                - img [ref=e487]
+              - listitem [ref=e488]:
+                - img [ref=e489]
+            - list [ref=e490]:
+              - listitem [ref=e491]:
+                - img [ref=e492]
+              - listitem [ref=e493]:
+                - img [ref=e494]
+              - listitem [ref=e495]:
+                - img [ref=e496]
+              - listitem [ref=e497]:
+                - img [ref=e498]
+              - listitem [ref=e499]:
+                - img [ref=e500]
+              - listitem [ref=e501]:
+                - img [ref=e502]
+              - listitem [ref=e503]:
+                - img [ref=e504]
+              - listitem [ref=e505]:
+                - img [ref=e506]
+              - listitem [ref=e507]:
+                - img [ref=e508]
+        - generic [ref=e512]:
+          - generic [ref=e513]:
+            - generic [ref=e515]: Case Studies
+            - link "See all case studies a11y text suffix" [ref=e517] [cursor=pointer]:
+              - /url: https://www.hubspot.com/case-studies?hubs_content-cta=homepage-case-studies&hubs_content=www.hubspot.com
+              - text: See all case studies
+              - generic [ref=e518]: a11y text suffix
+          - generic [ref=e519]:
+            - heading "Remarkable results for every size business." [level=2] [ref=e520]
+            - paragraph [ref=e521]: Scale your business with HubSpot. The proof is in our customers’ success.
+        - generic [ref=e526]:
+          - tablist [ref=e528]:
+            - tab "Enterprise" [selected] [ref=e529] [cursor=pointer]
+            - tab "Mid-Sized Business" [ref=e530] [cursor=pointer]
+            - tab "Small Business" [ref=e531] [cursor=pointer]
+          - tabpanel "Enterprise" [ref=e533]:
+            - generic [ref=e535]:
+              - generic [ref=e537]:
+                - paragraph [ref=e539]: “HubSpot took the time to understand our business needs fully. The pre-sales and subsequent support really stood out from the start. They committed to engage with us deeply and work side-by-side with us on the implementation. They’ve since more than met this commitment.”
+                - generic [ref=e541]:
+                  - paragraph [ref=e542]: Adam Jones
+                  - paragraph [ref=e543]: Director of Business Development, Unipart
+                  - link "Read full case study about Unipart" [ref=e544] [cursor=pointer]:
+                    - /url: https://www.hubspot.com/case-studies/unipart?hubs_content-cta=homepage-unipart&hubs_content=www.hubspot.com
+                    - text: Read full case study
+                    - generic [ref=e545]: about Unipart
+              - generic [ref=e546]:
+                - generic [ref=e547]:
+                  - paragraph [ref=e548]: "12"
+                  - paragraph [ref=e549]: months for the pipeline to grow from millions to billions
+                - generic [ref=e550]:
+                  - paragraph [ref=e551]: "5"
+                  - paragraph [ref=e552]: point increase in net promoter score (NPS)
+        - generic [ref=e556]:
+          - 'heading "Voted #1 in 526 G2 Reports" [level=3] [ref=e557]'
+          - generic [ref=e558]:
+            - 'img "G2 Award Badge: Grid Leader (Small Business)" [ref=e559]'
+            - 'img "G2 Award Badge: Most Implementable" [ref=e560]'
+            - 'img "G2 Award Badge: Best Relationship (Small Business)" [ref=e561]'
+            - 'img "G2 Award Badge: Easiest Admin (Enterprise)" [ref=e562]'
+            - 'img "G2 Award Badge: Best Results (Mid-Market)" [ref=e563]'
+            - 'img "G2 Award Badge: Best Usability (Enterprise)" [ref=e564]'
+        - generic [ref=e568]:
+          - heading "Make impossible growth feel impossibly easy, with HubSpot" [level=2] [ref=e569]
+          - generic [ref=e570]:
+            - link "Get a demo of HubSpot's premium software" [ref=e571] [cursor=pointer]:
+              - /url: https://offers.hubspot.com/crm-platform-demo?hubs_signup-cta=homepage-bottom&hubs_signup-url=www.hubspot.com
+              - text: Get a demo
+              - generic [ref=e572]: of HubSpot's premium software
+            - link "Get started free with HubSpot's free tools" [ref=e573] [cursor=pointer]:
+              - /url: https://app.hubspot.com/signup-hubspot/crm?hubs_signup-cta=homepage-bottom2&hubs_signup-url=www.hubspot.com&uuid=anon64d2de41c59d9e115a0ce22478c6
+              - text: Get started free
+              - generic [ref=e574]: with HubSpot's free tools
+    - contentinfo [ref=e575]:
+      - navigation [ref=e577]:
+        - generic [ref=e579]:
+          - heading "Popular Features" [level=2] [ref=e580]:
+            - button "Popular Features" [disabled] [expanded]:
+              - generic: Popular Features
+          - list [ref=e581]:
+            - listitem [ref=e582]:
+              - link "All Products and Features" [ref=e583] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products?hubs_content=www.hubspot.com/&hubs_content-cta=footer
+              - generic [ref=e584]: All Products and Features
+            - listitem [ref=e585]:
+              - link "Free Meeting Scheduler App" [ref=e586] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/sales/schedule-meeting?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e587]: Free Meeting Scheduler App
+            - listitem [ref=e588]:
+              - link "Breeze AI Tools" [ref=e589] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/artificial-intelligence?hubs_content=www.hubspot.com/&hubs_content-cta=footer-features-breeze
+              - generic [ref=e590]: Breeze AI Tools
+            - listitem [ref=e591]:
+              - link "Email Tracking Software" [ref=e592] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/sales/email-tracking?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e593]: Email Tracking Software
+            - listitem [ref=e594]:
+              - link "AI Content Writer" [ref=e595] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/cms/ai-content-writer?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e596]: AI Content Writer
+            - listitem [ref=e597]:
+              - link "AI Website Generator" [ref=e598] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/cms/ai-website-generator?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e599]: AI Website Generator
+            - listitem [ref=e600]:
+              - link "Email Marketing Software" [ref=e601] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/marketing/email?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e602]: Email Marketing Software
+            - listitem [ref=e603]:
+              - link "Lead Management Software" [ref=e604] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/crm/lead-management?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e605]: Lead Management Software
+            - listitem [ref=e606]:
+              - link "AI Email Writer" [ref=e607] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/marketing/ai-email-writer?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e608]: AI Email Writer
+            - listitem [ref=e609]:
+              - link "Free Website Builder" [ref=e610] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/cms/drag-and-drop-website-builder?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e611]: Free Website Builder
+            - listitem [ref=e612]:
+              - link "Sales Email Templates" [ref=e613] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/sales/email-templates-sales?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e614]: Sales Email Templates
+            - listitem [ref=e615]:
+              - link "Free Online Form Builder" [ref=e616] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/marketing/forms?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e617]: Free Online Form Builder
+            - listitem [ref=e618]:
+              - link "Free Chatbot Builder" [ref=e619] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/crm/chatbot-builder?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e620]: Free Chatbot Builder
+            - listitem [ref=e621]:
+              - link "Free Live Chat Software" [ref=e622] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/crm/live-chat?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e623]: Free Live Chat Software
+            - listitem [ref=e624]:
+              - link "Marketing Analytics" [ref=e625] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/marketing/analytics?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e626]: Marketing Analytics
+            - listitem [ref=e627]:
+              - link "Free Landing Page Builder" [ref=e628] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/marketing/landing-pages?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e629]: Free Landing Page Builder
+            - listitem [ref=e630]:
+              - link "Free Web Hosting" [ref=e631] [cursor=pointer]:
+                - /url: https://www.hubspot.com/products/cms/web-hosting?hubs_content=www.hubspot.com/&hubs_content-cta=null
+              - generic [ref=e632]: Free Web Hosting
+        - generic [ref=e633]:
+          - generic [ref=e635]:
+            - heading "Free Tools" [level=2] [ref=e636]:
+              - button "Free Tools" [disabled] [expanded]:
+                - generic: Free Tools
+            - list [ref=e637]:
+              - listitem [ref=e638]:
+                - link "See All Free Business Tools" [ref=e639] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/free-business-tools?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e640]: See All Free Business Tools
+              - listitem [ref=e641]:
+                - link "AEO Grader" [ref=e642] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/aeo-grader?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e643]: AEO Grader
+              - listitem [ref=e644]:
+                - link "Website Grader" [ref=e645] [cursor=pointer]:
+                  - /url: https://website.grader.com/?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e646]: Website Grader
+              - listitem [ref=e647]:
+                - link "Make My Persona" [ref=e648] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/make-my-persona?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e649]: Make My Persona
+              - listitem [ref=e650]:
+                - link "Email Signature Generator" [ref=e651] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/email-signature-generator?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e652]: Email Signature Generator
+              - listitem [ref=e653]:
+                - link "Blog Ideas Generator" [ref=e654] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/blog-topic-generator?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e655]: Blog Ideas Generator
+              - listitem [ref=e656]:
+                - link "Invoice Generator" [ref=e657] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/invoice-template-generator?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e658]: Invoice Generator
+              - listitem [ref=e659]:
+                - link "Free Business Templates" [ref=e660] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/resources/templates?hubs_content=www.hubspot.com/&hubs_content-cta=footer-tools-businesstemplates
+                - generic [ref=e661]: Free Business Templates
+              - listitem [ref=e662]:
+                - link "Software Comparisons Library" [ref=e663] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/comparisons?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e664]: Software Comparisons Library
+              - listitem [ref=e665]:
+                - link "Website Templates" [ref=e666] [cursor=pointer]:
+                  - /url: https://ecosystem.hubspot.com/marketplace/website?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e667]: Website Templates
+              - listitem [ref=e668]:
+                - link "Campaign Assistant" [ref=e669] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/campaign-assistant?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e670]: Campaign Assistant
+              - listitem [ref=e671]:
+                - link "Landing Page Creator" [ref=e672] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/free-business-tools/landing-page-gpt?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e673]: Landing Page Creator
+          - generic [ref=e675]:
+            - heading "Company" [level=2] [ref=e676]:
+              - button "Company" [disabled] [expanded]:
+                - generic: Company
+            - list [ref=e677]:
+              - listitem [ref=e678]:
+                - link "About Us" [ref=e679] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/our-story?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e680]: About Us
+              - listitem [ref=e681]:
+                - link "Careers" [ref=e682] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/careers?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e683]: Careers
+              - listitem [ref=e684]:
+                - link "Management Team" [ref=e685] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/company/management?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e686]: Management Team
+              - listitem [ref=e687]:
+                - link "Board of Directors" [ref=e688] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/company/board-of-directors?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e689]: Board of Directors
+              - listitem [ref=e690]:
+                - link "Investor Relations" [ref=e691] [cursor=pointer]:
+                  - /url: https://ir.hubspot.com/?_ga=2.262843276.12874469.1592422655-430007000.1592422655&hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e692]: Investor Relations
+              - listitem [ref=e693]:
+                - link "Blog" [ref=e694] [cursor=pointer]:
+                  - /url: https://blog.hubspot.com/?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e695]: Blog
+              - listitem [ref=e696]:
+                - link "Sustainability" [ref=e697] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/sustainability?hubs_content=www.hubspot.com/&hubs_content-cta=footer-company-sustainability
+                - generic [ref=e698]: Sustainability
+              - listitem [ref=e699]:
+                - link "Contact Us" [ref=e700] [cursor=pointer]:
+                  - /url: https://www.hubspot.com/company/contact?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                - generic [ref=e701]: Contact Us
+          - generic [ref=e702]:
+            - generic [ref=e703]:
+              - heading "Customers" [level=2] [ref=e704]:
+                - button "Customers" [disabled] [expanded]:
+                  - generic: Customers
+              - list [ref=e705]:
+                - listitem [ref=e706]:
+                  - link "Customer Support" [ref=e707] [cursor=pointer]:
+                    - /url: https://help.hubspot.com/?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                  - generic [ref=e708]: Customer Support
+                - listitem [ref=e709]:
+                  - link "Join a Local User Group" [ref=e710] [cursor=pointer]:
+                    - /url: https://www.hubspot.com/hubspot-user-groups?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                  - generic [ref=e711]: Join a Local User Group
+            - generic [ref=e712]:
+              - heading "Partners" [level=2] [ref=e713]:
+                - button "Partners" [disabled] [expanded]:
+                  - generic: Partners
+              - list [ref=e714]:
+                - listitem [ref=e715]:
+                  - link "All Partner Programs" [ref=e716] [cursor=pointer]:
+                    - /url: https://www.hubspot.com/partners?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                  - generic [ref=e717]: All Partner Programs
+                - listitem [ref=e718]:
+                  - link "Solutions Partner Program" [ref=e719] [cursor=pointer]:
+                    - /url: https://www.hubspot.com/partners/solutions?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                  - generic [ref=e720]: Solutions Partner Program
+                - listitem [ref=e721]:
+                  - link "Technology Partner Program" [ref=e722] [cursor=pointer]:
+                    - /url: https://www.hubspot.com/partners/app?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                  - generic [ref=e723]: Technology Partner Program
+                - listitem [ref=e724]:
+                  - link "HubSpot for Startups" [ref=e725] [cursor=pointer]:
+                    - /url: https://www.hubspot.com/startups/partners?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                  - generic [ref=e726]: HubSpot for Startups
+                - listitem [ref=e727]:
+                  - link "Affiliate Program" [ref=e728] [cursor=pointer]:
+                    - /url: https://www.hubspot.com/partners/affiliates?hubs_content=www.hubspot.com/&hubs_content-cta=null
+                  - generic [ref=e729]: Affiliate Program
+      - list [ref=e731]:
+        - listitem [ref=e732]:
+          - link "Facebook" [ref=e733] [cursor=pointer]:
+            - /url: https://www.facebook.com/hubspot?hubs_content=www.hubspot.com/&hubs_content-cta=hstc_facebook
+            - img [ref=e734]
+            - generic [ref=e736]: Facebook
+        - listitem [ref=e737]:
+          - link "Instagram" [ref=e738] [cursor=pointer]:
+            - /url: https://www.instagram.com/hubspot/?hubs_content=www.hubspot.com/&hubs_content-cta=hstc_instagram
+            - img [ref=e739]
+            - generic [ref=e741]: Instagram
+        - listitem [ref=e742]:
+          - link "Youtube" [ref=e743] [cursor=pointer]:
+            - /url: https://youtube.com/user/HubSpot?hubs_content=www.hubspot.com/&hubs_content-cta=hstc_youtube
+            - img [ref=e744]
+            - generic [ref=e746]: Youtube
+        - listitem [ref=e747]:
+          - link "Twitter" [ref=e748] [cursor=pointer]:
+            - /url: https://x.com/HubSpot?hubs_content=www.hubspot.com/&hubs_content-cta=hstc_twitter
+            - img [ref=e749]
+            - generic [ref=e751]: Twitter
+        - listitem [ref=e752]:
+          - link "Linkedin" [ref=e753] [cursor=pointer]:
+            - /url: https://www.linkedin.com/company/hubspot?hubs_content=www.hubspot.com/&hubs_content-cta=hstc_linkedin
+            - img [ref=e754]
+            - generic [ref=e756]: Linkedin
+        - listitem [ref=e757]:
+          - link "Reddit" [ref=e758] [cursor=pointer]:
+            - /url: https://www.reddit.com/r/hubspot?hubs_content=www.hubspot.com/&hubs_content-cta=hstc_reddit
+            - img [ref=e759]
+            - generic [ref=e761]: Reddit
+        - listitem [ref=e762]:
+          - link "Tiktok" [ref=e763] [cursor=pointer]:
+            - /url: https://www.tiktok.com/@hubspot?hubs_content=www.hubspot.com/&hubs_content-cta=hstc_medium
+            - img [ref=e764]
+            - generic [ref=e766]: Tiktok
+      - generic [ref=e767]:
+        - generic [ref=e768]:
+          - link "HubSpot" [ref=e769] [cursor=pointer]:
+            - /url: https://www.hubspot.com
+            - img "HubSpot" [ref=e770]
+          - paragraph [ref=e771]: Copyright © 2026 HubSpot, Inc.
+        - list [ref=e773]:
+          - listitem [ref=e774]:
+            - link "Legal Center" [ref=e775] [cursor=pointer]:
+              - /url: https://legal.hubspot.com/legal-center?hubs_content=www.hubspot.com/&hubs_content-cta=null
+            - text: "|"
+          - listitem [ref=e776]:
+            - link "Privacy Policy" [ref=e777] [cursor=pointer]:
+              - /url: https://legal.hubspot.com/privacy-policy?hubs_content=www.hubspot.com/&hubs_content-cta=null
+            - text: "|"
+          - listitem [ref=e778]:
+            - link "Security" [ref=e779] [cursor=pointer]:
+              - /url: https://legal.hubspot.com/security?hubs_content=www.hubspot.com/&hubs_content-cta=null
+            - text: "|"
+          - listitem [ref=e780]:
+            - link "Website Accessibility" [ref=e781] [cursor=pointer]:
+              - /url: https://legal.hubspot.com/website-accessibility?hubs_content=www.hubspot.com/&hubs_content-cta=null
+            - text: "|"
+          - listitem [ref=e782]:
+            - button "Manage Cookies" [ref=e783] [cursor=pointer]
+  - region "Віджет чату" [ref=e784]:
+    - iframe [ref=e785]:
+      - generic [ref=f1e2]:
+        - generic [ref=f1e6]:
+          - button "Open live chat" [ref=f1e7]:
+            - img "Avatar of HubBot" [ref=f1e13]
+            - paragraph [ref=f1e14]: 👋 Want to chat about HubSpot? I'm an AI chatbot here to help you find your way.
+          - button "Close welcome page" [ref=f1e15]:
+            - img [ref=f1e17]
+        - button "Open live chat" [ref=f1e24]:
+          - img [ref=f1e27]
+          - img [ref=f1e34]

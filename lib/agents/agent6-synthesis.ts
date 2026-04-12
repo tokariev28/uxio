@@ -3,11 +3,32 @@ import { AGENT_PROMPTS } from "@/lib/agents/prompts";
 import { aiGenerateStructured, CHAINS } from "@/lib/ai/gateway";
 import { normalizeSectionType } from "@/lib/utils/normalize-section-type";
 import { stripInlineCode } from "@/lib/utils/markdown-clean";
-import type { PipelineContext, Recommendation, Priority, SectionType, OverallScores } from "@/lib/types/analysis";
+import type { PipelineContext, Recommendation, Priority, SectionType, SectionAnalysis, OverallScores } from "@/lib/types/analysis";
 import { AgentError } from "@/lib/agents/errors";
 import { VALID_SECTION_TYPES } from "@/lib/constants";
 
 const VALID_PRIORITIES = new Set<Priority>(["critical", "high", "medium"]);
+
+// MVP: analyze only the most impactful sections to keep pipeline fast.
+const MAX_SYNTHESIS_SECTIONS = 8;
+
+// ── Section prioritization ───────────────────────────────────────────────
+// Compute total competitive gap for a section (higher = more room for improvement).
+// Used to rank which sections matter most when we need to cap.
+function computeGapMagnitude(sa: SectionAnalysis): number {
+  const inputF = sa.findings.find((f) => f.site === "input");
+  if (!inputF?.scores) return 0;
+  const compScores = sa.findings
+    .filter((f) => f.site !== "input" && f.scores)
+    .map((f) => f.scores!);
+  if (!compScores.length) return 0;
+  const axes = Object.keys(inputF.scores) as (keyof typeof inputF.scores)[];
+  return axes.reduce((sum, axis) => {
+    const best = Math.max(...compScores.map((s) => s[axis]));
+    const gap = best - inputF.scores![axis];
+    return sum + (gap > 0 ? gap : 0);
+  }, 0);
+}
 
 // ── Zod schema for structured output ─────────────────────────────────────
 const SynthesisSchema = z.object({
@@ -26,8 +47,7 @@ const SynthesisSchema = z.object({
 
 
 // ── Compute overallScores from Agent5 data (not LLM-generated) ─────────────
-function computeOverallScores(ctx: PipelineContext): OverallScores | undefined {
-  const analyses = ctx.sectionAnalyses;
+function computeOverallScores(analyses: SectionAnalysis[]): OverallScores | undefined {
   if (!analyses?.length) return undefined;
 
   const allFindings = analyses.flatMap((sa) => sa.findings);
@@ -66,26 +86,59 @@ function computeOverallScores(ctx: PipelineContext): OverallScores | undefined {
 export async function runSynthesis(
   ctx: PipelineContext,
   onActions?: (actions: string[]) => void
-): Promise<{ recommendations: Recommendation[]; executiveSummary: string; overallScores?: OverallScores }> {
+): Promise<{ recommendations: Recommendation[]; executiveSummary: string; overallScores?: OverallScores; sections: SectionAnalysis[] }> {
   if (!ctx.productBrief) {
     throw new AgentError("agent6", "productBrief is missing from pipeline context");
   }
   if (!ctx.competitors?.length) {
     throw new AgentError("agent6", "competitors is missing from pipeline context");
   }
+
+  // ── Step 0: Filter and prioritize sections ─────────────────────
+  // Only include sections present on the user's site (MVP: improve what exists).
+  let workingAnalyses = (ctx.sectionAnalyses ?? []).filter((sa) =>
+    sa.findings.some((f) => f.site === "input")
+  );
+
+  // Cap to top MAX_SYNTHESIS_SECTIONS by competitive gap magnitude.
+  if (workingAnalyses.length > MAX_SYNTHESIS_SECTIONS) {
+    const ranked = workingAnalyses
+      .map((sa) => ({ sa, magnitude: computeGapMagnitude(sa) }))
+      .sort((a, b) =>
+        b.magnitude - a.magnitude || (a.sa.scrollFraction ?? 1) - (b.sa.scrollFraction ?? 1)
+      );
+    workingAnalyses = ranked
+      .slice(0, MAX_SYNTHESIS_SECTIONS)
+      .map((r) => r.sa)
+      .sort((a, b) => (a.scrollFraction ?? 1) - (b.scrollFraction ?? 1));
+
+    console.log(
+      `[agent6] Capped sections from ${ctx.sectionAnalyses?.length ?? 0} to ${workingAnalyses.length} ` +
+      `(types: ${workingAnalyses.map((s) => s.sectionType).join(", ")})`
+    );
+  }
+
   // ── Step 1: Build user message ─────────────────────────────────
-  const hasSectionData = (ctx.sectionAnalyses?.length ?? 0) > 0;
+  const hasSectionData = workingAnalyses.length > 0;
 
   // Strip raw score numbers from findings (the LLM quotes them verbatim).
   // Instead, compute per-section gap summaries so Agent 6 can prioritize
   // recommendations by actual competitive delta, not guesswork.
-  const sanitizedAnalyses = ctx.sectionAnalyses?.map((sa) => ({
+  const cap = (s: string | undefined, max: number) => s ? s.slice(0, max) : s;
+  const sanitizedAnalyses = workingAnalyses.map((sa) => ({
     ...sa,
     // Strip scores, confidence; truncate strengths/weaknesses to top signal.
-    // summary + evidence carry the detail; scoreGaps handle priority weighting.
+    // Truncate summary + evidence fields to reduce input tokens while keeping key signals.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    findings: sa.findings.map(({ scores: _s, score: _sc, confidence: _c, strengths, weaknesses, ...rest }) => ({
+    findings: sa.findings.map(({ scores: _s, score: _sc, confidence: _c, strengths, weaknesses, summary, evidence, ...rest }) => ({
       ...rest,
+      summary: cap(summary, 200),
+      evidence: {
+        headlineText: cap(evidence.headlineText, 100),
+        ctaText: cap(evidence.ctaText, 100),
+        quote: cap(evidence.quote, 150),
+        visualNote: cap(evidence.visualNote, 150),
+      },
       strengths: strengths.slice(0, 1),
       weaknesses: weaknesses.slice(0, 1),
     })),
@@ -93,7 +146,7 @@ export async function runSynthesis(
 
   // Build score gap context: for each section, identify axes where competitors
   // outperform the input most. Agent 6 uses this for priority classification.
-  const scoreGaps = (ctx.sectionAnalyses ?? []).map((sa) => {
+  const scoreGaps = workingAnalyses.map((sa) => {
     const inputF = sa.findings.find((f) => f.site === "input");
     if (!inputF?.scores) return null;
     const compScores = sa.findings
@@ -113,9 +166,7 @@ export async function runSynthesis(
     return gaps.length > 0 ? { section: sa.sectionType, gaps } : null;
   }).filter(Boolean);
 
-  // For sites with many sections, reduce recs per section to keep output manageable.
-  const sectionCount = ctx.sectionAnalyses?.length ?? 0;
-  const recsPerSection = sectionCount >= 10 ? 2 : 3;
+  const recsPerSection = 2;
 
   const failedNote = ctx.failedUrls?.length
     ? `\n\nNOTE: The following competitor URLs could NOT be analyzed. Do NOT reference them as examples: ${ctx.failedUrls.join(", ")}`
@@ -135,7 +186,7 @@ export async function runSynthesis(
 
   // ── Step 2: AI Gateway call (Flash → GPT-5.4 fallback) ───────────────────────
   // While the LLM works, reveal section chips one by one at 700 ms intervals.
-  const sectionLabels = (ctx.sectionAnalyses ?? []).map((sa) =>
+  const sectionLabels = workingAnalyses.map((sa) =>
     sa.sectionType.replace(/([A-Z])/g, " $1").toLowerCase().trim()
   );
   const emitted: string[] = [];
@@ -201,7 +252,7 @@ export async function runSynthesis(
 
   // Determine expected sections from pipeline context
   const expectedSections = new Set(
-    (ctx.sectionAnalyses ?? []).map((s) => s.sectionType)
+    workingAnalyses.map((s) => s.sectionType)
   );
 
   // ── Step 4: Map to Recommendation[] with business-rule validation ──────
@@ -275,9 +326,11 @@ export async function runSynthesis(
     ? stripInlineCode(raw.executiveSummary.trim())
     : "";
 
-  // Compute overallScores programmatically from Agent5 section scores —
-  // grounded in real data instead of LLM-generated numbers.
-  const overallScores = computeOverallScores(ctx);
+  // Compute overallScores from ALL Agent5 sections (not just the capped subset).
+  // The arc gauge should reflect the full page picture, not just the problem areas.
+  const overallScores = computeOverallScores(
+    (ctx.sectionAnalyses ?? []).filter((sa) => sa.findings.some((f) => f.site === "input"))
+  );
 
-  return { recommendations, executiveSummary, overallScores };
+  return { recommendations, executiveSummary, overallScores, sections: workingAnalyses };
 }

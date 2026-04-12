@@ -162,11 +162,14 @@ export async function runPipeline(
         ctx.recommendations = synthesis.recommendations;
         ctx.executiveSummary = synthesis.executiveSummary;
         ctx.overallScores = synthesis.overallScores;
+        ctx.sectionAnalyses = synthesis.sections;
       },
     },
   ];
 
   try {
+    const pipelineStart = Date.now();
+
     for (const step of steps) {
       writer.send({
         type: "progress",
@@ -175,7 +178,9 @@ export async function runPipeline(
         message: `${step.label}…`,
       });
 
+      const stepStart = Date.now();
       await withStepRetry(() => step.run(ctx), step.maxRetries ?? 1);
+      console.log(`[pipeline] ${step.stage} completed in ${Date.now() - stepStart}ms`);
 
       writer.send({
         type: "progress",
@@ -184,6 +189,8 @@ export async function runPipeline(
         message: `${step.label} — done`,
       });
     }
+
+    console.log(`[pipeline] Total duration: ${Date.now() - pipelineStart}ms`);
 
     // Strip screenshotBase64 from pages before sending to client —
     // screenshots are used by Agent5 for analysis but no longer displayed in UI.

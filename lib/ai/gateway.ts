@@ -64,6 +64,8 @@ export async function aiGenerate(
       model: gateway(chain.primary),
       system: params.system,
       prompt: params.prompt,
+      maxRetries: 0,
+      timeout: 90_000,
       providerOptions: {
         gateway: { models: chain.fallbacks },
         ...(params.json && { google: { generationConfig: { responseMimeType: 'application/json' } } }),
@@ -96,6 +98,8 @@ export async function aiGenerateMultimodal(
       model: gateway(chain.primary),
       system: params.system,
       messages: [{ role: "user", content }],
+      maxRetries: 0,
+      timeout: 90_000,
       providerOptions: {
         gateway: { models: chain.fallbacks },
         ...(params.json && { google: { generationConfig: { responseMimeType: 'application/json' } } }),
@@ -119,6 +123,8 @@ export async function aiGenerateStructured<T>(
       output: Output.object({ schema: params.schema }),
       system: params.system,
       prompt: params.prompt,
+      maxRetries: 0,
+      timeout: 90_000,
       providerOptions: {
         gateway: { models: chain.fallbacks },
       },
