@@ -73,14 +73,18 @@ async function scrapePage(
 // ── Two-pass scrape for JS-heavy SPAs (used for input URL only) ───────────
 // Pass 1: fast, no wait. Pass 2: only if markdown is thin/empty — add 8 s
 // waitFor so the browser has time for client-side JS hydration.
-// maxTimeout caps both passes when the pipeline deadline is approaching.
+// deadline (absolute ms timestamp) caps each pass independently so both passes
+// together stay within the remaining budget — not each pass at the full max.
 async function scrapePageWithRetry(
   firecrawl: FirecrawlApp,
   url: string,
-  maxTimeout?: number
+  deadline?: number
 ): Promise<PageData> {
-  const t1 = maxTimeout ? Math.min(SCRAPE_TIMEOUT_MS, Math.max(15_000, maxTimeout)) : SCRAPE_TIMEOUT_MS;
-  const t2 = maxTimeout ? Math.min(SCRAPE_RETRY_TIMEOUT_MS, Math.max(15_000, maxTimeout)) : SCRAPE_RETRY_TIMEOUT_MS;
+  const remaining = () =>
+    deadline !== undefined ? Math.max(15_000, deadline - Date.now()) : undefined;
+
+  const r1 = remaining();
+  const t1 = r1 !== undefined ? Math.min(SCRAPE_TIMEOUT_MS, r1) : SCRAPE_TIMEOUT_MS;
 
   const first = await scrapePage(firecrawl, url, undefined, t1);
   if (isUsableMarkdown(first.markdown)) return first;
@@ -88,6 +92,9 @@ async function scrapePageWithRetry(
   console.warn(
     `[agent3] ${url}: thin content (${first.markdown.length} chars) — retrying with waitFor: 8000ms`
   );
+  // Recompute after first pass so t2 reflects actual remaining budget, not pre-pass estimate.
+  const r2 = remaining();
+  const t2 = r2 !== undefined ? Math.min(SCRAPE_RETRY_TIMEOUT_MS, r2) : SCRAPE_RETRY_TIMEOUT_MS;
   const second = await scrapePage(firecrawl, url, 8000, t2);
   // Return whichever had more content; warn if both are thin
   const best = second.markdown.length >= first.markdown.length ? second : first;
@@ -99,15 +106,19 @@ async function scrapePageWithRetry(
 
 // ── Competitor scrape with tighter timeouts ───────────────────────────────────
 // Uses COMPETITOR_SCRAPE_TIMEOUT_MS / COMPETITOR_RETRY_TIMEOUT_MS instead of the
-// full 90s/120s used for the input URL. A budget-aware `maxTimeout` further caps
-// these when the pipeline deadline is approaching.
+// full 90s/120s used for the input URL. deadline (absolute ms timestamp) further
+// caps each pass so both passes together stay within the remaining budget.
 async function scrapeCompetitorPage(
   firecrawl: FirecrawlApp,
   url: string,
-  maxTimeout: number = COMPETITOR_SCRAPE_TIMEOUT_MS
+  deadline?: number
 ): Promise<PageData> {
-  const firstTimeout = Math.min(COMPETITOR_SCRAPE_TIMEOUT_MS, Math.max(15_000, maxTimeout));
-  const retryTimeout = Math.min(COMPETITOR_RETRY_TIMEOUT_MS, Math.max(15_000, maxTimeout));
+  const remaining = () =>
+    deadline !== undefined ? Math.max(15_000, deadline - Date.now()) : undefined;
+
+  const r1 = remaining();
+  const firstTimeout =
+    r1 !== undefined ? Math.min(COMPETITOR_SCRAPE_TIMEOUT_MS, r1) : COMPETITOR_SCRAPE_TIMEOUT_MS;
 
   const first = await scrapePage(firecrawl, url, undefined, firstTimeout, COMPETITOR_MAX_AGE_MS);
   if (isUsableMarkdown(first.markdown)) return first;
@@ -115,6 +126,10 @@ async function scrapeCompetitorPage(
   console.warn(
     `[agent3] ${url}: thin content (${first.markdown.length} chars) — retrying with waitFor: 8000ms`
   );
+  // Recompute after first pass so retryTimeout reflects actual remaining budget.
+  const r2 = remaining();
+  const retryTimeout =
+    r2 !== undefined ? Math.min(COMPETITOR_RETRY_TIMEOUT_MS, r2) : COMPETITOR_RETRY_TIMEOUT_MS;
   const second = await scrapePage(firecrawl, url, 8000, retryTimeout, COMPETITOR_MAX_AGE_MS);
   const best = second.markdown.length >= first.markdown.length ? second : first;
   if (!isUsableMarkdown(best.markdown)) {
@@ -161,11 +176,10 @@ export async function runScraper(
     console.log(`[agent3] Reusing Agent 0 scrape for ${inputUrl} (${inputPage.markdown.length} chars)`);
   } else {
     try {
-      // Cap input URL scrape to remaining budget (minus 60s reserve for competitors + downstream).
-      const inputMaxTimeout = scrapeDeadline
-        ? Math.max(15_000, scrapeDeadline - Date.now() - 60_000)
-        : undefined;
-      inputPage = await scrapePageWithRetry(firecrawl, inputUrl, inputMaxTimeout);
+      // Deadline: leave 60s for competitors after input scrape finishes.
+      // Passed as absolute timestamp so both retry passes share the remaining budget.
+      const inputDeadline = scrapeDeadline ? scrapeDeadline - 60_000 : undefined;
+      inputPage = await scrapePageWithRetry(firecrawl, inputUrl, inputDeadline);
     } catch (err) {
       throw new AgentError(
         "agent3",
@@ -174,19 +188,22 @@ export async function runScraper(
     }
   }
 
+  // Persist the resolved inputPage back to ctx so downstream agents always see
+  // the validated markdown and resolved (base64) screenshot, not the stale Agent 0 payload.
+  ctx.inputPageData = inputPage;
+
   const pages: PageData[] = [inputPage];
   const finalCompetitors: Competitor[] = [];
   const fallbackQueue = [...backupCompetitors];
 
-  // Per-competitor timeout respects the deadline — auto-compresses when budget is short.
-  const competitorTimeout = scrapeDeadline
-    ? Math.min(COMPETITOR_SCRAPE_TIMEOUT_MS, Math.max(15_000, scrapeDeadline - Date.now() - 60_000))
-    : COMPETITOR_SCRAPE_TIMEOUT_MS;
+  // Primary deadline: leave 60s for the backup round after primaries finish.
+  // Absolute timestamp so each retry pass recomputes remaining budget correctly.
+  const primaryDeadline = scrapeDeadline ? scrapeDeadline - 60_000 : undefined;
 
   // ── Scrape all primary competitors in parallel ────────────────────────────
   const primaryResults = await Promise.allSettled(
     primaryCompetitors.map((c) =>
-      scrapeCompetitorPage(firecrawl, c.url, competitorTimeout).then((page) => {
+      scrapeCompetitorPage(firecrawl, c.url, primaryDeadline).then((page) => {
         emitted.push(getHostname(c.url));
         onActions?.([...emitted]);
         return page;
@@ -198,7 +215,7 @@ export async function runScraper(
   const failedPrimaries: Competitor[] = [];
   for (const [i, result] of primaryResults.entries()) {
     const competitor = primaryCompetitors[i];
-    if (result.status === "fulfilled" && result.value.markdown) {
+    if (result.status === "fulfilled" && isUsableMarkdown(result.value.markdown)) {
       pages.push(result.value);
       finalCompetitors.push(competitor);
     } else {
@@ -220,13 +237,12 @@ export async function runScraper(
     const backupsNeeded = Math.min(failedPrimaries.length, fallbackQueue.length);
     const backupsToTry = fallbackQueue.splice(0, backupsNeeded);
 
-    const backupTimeout = scrapeDeadline
-      ? Math.min(COMPETITOR_SCRAPE_TIMEOUT_MS, Math.max(15_000, scrapeDeadline - Date.now() - 30_000))
-      : COMPETITOR_SCRAPE_TIMEOUT_MS;
+    // Backup deadline: leave 30s buffer before scrapeDeadline.
+    const backupDeadline = scrapeDeadline ? scrapeDeadline - 30_000 : undefined;
 
     const backupResults = await Promise.allSettled(
       backupsToTry.map((c) =>
-        scrapeCompetitorPage(firecrawl, c.url, backupTimeout).then((page) => {
+        scrapeCompetitorPage(firecrawl, c.url, backupDeadline).then((page) => {
           emitted.push(getHostname(c.url));
           onActions?.([...emitted]);
           return { page, competitor: c };
@@ -236,7 +252,7 @@ export async function runScraper(
 
     for (const [i, br] of backupResults.entries()) {
       const primaryFailed = failedPrimaries[i];
-      if (br.status === "fulfilled" && br.value.page.markdown) {
+      if (br.status === "fulfilled" && isUsableMarkdown(br.value.page.markdown)) {
         pages.push(br.value.page);
         finalCompetitors.push(br.value.competitor);
         console.log(`[agent3] Substituted ${primaryFailed.url} → ${br.value.competitor.url}`);

@@ -159,12 +159,15 @@ export function AnalysisForm() {
   function normalizeUrl(raw: string): string {
     const s = raw.trim();
     if (!s) return s;
-    let url: string;
-    if (/^https:\/\//i.test(s)) url = s;
-    else if (/^http:\/\//i.test(s)) url = "https://" + s.slice(7);
-    else if (s.startsWith("//")) url = "https:" + s;
-    else url = "https://" + s;
-    // Strip trailing slashes to prevent duplicate cache keys (example.com/ === example.com)
+    if (/^https:\/\//i.test(s)) return s;
+    if (/^http:\/\//i.test(s)) return "https://" + s.slice(7);
+    if (s.startsWith("//")) return "https:" + s;
+    return "https://" + s;
+  }
+
+  // Separate from normalizeUrl so the URL sent to the API is unchanged
+  // while cache lookups/stores still collapse example.com/ and example.com.
+  function toCacheKey(url: string): string {
     return url.replace(/\/+$/, "");
   }
 
@@ -217,7 +220,7 @@ export function AnalysisForm() {
     }
 
     // Cache hit — show results immediately, skip full analysis
-    const cached = getCachedResult(trimmed);
+    const cached = getCachedResult(toCacheKey(trimmed));
     if (cached) {
       setResult(cached);
       setErrorMsg(null);
@@ -288,7 +291,7 @@ export function AnalysisForm() {
               },
             }));
           } else if (event.type === "complete") {
-            setCachedResult(trimmed, event.data);
+            setCachedResult(toCacheKey(trimmed), event.data);
             setResult(event.data);
             setAppState("done");
             track("analysis_completed", {

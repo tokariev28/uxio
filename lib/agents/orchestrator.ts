@@ -45,6 +45,9 @@ export async function runPipeline(
   // 290s internal budget — 10s before Vercel's 300s hard kill.
   // Safe because Agent 3 uses deadline-aware parallel scraping (parallel backups + dynamic timeouts).
   const PIPELINE_BUDGET_MS = 290_000;
+  // Reserve 80s for downstream agents (classification + analysis + synthesis).
+  // Computed once here so the pre-scraping gate and the scraper itself share the same value.
+  const scrapeDeadline = pipelineStart + PIPELINE_BUDGET_MS - 80_000;
 
   const steps: AgentStep[] = [
     {
@@ -85,10 +88,6 @@ export async function runPipeline(
       run: async (ctx) => {
         const onActions = (actions: string[]) =>
           writer.send({ type: "progress", stage: "scraping", status: "running", message: "Scraping pages…", actions });
-
-        // Reserve 80s for downstream agents (classification + analysis + synthesis).
-        // Agent 3 uses this to dynamically cap per-scrape timeouts when budget is tight.
-        const scrapeDeadline = pipelineStart + PIPELINE_BUDGET_MS - 80_000;
 
         // Heartbeat every 20s — prevents CDN/proxy from dropping idle SSE connections
         // during long Firecrawl scrapes (which run 60–90s with no events).
@@ -196,6 +195,18 @@ export async function runPipeline(
       // Abort before starting a new step if the budget is nearly exhausted.
       // Prevents a silent Vercel hard-kill — user gets a clear error instead.
       if (Date.now() - pipelineStart > PIPELINE_BUDGET_MS) {
+        writer.send({
+          type: "error",
+          message: "Analysis is taking too long. Please try again or try a different site.",
+        });
+        return;
+      }
+
+      // For the scraping step specifically: also abort if the scrape deadline has
+      // already passed (Agents 0–2 consumed >210s). Starting Agent 3 at this point
+      // would compress all per-scrape timeouts to 15s, causing widespread failures
+      // and potentially hitting Vercel's hard 300s kill before the pipeline errors out.
+      if (step.stage === "scraping" && Date.now() > scrapeDeadline) {
         writer.send({
           type: "error",
           message: "Analysis is taking too long. Please try again or try a different site.",
