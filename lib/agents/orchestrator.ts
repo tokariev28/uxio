@@ -41,6 +41,13 @@ export async function runPipeline(
   writer: SSEWriter
 ): Promise<void> {
   const ctx: PipelineContext = { inputUrl };
+  const pipelineStart = Date.now();
+  // 290s internal budget — 10s before Vercel's 300s hard kill.
+  // Safe because Agent 3 uses deadline-aware parallel scraping (parallel backups + dynamic timeouts).
+  const PIPELINE_BUDGET_MS = 290_000;
+  // Reserve 80s for downstream agents (classification + analysis + synthesis).
+  // Computed once here so the pre-scraping gate and the scraper itself share the same value.
+  const scrapeDeadline = pipelineStart + PIPELINE_BUDGET_MS - 80_000;
 
   const steps: AgentStep[] = [
     {
@@ -75,10 +82,24 @@ export async function runPipeline(
     {
       stage: "scraping",
       label: "Scraping pages",
+      // No retries — a failed scraping step already spent 60–90s per competitor.
+      // Retrying would double the time and blow the 290s pipeline budget.
+      maxRetries: 0,
       run: async (ctx) => {
         const onActions = (actions: string[]) =>
           writer.send({ type: "progress", stage: "scraping", status: "running", message: "Scraping pages…", actions });
-        ctx.pages = await runScraper(ctx, onActions);
+
+        // Heartbeat every 20s — prevents CDN/proxy from dropping idle SSE connections
+        // during long Firecrawl scrapes (which run 60–90s with no events).
+        const heartbeat = setInterval(() => {
+          writer.send({ type: "progress", stage: "scraping", status: "running", message: "Scraping pages…" });
+        }, 20_000);
+
+        try {
+          ctx.pages = await runScraper(ctx, scrapeDeadline, onActions);
+        } finally {
+          clearInterval(heartbeat);
+        }
       },
     },
     {
@@ -100,8 +121,8 @@ export async function runPipeline(
             stage: "classification",
             status: "running",
             message:
-              "Input page sections could not be classified — page may use client-side rendering. " +
-              "Analysis will proceed with competitor data only.",
+              "Your site's page structure couldn't be detected — it may require JavaScript to load. " +
+              "Analysis will continue using competitor data.",
           });
         }
       },
@@ -140,8 +161,8 @@ export async function runPipeline(
             stage: "analysis",
             status: "running",
             message:
-              "Input page sections could not be analyzed — page may use client-side rendering. " +
-              "Recommendations will be based on product brief and competitor data only.",
+              "Your site's content couldn't be fully read — it may require JavaScript to load. " +
+              "Recommendations will be based on your product description and competitor data.",
           });
         }
       },
@@ -170,9 +191,29 @@ export async function runPipeline(
   ];
 
   try {
-    const pipelineStart = Date.now();
-
     for (const step of steps) {
+      // Abort before starting a new step if the budget is nearly exhausted.
+      // Prevents a silent Vercel hard-kill — user gets a clear error instead.
+      if (Date.now() - pipelineStart > PIPELINE_BUDGET_MS) {
+        writer.send({
+          type: "error",
+          message: "Analysis is taking too long. Please try again or try a different site.",
+        });
+        return;
+      }
+
+      // For the scraping step specifically: also abort if the scrape deadline has
+      // already passed (Agents 0–2 consumed >210s). Starting Agent 3 at this point
+      // would compress all per-scrape timeouts to 15s, causing widespread failures
+      // and potentially hitting Vercel's hard 300s kill before the pipeline errors out.
+      if (step.stage === "scraping" && Date.now() > scrapeDeadline) {
+        writer.send({
+          type: "error",
+          message: "Analysis is taking too long. Please try again or try a different site.",
+        });
+        return;
+      }
+
       writer.send({
         type: "progress",
         stage: step.stage,

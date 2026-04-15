@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   // SSRF guard — block private IPs, non-standard ports, non-HTTP(S) schemes
   if (isUnsafeUrl(url)) {
-    return NextResponse.json({ valid: false, reason: "invalid" });
+    return NextResponse.json({ valid: false, reason: "blocked" });
   }
 
   // Reachability check — HEAD with 5s timeout, fallback to GET if 405

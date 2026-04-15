@@ -369,7 +369,27 @@ export function AnalysisPDF({ result, logoUrl }: Props) {
             ) : null}
             <View>
               <Text style={s.siteName}>{result.productBrief.company}</Text>
-              <Text style={s.siteUrl}>{host}</Text>
+              {result.competitors.length > 0 ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 3, marginTop: 2 }}>
+                  <Text style={s.siteUrl}>vs</Text>
+                  {result.competitors.map((c, i) => {
+                    const cDomain = getHostnameOrEmpty(c.url);
+                    return (
+                      <View key={c.url} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                        {cDomain ? (
+                          // eslint-disable-next-line jsx-a11y/alt-text
+                          <Image style={{ width: 9, height: 9, borderRadius: 1 }} src={`https://www.google.com/s2/favicons?domain=${cDomain}&sz=16`} />
+                        ) : null}
+                        <Text style={s.siteUrl}>
+                          {c.name}{i < result.competitors.length - 1 ? "," : ""}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text style={s.siteUrl}>{host}</Text>
+              )}
             </View>
           </View>
 

@@ -229,7 +229,7 @@ Purpose:
 Usage:
 
 - Agent 0 (Page Intelligence) for the input URL — markdown + screenshot (stored in `ctx.inputPageData` for reuse by Agent 3).
-- Agent 3 (Scraper) reuses Agent 0's cached scrape for input URL; scrapes 3 competitors fresh — markdown + screenshot.
+- Agent 3 (Scraper) reuses Agent 0's cached scrape for input URL; scrapes 3 competitors fresh — markdown + screenshot. After resolving the input page (reused or fresh), Agent 3 writes the finalised payload back to `ctx.inputPageData` so downstream agents always see the validated markdown and resolved base64 screenshot.
 
 ### Tavily Search
 

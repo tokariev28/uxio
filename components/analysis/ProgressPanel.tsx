@@ -29,6 +29,19 @@ const STAGE_ORDER: AgentStage[] = [
 
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
+/* ── Dynamic ETA ─────────────────────────────────────────────────────── */
+// Updated only on stage transitions — no per-second ticking.
+// Coarse buckets are intentional: we don't have second-level accuracy.
+const STAGE_ETA: Partial<Record<AgentStage, string>> = {
+  "page-intelligence": "Takes about 3 minutes.",
+  discovery:           "Takes about 3 minutes.",
+  validation:          "Takes about 3 minutes.",
+  scraping:            "Takes about 2 minutes.",
+  classification:      "Almost halfway through.",
+  analysis:            "About a minute left.",
+  synthesis:           "Almost done.",
+};
+
 /* ── Types ──────────────────────────────────────────────────────────── */
 
 interface NotificationProps {
@@ -78,12 +91,14 @@ export function ProgressPanel({ stages, notification }: ProgressPanelProps) {
   const visibleCount = naturalTarget;
 
   const anyRunning = STAGE_ORDER.some((s) => stages[s]?.status === "running");
+  const currentStage = STAGE_ORDER.find((s) => stages[s]?.status === "running");
+  const etaText = currentStage ? STAGE_ETA[currentStage] : "About 3 minutes to go";
 
   return (
     <div className="progress-container relative w-full max-w-md mx-auto py-6">
         {anyRunning && (
           <p className="mb-5" style={{ fontSize: 13, color: "#525252", lineHeight: 1.55 }}>
-            Analysis typically takes 2–4 minutes.
+            {etaText}
             {notification?.showConfirmation && notification?.isGranted ? (
               <AnimatePresence>
                 <motion.span

@@ -37,7 +37,7 @@ export function CompetitorTabSwitcher({
           aria-selected={activeTab === tab.id}
           onClick={() => onChange(tab.id)}
           className={cn(
-            "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+            "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer",
             activeTab === tab.id
               ? "bg-foreground text-background shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10"

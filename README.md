@@ -16,9 +16,11 @@ Paste any SaaS URL → Uxio benchmarks it against your top competitors and deliv
 4. **Classifies page sections** (hero, pricing, social proof, features, CTA, footer…)
 5. **Analyzes each section** for strengths, weaknesses, and scores across 10 axes across 3 groups (Communication, Conversion, Visual)
 6. **Generates prioritized recommendations** — critical, high, and medium priority — each citing specific evidence from competitor pages
-7. **Caches results** for 2 hours — revisiting the same URL shows results instantly without re-running the pipeline
-8. **Exports a PDF** of the full analysis with one click
-9. **Notifies you** via browser notification when analysis finishes while the tab is in the background (gracefully handles incognito/denied permissions with a fallback message)
+7. **Shows which competitors were used** — the results header displays "Compared with [CompetitorA], [CompetitorB], ..." with favicons, so you know exactly what the analysis is based on
+8. **Caches results** for 2 hours — revisiting the same URL (with or without a trailing slash) shows results instantly without re-running the pipeline
+9. **Warns on subpage URLs** — if you enter a subpage (e.g. `/pricing`), an amber notice recommends your homepage for better competitor matching; analysis still proceeds
+10. **Exports a PDF** of the full analysis with one click
+11. **Notifies you** via browser notification when analysis finishes while the tab is in the background (gracefully handles incognito/denied permissions with a fallback message)
 
 Results stream in real time via Server-Sent Events (SSE). The full analysis takes ~1.5–3 minutes.
 
@@ -33,12 +35,12 @@ A 7-agent sequential pipeline runs entirely on the server:
 | 0 | Page Intelligence | Extracts product brief + category classification | Firecrawl + AI Gateway (Gemini Flash-Lite) |
 | 1 | Multi-Signal Discovery | Finds competitors via 3 weighted searches + LLM knowledge | Tavily + AI Gateway (Gemini Flash-Lite) |
 | 2 | Competitor Validator | Scores and ranks the top 3 | AI Gateway (Gemini Flash-Lite) |
-| 3 | Scraper | Reuses Agent 0 scrape for input; two-pass scrape of competitor pages | Firecrawl |
+| 3 | Scraper | Reuses Agent 0 scrape for input; two-pass scrape of competitor pages; Cloudflare/bot-block pages treated as failures (backups launched) | Firecrawl |
 | 4 | Section Classifier | Identifies and deduplicates page sections | AI Gateway (Gemini Flash-Lite) |
 | 5 | Vision Analyzer | Analyzes screenshots + markdown (capped 8 sections/page, competitors filtered to input types) | AI Gateway (Gemini Flash, multimodal) |
 | 6 | Synthesis | Produces 2 recommendations per section (top 5 sections) + executive summary | AI Gateway (Gemini Flash, structured output) |
 
-All LLM calls go through **Vercel AI Gateway** with automatic fallback chains (Gemini 2.5 Flash → GPT-5.4-nano). Agent 5 caps to 8 sections per page and filters competitor pages to only section types present on the input page — this keeps multimodal calls focused and fast. Agent 6 selects the top 5 sections by competitive gap and generates 2 recommendations each (10 total). Fatal pipeline errors are logged with full stack traces for debugging. Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result along with a quality validation report.
+All LLM calls go through **Vercel AI Gateway** with automatic fallback chains (Gemini 2.5 Flash → GPT-5.4-nano). Agent 5 caps to 8 sections per page and filters competitor pages to only section types present on the input page — this keeps multimodal calls focused and fast. Agent 6 selects the top 5 sections by competitive gap and generates 2 recommendations each (10 total). The pipeline enforces a 290s budget: if earlier agents consume too much time before scraping starts, the pipeline aborts with a clear error message rather than running into Vercel's hard 300s kill. Fatal pipeline errors are logged with full stack traces for debugging. Each agent streams a `progress` SSE event as it completes. The final `complete` event carries the full result along with a quality validation report.
 
 ---
 
