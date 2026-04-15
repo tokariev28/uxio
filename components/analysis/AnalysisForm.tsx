@@ -67,7 +67,7 @@ function getFriendlyError(msg: string | null): string {
   if (!msg) return "Something went wrong. Please try again.";
   if (/too many requests|rate.?limit/i.test(msg))
     return "You've made too many requests in a short time. Please wait a minute and try again.";
-  if (/API key|FIRECRAWL|TAVILY|GEMINI/i.test(msg))
+  if (/API key|missing.*key|invalid.*key|authentication|unauthorized|401/i.test(msg))
     return "The analysis service isn't fully configured. If you're the site owner, please check environment variables in your Vercel dashboard.";
   if (/Server error 5/.test(msg))
     return "Something went wrong on our end. Please try again in a moment.";
@@ -75,6 +75,10 @@ function getFriendlyError(msg: string | null): string {
     return "This URL can't be analyzed. Make sure it's a public website with a standard address.";
   if (/unreachable|couldn't reach/i.test(msg))
     return "We couldn't reach this website. Double-check the URL and try again.";
+  if (/taking too long|timed? out|budget/i.test(msg))
+    return "Analysis is taking too long — this site's competitors may be slow to load. Please try again or try a different URL.";
+  if (/unusable markdown|JavaScript rendering|bot.?detect|cloudflare|just a moment/i.test(msg))
+    return "This site blocks automated tools, so we couldn't read its content. This is common on sites like Stripe, Cloudflare, or developer platforms. Try your own landing page or a standard SaaS site.";
   return "Something went wrong while analyzing the page. Please try again.";
 }
 
@@ -118,6 +122,7 @@ export function AnalysisForm() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [urlWarning, setUrlWarning] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const heroRef = useRef<HTMLElement>(null);
@@ -146,10 +151,13 @@ export function AnalysisForm() {
   function normalizeUrl(raw: string): string {
     const s = raw.trim();
     if (!s) return s;
-    if (/^https:\/\//i.test(s)) return s;
-    if (/^http:\/\//i.test(s)) return "https://" + s.slice(7);
-    if (s.startsWith("//")) return "https:" + s;
-    return "https://" + s;
+    let url: string;
+    if (/^https:\/\//i.test(s)) url = s;
+    else if (/^http:\/\//i.test(s)) url = "https://" + s.slice(7);
+    else if (s.startsWith("//")) url = "https:" + s;
+    else url = "https://" + s;
+    // Strip trailing slashes to prevent duplicate cache keys (example.com/ === example.com)
+    return url.replace(/\/+$/, "");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -164,6 +172,13 @@ export function AnalysisForm() {
     try {
       const parsed = new URL(trimmed);
       if (!parsed.hostname.includes(".")) throw new Error("no tld");
+      // Non-blocking subpage warning — competitor discovery works best on root pages
+      const { pathname } = parsed;
+      if (pathname !== "/" && pathname !== "") {
+        setUrlWarning("You're analyzing a subpage — your homepage gives the best competitor matching.");
+      } else {
+        setUrlWarning(null);
+      }
     } catch {
       setUrlError("That doesn't look like a valid URL. Try https://example.com");
       return;
@@ -322,8 +337,8 @@ export function AnalysisForm() {
                   className="hero-input"
                   placeholder="https://your-saas.com"
                   value={url}
-                  onChange={(e) => { setUrl(e.target.value); setUrlError(null); }}
-                  aria-describedby={urlError ? "url-error" : undefined}
+                  onChange={(e) => { setUrl(e.target.value); setUrlError(null); setUrlWarning(null); }}
+                  aria-describedby={urlError ? "url-error" : urlWarning ? "url-warning" : undefined}
                 />
                 <button
                   type="submit"
@@ -338,6 +353,12 @@ export function AnalysisForm() {
                 <p id="url-error" role="alert" className="hero-url-error">
                   <AlertCircle className="size-4 shrink-0" />
                   {urlError}
+                </p>
+              )}
+              {!urlError && urlWarning && (
+                <p id="url-warning" role="status" className="hero-url-warning">
+                  <AlertCircle className="size-4 shrink-0" />
+                  {urlWarning}
                 </p>
               )}
             </motion.div>
@@ -375,6 +396,8 @@ export function AnalysisForm() {
           key="analysis"
           className={cn(
             "flex flex-col items-center gap-6 w-full px-6 py-12",
+            // Extra bottom padding when running so the fixed gallery doesn't overlap ProgressPanel
+            appState === "running" && "pb-[340px]",
             appState === "done" && "max-w-5xl mx-auto"
           )}
           initial={{ y: 40, opacity: 0 }}
@@ -403,7 +426,7 @@ export function AnalysisForm() {
               </p>
               <button
                 onClick={() => { setAppState("idle"); setErrorMsg(null); }}
-                className="bg-black text-white text-sm font-medium px-6 py-2.5 rounded-md hover:bg-black/80 transition-colors"
+                className="bg-black text-white text-sm font-medium px-6 py-2.5 rounded-md hover:bg-black/80 transition-colors cursor-pointer"
               >
                 Go back to Home
               </button>
@@ -434,9 +457,13 @@ export function AnalysisForm() {
 
     <AnimatePresence>
       {appState === "running" && (
+        // position: fixed keeps the gallery pinned to the viewport bottom regardless of
+        // how many progress steps are shown above — fixes a Safari flex/min-height bug
+        // where mt-auto doesn't resolve correctly. Safe here because the hero (which
+        // needs stable min-height to prevent gradient jump) is not visible during running.
         <motion.div
           key="gallery"
-          className="mt-auto z-10 pointer-events-none"
+          className="fixed bottom-0 left-0 right-0 z-10 pointer-events-none"
           initial={{ y: 48, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 48, opacity: 0 }}

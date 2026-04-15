@@ -16,9 +16,11 @@ Paste any SaaS URL → Uxio benchmarks it against your top competitors and deliv
 4. **Classifies page sections** (hero, pricing, social proof, features, CTA, footer…)
 5. **Analyzes each section** for strengths, weaknesses, and scores across 10 axes across 3 groups (Communication, Conversion, Visual)
 6. **Generates prioritized recommendations** — critical, high, and medium priority — each citing specific evidence from competitor pages
-7. **Caches results** for 2 hours — revisiting the same URL shows results instantly without re-running the pipeline
-8. **Exports a PDF** of the full analysis with one click
-9. **Notifies you** via browser notification when analysis finishes while the tab is in the background (gracefully handles incognito/denied permissions with a fallback message)
+7. **Shows which competitors were used** — the results header displays "Compared with [CompetitorA], [CompetitorB], ..." with favicons, so you know exactly what the analysis is based on
+8. **Caches results** for 2 hours — revisiting the same URL (with or without a trailing slash) shows results instantly without re-running the pipeline
+9. **Warns on subpage URLs** — if you enter a subpage (e.g. `/pricing`), an amber notice recommends your homepage for better competitor matching; analysis still proceeds
+10. **Exports a PDF** of the full analysis with one click
+11. **Notifies you** via browser notification when analysis finishes while the tab is in the background (gracefully handles incognito/denied permissions with a fallback message)
 
 Results stream in real time via Server-Sent Events (SSE). The full analysis takes ~1.5–3 minutes.
 

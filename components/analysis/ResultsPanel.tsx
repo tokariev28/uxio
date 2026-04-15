@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 import { cn } from "@/lib/utils";
+import { getHostnameOrEmpty } from "@/lib/utils/url";
 import { SectionCard } from "./results/SectionCard";
 import { SectionNavSidebar, type NavItem } from "./results/SectionNavSidebar";
 import { SummaryCard } from "./results/SummaryCard";
@@ -125,7 +126,46 @@ export function ResultsPanel({ result, onReset }: ResultsPanelProps) {
               >
                 {result.productBrief.company}
               </h1>
-              {result.pages[0]?.url && (
+              {result.competitors.length > 0 ? (
+                <div className="text-sm text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                  <span>Compared with</span>
+                  {result.competitors.map((c, i) => {
+                    const domain = getHostnameOrEmpty(c.url);
+                    return (
+                      <span key={c.url}>
+                        <a
+                          href={c.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 3,
+                            verticalAlign: "middle",
+                            color: "#111",
+                            textDecoration: "none",
+                            borderBottom: "1px dashed #9ca3af",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {domain && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={`https://www.google.com/s2/favicons?domain=${domain}&sz=16`}
+                              width={13}
+                              height={13}
+                              alt=""
+                              style={{ borderRadius: 2, verticalAlign: "middle" }}
+                            />
+                          )}
+                          <strong style={{ fontWeight: 600 }}>{c.name}</strong>
+                        </a>
+                        {i < result.competitors.length - 1 && ","}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : result.pages[0]?.url ? (
                 <a
                   href={result.pages[0].url}
                   target="_blank"
@@ -134,7 +174,7 @@ export function ResultsPanel({ result, onReset }: ResultsPanelProps) {
                 >
                   {result.pages[0].url}
                 </a>
-              )}
+              ) : null}
             </div>
           </div>
           <ExportPDFButton result={result} />
@@ -150,7 +190,7 @@ export function ResultsPanel({ result, onReset }: ResultsPanelProps) {
             key={item.sectionIndex}
             onClick={() => handleNavClick(item.sectionIndex)}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer",
               activeSectionIndex === item.sectionIndex
                 ? "border-foreground bg-foreground text-background"
                 : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"

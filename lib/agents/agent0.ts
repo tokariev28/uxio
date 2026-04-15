@@ -38,6 +38,13 @@ const ProductBriefSchema = z.object({
   hasFreeTrialOrFreemium: z.boolean().optional(),
 });
 
+// 90s for first pass, 120s for retry (waitFor: 8000 needs extra headroom).
+// Matches Agent 3 timeouts for consistency.
+const SCRAPE_TIMEOUT_MS = 90_000;
+const SCRAPE_RETRY_TIMEOUT_MS = 120_000;
+// Same TTL as AnalysisForm.tsx localStorage cache — Firecrawl won't serve data older than 2 hours.
+const FIRECRAWL_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+
 export async function runAgent0(
   url: string,
   onActions?: (actions: string[]) => void
@@ -45,13 +52,33 @@ export async function runAgent0(
   // Emit the URL being scraped as a chip
   onActions?.([getHostname(url)]);
 
-  // ── Step 1: Firecrawl scrape ────────────────────────────────────
+  // ── Step 1: Firecrawl scrape (two-pass for JS SPAs) ──────────────
+  // Request screenshot too — Agent 3 reuses this scrape data to avoid a duplicate Firecrawl call.
   const firecrawl = new FirecrawlApp({
     apiKey: env().FIRECRAWL_API_KEY,
   });
 
-  // Request screenshot too — Agent 3 reuses this scrape data to avoid a duplicate Firecrawl call.
-  const scraped = await firecrawl.scrape(url, { formats: ["markdown", "screenshot"] });
+  let scraped = await firecrawl.scrape(url, {
+    formats: ["markdown", "screenshot"],
+    timeout: SCRAPE_TIMEOUT_MS,
+    maxAge: FIRECRAWL_MAX_AGE_MS,
+  });
+
+  // If content is thin (JS SPA not yet hydrated), retry with a wait.
+  if (!isUsableMarkdown(scraped.markdown ?? "")) {
+    console.warn(
+      `[agent0] ${url}: thin content (${(scraped.markdown ?? "").length} chars) — retrying with waitFor: 8000ms`
+    );
+    const retry = await firecrawl.scrape(url, {
+      formats: ["markdown", "screenshot"],
+      timeout: SCRAPE_RETRY_TIMEOUT_MS,
+      maxAge: FIRECRAWL_MAX_AGE_MS,
+      waitFor: 8000,
+    });
+    if ((retry.markdown?.length ?? 0) >= (scraped.markdown?.length ?? 0)) {
+      scraped = retry;
+    }
+  }
 
   if (!isUsableMarkdown(scraped.markdown ?? "")) {
     throw new AgentError(

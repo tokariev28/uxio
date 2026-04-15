@@ -355,6 +355,18 @@
   color: oklch(0.80 0.16 22);
 }
 
+.hero-url-warning {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.8125rem;
+  color: oklch(0.65 0.16 68);
+}
+
 .hero-form-wrapper {
   display: flex;
   gap: 14px;

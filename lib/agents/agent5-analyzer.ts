@@ -293,49 +293,41 @@ export async function runAnalyzer(
     return analyzePageBatch(page, pageSections, ctx);
   };
 
-  // ── Prioritize input page: analyze it first, then competitors in parallel ──
-  // agent3 always places the input page at index 0 in ctx.pages.
-  // Awaiting it sequentially before starting competitor calls prevents the
-  // most-important page from being starved by concurrent gateway rate limits.
+  // ── Run all pages in parallel ──────────────────────────────────────────────
+  // Previously the input page was awaited sequentially so its section types
+  // could filter competitor analysis. Agent 6 already performs this filter
+  // (discards findings where site !== "input"), so the pre-filter is redundant.
+  // Running all pages concurrently saves 60–120 s on sites with 3+ competitors.
   const [inputPage, ...competitorPages] = ctx.pages;
 
-  // Emit input hostname immediately; competitors appear at their 600 ms stagger point.
+  // Emit input hostname immediately.
   const emitted: string[] = [getHostname(inputPage.url)];
   onActions?.([...emitted]);
 
-  const inputResult = await makeJob(inputPage).then(
-    (value): PromiseSettledResult<BatchSectionResult[]> => ({ status: "fulfilled", value }),
-    (reason): PromiseSettledResult<BatchSectionResult[]> => ({ status: "rejected", reason })
+  // Start input job immediately — no sequential await before competitors.
+  const inputPromise = makeJob(inputPage);
+
+  // Stagger competitor calls by 600 ms to spread gateway burst load,
+  // but start them in parallel with the input page (not after it completes).
+  const competitorPromises = competitorPages.map(
+    (page, i) =>
+      new Promise<BatchSectionResult[]>((resolve, reject) => {
+        setTimeout(() => {
+          emitted.push(getHostname(page.url));
+          onActions?.([...emitted]);
+          makeJob(page).then(resolve, reject);
+        }, i * 600);
+      })
   );
 
-  // Collect input page section types so competitors only analyze matching sections.
-  // Agent 6 already discards competitor findings for sections absent on input —
-  // filtering here avoids wasting tokens on analyses that would be thrown away.
-  const inputSectionTypes = new Set<string>();
-  if (inputResult.status === "fulfilled") {
-    for (const item of inputResult.value) {
-      inputSectionTypes.add(normalizeSectionType(item.sectionType));
-    }
-  }
-
-  // Stagger competitor calls by 600 ms each to spread gateway burst load.
-  // Adds at most 1.2 s of wall time for 3 competitors, but avoids simultaneous
-  // multimodal calls that can trigger rate limits even after the input-first fix.
-  const competitorSettled = await Promise.allSettled(
-    competitorPages.map(
-      (page, i) =>
-        new Promise<BatchSectionResult[]>((resolve, reject) => {
-          setTimeout(() => {
-            emitted.push(getHostname(page.url));
-            onActions?.([...emitted]);
-            makeJob(page, inputSectionTypes.size > 0 ? inputSectionTypes : undefined).then(resolve, reject);
-          }, i * 600);
-        })
-    )
-  );
+  // Wait for all pages together.
+  const [inputSettled, ...competitorSettled] = await Promise.allSettled([
+    inputPromise,
+    ...competitorPromises,
+  ]);
 
   // Reassemble in original page order so settled[i] aligns with ctx.pages[i]
-  const settled: PromiseSettledResult<BatchSectionResult[]>[] = [inputResult, ...competitorSettled];
+  const settled: PromiseSettledResult<BatchSectionResult[]>[] = [inputSettled, ...competitorSettled];
 
   const failedUrls: string[] = [];
   const analysisMap = new Map<SectionType, SectionAnalysis>();
