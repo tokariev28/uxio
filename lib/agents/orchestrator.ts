@@ -122,8 +122,8 @@ export async function runPipeline(
             stage: "classification",
             status: "running",
             message:
-              "Input page sections could not be classified — page may use client-side rendering. " +
-              "Analysis will proceed with competitor data only.",
+              "Your site's page structure couldn't be detected — it may require JavaScript to load. " +
+              "Analysis will continue using competitor data.",
           });
         }
       },
@@ -162,8 +162,8 @@ export async function runPipeline(
             stage: "analysis",
             status: "running",
             message:
-              "Input page sections could not be analyzed — page may use client-side rendering. " +
-              "Recommendations will be based on product brief and competitor data only.",
+              "Your site's content couldn't be fully read — it may require JavaScript to load. " +
+              "Recommendations will be based on your product description and competitor data.",
           });
         }
       },

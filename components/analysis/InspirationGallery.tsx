@@ -215,6 +215,10 @@ export function InspirationGallery() {
 
     let rafId: number;
     let running = true;
+    // Float accumulator — never read back from el.scrollLeft.
+    // Safari rounds scrollLeft to integers on some containers, so reading back
+    // 0.6 returns 0, making el.scrollLeft += 0.6 a no-op every frame (scroll freezes).
+    let pos = 0;
 
     function onVisibility() {
       if (document.hidden) {
@@ -232,11 +236,13 @@ export function InspirationGallery() {
     function tick() {
       if (!running) return;
       if (!isHovered.current && el) {
-        el.scrollLeft += SCROLL_SPEED;
+        pos += SCROLL_SPEED;
         const oneThird = el.scrollWidth / 3;
-        if (el.scrollLeft >= oneThird) {
-          el.scrollLeft -= oneThird;
-        }
+        if (pos >= oneThird) pos -= oneThird;
+        el.scrollLeft = pos;
+        // Explicitly update the motion value — Safari may not fire the scroll
+        // event on programmatic scrollLeft changes inside position: fixed parents.
+        scrollXMV.set(pos);
       }
       rafId = requestAnimationFrame(tick);
     }
@@ -248,7 +254,7 @@ export function InspirationGallery() {
       cancelAnimationFrame(rafId);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [reducedMotion, isTouch]);
+  }, [reducedMotion, isTouch, scrollXMV]);
 
   return (
     <div className="w-full">

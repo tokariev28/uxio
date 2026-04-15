@@ -79,6 +79,14 @@ function getFriendlyError(msg: string | null): string {
     return "Analysis is taking too long — this site's competitors may be slow to load. Please try again or try a different URL.";
   if (/unusable markdown|JavaScript rendering|bot.?detect|cloudflare|just a moment/i.test(msg))
     return "This site blocks automated tools, so we couldn't read its content. This is common on sites like Stripe, Cloudflare, or developer platforms. Try your own landing page or a standard SaaS site.";
+  if (/tavily|search quer/i.test(msg))
+    return "Competitor discovery failed — search service may be temporarily unavailable. Please try again in a moment.";
+  if (/scrape any competitor|no competitor pages/i.test(msg))
+    return "We couldn't load any competitor pages to compare against. This sometimes happens with less-known niches. Please try again or try a different URL.";
+  if (/empty recommendations|synthesis failed/i.test(msg))
+    return "The analysis completed but we couldn't generate recommendations. Please try again.";
+  if (/failed to fetch|network/i.test(msg))
+    return "Connection lost mid-analysis. Check your internet and try again.";
   return "Something went wrong while analyzing the page. Please try again.";
 }
 
@@ -195,7 +203,11 @@ export function AnalysisForm() {
       });
       const data = await res.json();
       if (!data.valid) {
-        setUrlError("We couldn't reach this address. Check the URL and try again.");
+        if (data.reason === "blocked") {
+          setUrlError("This URL can't be analyzed — only public websites are supported.");
+        } else {
+          setUrlError("We couldn't reach this address. Check the URL and try again.");
+        }
         return;
       }
     } catch {
@@ -294,7 +306,7 @@ export function AnalysisForm() {
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
-      setErrorMsg(err instanceof Error ? err.message : "Unexpected error");
+      setErrorMsg(err instanceof Error ? err.message : "Connection lost mid-analysis. Check your internet and try again.");
       setAppState("error");
     }
   }
