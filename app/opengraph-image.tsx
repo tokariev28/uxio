@@ -5,9 +5,10 @@ export const alt = "Uxio — See your landing page through your competitor's eye
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-// latin subset — Instrument Serif italic 400
-const INSTRUMENT_SERIF_URL =
-  "https://fonts.gstatic.com/s/instrumentserif/v5/jizHRFtNs2ka5fXjeivQ4LroWlx-6zAjjH7Motmp5g.woff2";
+// Google Fonts CSS endpoint — fetched with an old UA so Google returns TTF.
+// Satori (next/og) only supports OTF/TTF; woff2 throws "Unsupported OpenType signature".
+const INSTRUMENT_SERIF_CSS =
+  "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1";
 
 const SCORES = [
   { label: "Communication", value: 94 },
@@ -16,9 +17,17 @@ const SCORES = [
 ];
 
 export default async function OGImage() {
-  const fontData = await fetch(INSTRUMENT_SERIF_URL).then((r) =>
-    r.arrayBuffer()
-  );
+  const css = await fetch(INSTRUMENT_SERIF_CSS, {
+    headers: {
+      // Old UA → Google returns TTF instead of woff2.
+      "User-Agent": "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)",
+    },
+  }).then((r) => r.text());
+
+  const ttfUrl = css.match(/src:\s*url\(([^)]+)\)/)?.[1];
+  if (!ttfUrl) throw new Error("Could not parse Instrument Serif TTF URL");
+
+  const fontData = await fetch(ttfUrl).then((r) => r.arrayBuffer());
 
   return new ImageResponse(
     (

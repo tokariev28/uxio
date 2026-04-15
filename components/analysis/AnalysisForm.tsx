@@ -65,6 +65,8 @@ type AppState = "idle" | "running" | "done" | "error";
 
 function getFriendlyError(msg: string | null): string {
   if (!msg) return "Something went wrong. Please try again.";
+  if (msg === "__VERCEL_TIMEOUT__")
+    return "Uxio hit Vercel's 300-second execution limit — this is a platform constraint, not a bug. Running again is usually faster because competitor pages are already cached.";
   if (/too many requests|rate.?limit/i.test(msg))
     return "You've made too many requests in a short time. Please wait a minute and try again.";
   if (/API key|missing.*key|invalid.*key|authentication|unauthorized|401/i.test(msg))
@@ -219,6 +221,10 @@ export function AnalysisForm() {
       setValidating(false);
     }
 
+    await runAnalysis(trimmed);
+  }
+
+  async function runAnalysis(trimmed: string) {
     // Cache hit — show results immediately, skip full analysis
     const cached = getCachedResult(toCacheKey(trimmed));
     if (cached) {
@@ -258,6 +264,7 @@ export function AnalysisForm() {
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let receivedFinalEvent = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -291,6 +298,7 @@ export function AnalysisForm() {
               },
             }));
           } else if (event.type === "complete") {
+            receivedFinalEvent = true;
             setCachedResult(toCacheKey(trimmed), event.data);
             setResult(event.data);
             setAppState("done");
@@ -301,11 +309,17 @@ export function AnalysisForm() {
               duration_s: Math.round((Date.now() - startTime) / 1000),
             });
           } else if (event.type === "error") {
+            receivedFinalEvent = true;
             setErrorMsg(event.message);
             setAppState("error");
             track("analysis_failed", { domain: new URL(trimmed).hostname });
           }
         }
+      }
+
+      if (!receivedFinalEvent) {
+        setErrorMsg("__VERCEL_TIMEOUT__");
+        setAppState("error");
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
@@ -439,12 +453,21 @@ export function AnalysisForm() {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {getFriendlyError(errorMsg)}
               </p>
-              <button
-                onClick={() => { setAppState("idle"); setErrorMsg(null); }}
-                className="bg-black text-white text-sm font-medium px-6 py-2.5 rounded-md hover:bg-black/80 transition-colors cursor-pointer"
-              >
-                Go back to Home
-              </button>
+              {errorMsg === "__VERCEL_TIMEOUT__" ? (
+                <button
+                  onClick={() => runAnalysis(normalizeUrl(url))}
+                  className="bg-black text-white text-sm font-medium px-6 py-2.5 rounded-md hover:bg-black/80 transition-colors cursor-pointer"
+                >
+                  Analyze again
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setAppState("idle"); setErrorMsg(null); }}
+                  className="bg-black text-white text-sm font-medium px-6 py-2.5 rounded-md hover:bg-black/80 transition-colors cursor-pointer"
+                >
+                  Go back to Home
+                </button>
+              )}
             </div>
           )}
 
